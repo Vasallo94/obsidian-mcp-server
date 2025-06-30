@@ -1,11 +1,133 @@
-# Python-generated files
+# Environment and secrets
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development
+.env.test
+
+# Python
 __pycache__/
-*.py[oc]
+*.py[cod]
+*$py.class
+*.so
+.Python
 build/
+develop-eggs/
 dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
 wheels/
-*.egg-info
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
 
 # Virtual environments
-.venv
-.env
+.venv/
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Testing
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+
+# IDEs and editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.sublime-project
+.sublime-workspace
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# Logs
+*.log
+logs/
+*.log.*
+server.log
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+*~
+
+# MCP specific files
+mcp-logs/
+prompts_backup/
+*.prompt.tmp
+
+# Documentation builds
+docs/_build/
+site/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# pipenv
+Pipfile.lock
+
+# Poetry
+poetry.lock
+
+# UV - Keep uv.lock for reproducible builds
+# uv.lock
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# pytype static type analyzer
+.pytype/
+
+# Obsidian MCP Server specific
+# Note: We generally want to keep prompts/ folder but exclude sensitive data
+# prompts/sensitive/
+# prompts/private/
+
+# Claude Desktop logs (if any)
+claude_*.log
+
+# FastMCP specific
+fastmcp.log
+
+# Runtime data
+runtime/
+data/temp/
