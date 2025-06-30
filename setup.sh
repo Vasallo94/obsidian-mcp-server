@@ -38,7 +38,7 @@ else
     # Ejecutar tests básicos
     echo ""
     echo "🧪 Ejecutando tests de verificación..."
-    if uv run python test_basic.py; then
+    if uv run pytest tests/ -v; then
         echo ""
         echo "🚀 Para iniciar el servidor:"
         echo "   uv run python obsidian_mcp_server.py"

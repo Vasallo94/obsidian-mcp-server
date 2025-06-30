@@ -33,3 +33,8 @@ Documentation = "https://github.com/tu-usuario/obsidian-mcp-server#readme"
 
 [project.scripts]
 obsidian-mcp-server = "obsidian_mcp_server:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.1",
+]

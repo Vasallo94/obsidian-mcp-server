@@ -54,6 +54,11 @@ Un servidor Model Context Protocol (MCP) para interactuar con tu vault de Obsidi
    uv run python obsidian_mcp_server.py
    ```
 
+5. **Ejecuta los tests** (opcional):
+   ```bash
+   uv run pytest
+   ```
+
 ## 🔧 Configuración
 
 ### Variables de entorno
