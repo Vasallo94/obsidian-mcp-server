@@ -75,18 +75,22 @@ Para usar este servidor con Claude Desktop, agrega la siguiente configuración a
 ```json
 {
   "mcpServers": {
-    "obsidian": {
+    "obsidian-mcp": {
       "command": "uv",
       "args": [
-        "run", 
-        "python", 
-        "/ruta/completa/al/proyecto/obsidian_mcp_server.py"
+        "run",
+        "--directory",
+        "/Users/usuario/ruta/al/obsidian-mcp-server",
+        "obsidian_mcp_server.py"
       ],
-      "cwd": "/ruta/completa/al/proyecto"
+      "env": {
+        "PYTHONPATH": "/Users/usuario/ruta/al/obsidian-mcp-server"
+      }
     }
   }
 }
 ```
+(Proceso parecido para IDEs que acepten MCP como VSCode, Cursor, etc.)
 
 ## 🛠️ Herramientas disponibles
 
