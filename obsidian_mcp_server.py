@@ -535,7 +535,8 @@ def prompt_asistente_obsidian() -> str:
     ¿En qué puedo ayudarte con tu vault de Obsidian?
     """
 
-if __name__ == "__main__":
+def main():
+    """Función principal del servidor MCP"""
     # Verificar que el vault existe
     if not Path(OBSIDIAN_VAULT_PATH).exists():
         print(f"❌ Error: No se encontró el vault en {OBSIDIAN_VAULT_PATH}")
@@ -543,3 +544,6 @@ if __name__ == "__main__":
     
     print(f"🧠 Iniciando servidor MCP para Obsidian vault: {OBSIDIAN_VAULT_PATH}")
     mcp.run()
+
+if __name__ == "__main__":
+    main()

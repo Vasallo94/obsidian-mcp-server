@@ -34,9 +34,17 @@ if ! grep -q "OBSIDIAN_VAULT_PATH=" .env || grep -q "/ruta/a/tu/vault" .env; the
     echo "⚠️  Configura la ruta de tu vault en el archivo .env antes de continuar"
 else
     echo "✅ Configuración completada"
+    
+    # Ejecutar tests básicos
     echo ""
-    echo "🚀 Para iniciar el servidor:"
-    echo "   uv run python obsidian_mcp_server.py"
-    echo ""
-    echo "📖 Consulta el README.md para configurar Claude Desktop"
+    echo "🧪 Ejecutando tests de verificación..."
+    if uv run python test_basic.py; then
+        echo ""
+        echo "🚀 Para iniciar el servidor:"
+        echo "   uv run python obsidian_mcp_server.py"
+        echo ""
+        echo "📖 Consulta el README.md para configurar Claude Desktop"
+    else
+        echo "⚠️  Algunos tests fallaron. Revisa la configuración antes de continuar."
+    fi
 fi

@@ -22,7 +22,7 @@ Un servidor Model Context Protocol (MCP) para interactuar con tu vault de Obsidi
 ## 🚀 Instalación
 
 ### Prerrequisitos
-- Python 3.8+
+- Python 3.10+
 - [uv](https://docs.astral.sh/uv/) (gestor de dependencias)
 - Un vault de Obsidian
 
