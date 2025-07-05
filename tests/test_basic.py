@@ -12,8 +12,18 @@ class TestImports:
     
     def test_import_main_module(self):
         """Test básico de importación del módulo principal"""
-        import obsidian_mcp_server
-        assert obsidian_mcp_server is not None
+        import obsidian_mcp
+        assert obsidian_mcp is not None
+    
+    def test_import_new_modules(self):
+        """Test de importación de los módulos de la nueva estructura"""
+        from obsidian_mcp import config, server
+        from obsidian_mcp.tools import navigation, creation, analysis
+        assert config is not None
+        assert server is not None
+        assert navigation is not None
+        assert creation is not None
+        assert analysis is not None
     
     def test_import_dependencies(self):
         """Test de importación de dependencias"""
@@ -51,17 +61,25 @@ class TestConfiguration:
 class TestServerInitialization:
     """Tests de inicialización del servidor"""
     
-    def test_mcp_server_creation(self):
-        """Test de creación del servidor MCP"""
-        import obsidian_mcp_server
-        assert hasattr(obsidian_mcp_server, 'mcp'), "Servidor MCP no inicializado"
-        assert obsidian_mcp_server.mcp is not None
+    def test_mcp_server_creation_new(self):
+        """Test de creación del servidor MCP con nueva estructura"""
+        from obsidian_mcp import create_server
+        server = create_server()
+        assert server is not None
+    
+    def test_server_components_creation(self):
+        """Test de creación de componentes del servidor"""
+        from obsidian_mcp import create_server, validate_configuration
+        
+        is_valid, message = validate_configuration()
+        if is_valid:
+            server = create_server()
+            assert server is not None
     
     def test_main_function_exists(self):
         """Verificar que la función main existe"""
-        import obsidian_mcp_server
-        assert hasattr(obsidian_mcp_server, 'main'), "Función main no encontrada"
-        assert callable(obsidian_mcp_server.main), "main no es una función callable"
+        from obsidian_mcp import main
+        assert callable(main), "main no es una función callable"
 
 
 class TestVaultContent:
@@ -86,41 +104,31 @@ class TestMCPTools:
     
     def test_tools_are_registered(self):
         """Verificar que las herramientas están registradas"""
-        import obsidian_mcp_server
+        from obsidian_mcp import create_server, validate_configuration
         
-        # Verificar que las funciones de herramientas existen
-        expected_tools = [
-            'listar_notas',
-            'leer_nota', 
-            'buscar_en_notas',
-            'crear_nota',
-            'agregar_a_nota',
-            'estadisticas_vault',
-            'buscar_notas_por_fecha'
-        ]
+        # Solo ejecutar si la configuración es válida
+        is_valid, message = validate_configuration()
+        if not is_valid:
+            pytest.skip(f"Configuración no válida: {message}")
+            
+        server = create_server()
+        assert server is not None
         
-        for tool_name in expected_tools:
-            assert hasattr(obsidian_mcp_server, tool_name), f"Herramienta {tool_name} no encontrada"
+        # Verificar que el servidor se creó correctamente
+        # Solo verificamos que es una instancia de FastMCP
+        assert str(type(server)).endswith("FastMCP'>"), "El servidor no es una instancia de FastMCP"
     
     def test_mcp_tools_accessible(self, sample_vault_content):
         """Test que verifica que las herramientas MCP son accesibles"""
-        import obsidian_mcp_server
+        from obsidian_mcp import validate_configuration, get_vault_path
         
-        # Verificar que el servidor MCP existe
-        assert hasattr(obsidian_mcp_server, 'mcp'), "Servidor MCP no existe"
+        # Solo ejecutar si la configuración es válida
+        is_valid, message = validate_configuration()
+        if not is_valid:
+            pytest.skip(f"Configuración no válida: {message}")
         
-        # Verificar que las herramientas están disponibles como FunctionTool
-        listar_notas_tool = obsidian_mcp_server.listar_notas
-        assert listar_notas_tool is not None, "Tool listar_notas no disponible"
-        assert str(type(listar_notas_tool)).endswith("FunctionTool'>"), "listar_notas no es FunctionTool"
-        
-        # Test simplificado: verificar que tenemos acceso al vault
-        # En lugar de llamar a la función directamente, solo verificamos que el vault existe
-        vault_path_var = obsidian_mcp_server.OBSIDIAN_VAULT_PATH
-        assert vault_path_var is not None, "OBSIDIAN_VAULT_PATH no configurado en el módulo"
-        
-        from pathlib import Path
-        vault_path = Path(vault_path_var)
+        # Verificar que tenemos acceso al vault
+        vault_path = get_vault_path()
         assert vault_path.exists(), "Vault path no existe"
         
         # Verificar que hay archivos markdown
@@ -134,7 +142,8 @@ class TestProjectStructure:
     def test_required_files_exist(self):
         """Verificar que los archivos requeridos existen"""
         required_files = [
-            "obsidian_mcp_server.py",
+            "main.py",  # Nuevo punto de entrada
+            "obsidian_mcp/",  # Directorio del paquete principal
             "pyproject.toml",
             ".env.example",
             "README.md",

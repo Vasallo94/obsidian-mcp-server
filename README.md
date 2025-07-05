@@ -1,6 +1,6 @@
 # 🧠 Obsidian MCP Server
 
-A Model Context Protocol (MCP) server for interacting with your Obsidian vault from Claude Desktop or your IDE. Navigate, search, create, and analyze your Obsidian notes using natural language commands.
+A modular Model Context Protocol (MCP) server for interacting with your Obsidian vault from Claude Desktop or your IDE. Navigate, search, create, and analyze your Obsidian notes using natural language commands.
 
 ## ✨ Features
 
@@ -22,7 +22,7 @@ A Model Context Protocol (MCP) server for interacting with your Obsidian vault f
 ## 🚀 Installation
 
 ### Prerequisites
-- Python 3.10+
+- Python 3.11+
 - [uv](https://docs.astral.sh/uv/) (dependency manager)
 - An Obsidian vault
 
@@ -51,7 +51,8 @@ A Model Context Protocol (MCP) server for interacting with your Obsidian vault f
 
 4. **Run the server**:
    ```bash
-   uv run python obsidian_mcp_server.py
+   # Using the new modular entry point (recommended)
+   uv run main.py
    ```
 
 5. **Run tests** (optional):
@@ -101,7 +102,7 @@ To use this server with Claude Desktop, add the following configuration to your 
         "run",
         "--directory",
         "/Users/username/path/to/obsidian-mcp-server",
-        "obsidian_mcp_server.py"
+        "main.py"
       ],
       "env": {
         "PYTHONPATH": "/Users/username/path/to/obsidian-mcp-server"
@@ -162,22 +163,65 @@ The test suite includes:
 
 ## 🗂️ Project Structure
 
+### Modular Architecture
+
 ```
 obsidian-mcp-server/
-├── obsidian_mcp_server.py    # Main server
-├── pyproject.toml           # Project configuration
-├── pytest.ini              # Test configuration
-├── setup.sh                # Automated setup script
-├── .env                     # Environment variables (not in git)
-├── .env.example            # Configuration template
-├── .gitignore              # Git ignore rules
-├── README.md               # This documentation
-├── LICENSE                 # MIT License
-├── uv.lock                 # Dependency lock file
-└── tests/                  # Test suite
+├── obsidian_mcp/                 # 📦 Main package (modular structure)
+│   ├── __init__.py              # Package exports
+│   ├── config.py                # ⚙️ Configuration and environment
+│   ├── server.py                # 🚀 Main MCP server
+│   ├── tools/                   # 🛠️ MCP tools organized by category
+│   │   ├── __init__.py
+│   │   ├── navigation.py        # 📚 Navigation (list, read, search)
+│   │   ├── creation.py          # ✍️ Note creation and editing
+│   │   └── analysis.py          # 📊 Analysis and statistics
+│   ├── resources/               # 📋 MCP resources
+│   │   ├── __init__.py
+│   │   └── vault_info.py        # ℹ️ Vault information
+│   ├── prompts/                 # 💭 Specialized prompts
+│   │   ├── __init__.py
+│   │   └── assistant.py         # 🤖 Assistant prompts
+│   └── utils/                   # 🔧 Shared utilities
+│       ├── __init__.py
+│       ├── vault.py             # 📂 Vault utilities
+│       └── logging.py           # 📝 Logging configuration
+├── main.py                      # 🎯 Main entry point
+├── diagnose.py                  # 🔍 Diagnostic script
+├── pyproject.toml              # Project configuration
+├── pytest.ini                 # Test configuration
+├── setup.sh                   # Automated setup script
+├── .env                        # Environment variables (not in git)
+├── .env.example               # Configuration template
+├── .gitignore                 # Git ignore rules
+├── README.md                  # This documentation
+├── LICENSE                    # MIT License
+├── uv.lock                    # Dependency lock file
+└── tests/                     # Test suite
     ├── __init__.py
     ├── conftest.py
     └── test_basic.py
+```
+
+### Benefits of Modular Architecture
+
+- **Separation of concerns**: Each module has a specific responsibility
+- **Maintainability**: Organized code that's easy to locate and modify
+- **Scalability**: Easy to add new tools and extend functionality
+- **Testing**: Isolated tests for better coverage and reliability
+- **Reusability**: Components can be imported and used independently
+
+### Usage Examples
+
+```bash
+# Run the server
+uv run main.py
+
+# Import modular components
+python -c "from obsidian_mcp import create_server; print('✅ Modular import works')"
+
+# Run diagnostics
+uv run diagnose.py
 ```
 
 ## 🤝 Contributing
