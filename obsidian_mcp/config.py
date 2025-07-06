@@ -1,59 +1,76 @@
 """
-Configuración del servidor MCP para Obsidian
-Maneja variables de entorno y configuración global
+Configuración centralizada y gestión de variables de entorno.
+
+Este módulo carga la configuración desde un archivo .env y proporciona
+funciones para acceder a las variables de configuración de forma segura
+y validarlas al inicio de la aplicación.
 """
 
 import os
 from pathlib import Path
+from typing import Optional, Tuple
 
 from dotenv import load_dotenv
 
-# Cargar variables de entorno
+# Cargar variables de entorno desde el archivo .env
 load_dotenv()
 
-# Configuración del vault de Obsidian
-OBSIDIAN_VAULT_PATH: str = os.getenv('OBSIDIAN_VAULT_PATH', '')
+# --- Constantes de la Aplicación ---
+APP_NAME: str = "obsidian-mcp"
+APP_VERSION: str = "1.0.0"
+PROMPT_LIBRARY_DIR: str = "Prompt Library"
 
-def validate_configuration() -> tuple[bool, str]:
+# --- Acceso a la Configuración ---
+
+
+def get_vault_path() -> Optional[Path]:
     """
-    Valida la configuración del servidor
-    
+    Obtiene la ruta al vault de Obsidian desde las variables de entorno.
+
     Returns:
-        Tupla (es_válida, mensaje_error)
+        Un objeto Path si la variable está definida, de lo contrario None.
     """
-    if not OBSIDIAN_VAULT_PATH:
-        return False, "❌ Variable de entorno OBSIDIAN_VAULT_PATH no configurada"
-    
-    vault_path = Path(OBSIDIAN_VAULT_PATH)
+    path_str = os.getenv("OBSIDIAN_VAULT_PATH")
+    return Path(path_str) if path_str else None
+
+
+# --- Validación de la Configuración ---
+
+
+def validate_vault_path(vault_path: Optional[Path]) -> Tuple[bool, str]:
+    """
+    Valida que la ruta del vault de Obsidian sea válida.
+
+    Args:
+        vault_path: La ruta al vault a validar.
+
+    Returns:
+        Una tupla con un booleano indicando si la validación fue exitosa
+        y un mensaje de error si no lo fue.
+    """
+    if not vault_path:
+        return False, "La variable de entorno OBSIDIAN_VAULT_PATH no está definida."
     if not vault_path.exists():
-        return False, f"❌ El vault no existe en {OBSIDIAN_VAULT_PATH}"
-    
+        return (
+            False,
+            f"La ruta del vault especificada no existe: {vault_path}",
+        )
     if not vault_path.is_dir():
-        return False, f"❌ {OBSIDIAN_VAULT_PATH} no es un directorio"
-    
-    return True, "✅ Configuración válida"
+        return (
+            False,
+            f"La ruta del vault especificada no es un directorio: {vault_path}",
+        )
+    return True, ""
 
-def get_vault_path() -> Path:
+
+def validate_configuration() -> Tuple[bool, str]:
     """
-    Obtiene el Path del vault de Obsidian
-    
+    Valida toda la configuración de la aplicación.
+
+    Actualmente, solo valida la ruta del vault.
+
     Returns:
-        Path del vault
-        
-    Raises:
-        ValueError: Si la configuración no es válida
+        Una tupla con un booleano (éxito) y un mensaje de error (si falla).
     """
-    is_valid, error_message = validate_configuration()
-    if not is_valid:
-        raise ValueError(error_message)
-    
-    return Path(OBSIDIAN_VAULT_PATH)
-
-# Configuración de la aplicación
-APP_NAME = "Obsidian MCP Server"
-APP_VERSION = "2.0.0"
-
-# Configuración por defecto del servidor
-DEFAULT_HOST = "127.0.0.1"
-DEFAULT_PORT = 8000
-DEFAULT_TRANSPORT = "stdio"
+    vault_path = get_vault_path()
+    return validate_vault_path(vault_path)

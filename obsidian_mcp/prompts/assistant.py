@@ -10,17 +10,20 @@ from ..config import get_vault_path
 def register_assistant_prompts(mcp: FastMCP) -> None:
     """
     Registra prompts del asistente en el servidor MCP
-    
+
     Args:
         mcp: Instancia del servidor FastMCP
     """
-    
+
     @mcp.prompt()
     def prompt_asistente_obsidian() -> str:
         """Prompt especializado para gestión de Obsidian"""
         vault_path = get_vault_path()
-        vault_name = vault_path.name
-        
+        if not vault_path:
+            vault_name = "Vault no configurado"
+        else:
+            vault_name = vault_path.name
+
         return f"""
         Soy tu asistente especializado para el vault de Obsidian '{vault_name}'.
         
@@ -59,7 +62,7 @@ def register_assistant_prompts(mcp: FastMCP) -> None:
     def prompt_crear_nota_estructurada(tema: str, tipo: str = "reflexion") -> str:
         """
         Genera un prompt para crear notas estructuradas según el tipo
-        
+
         Args:
             tema: Tema principal de la nota
             tipo: Tipo de nota (reflexion, proyecto, meeting, idea, etc.)
@@ -88,7 +91,6 @@ def register_assistant_prompts(mcp: FastMCP) -> None:
             ## 📚 Referencias
             [Fuentes, libros, artículos relacionados]
             """,
-            
             "proyecto": f"""
             Crea una nota de proyecto para "{tema}" con la siguiente estructura:
             
@@ -115,7 +117,6 @@ def register_assistant_prompts(mcp: FastMCP) -> None:
             ## ✅ Criterios de Éxito
             [¿Cómo sabré que he terminado?]
             """,
-            
             "meeting": f"""
             Crea una nota de reunión sobre "{tema}" con la siguiente estructura:
             
@@ -145,7 +146,6 @@ def register_assistant_prompts(mcp: FastMCP) -> None:
             ## 🔄 Seguimiento
             [Próximos pasos]
             """,
-            
             "idea": f"""
             Crea una nota de idea sobre "{tema}" con la siguiente estructura:
             
@@ -170,7 +170,7 @@ def register_assistant_prompts(mcp: FastMCP) -> None:
             - [ ] [Acción inmediata]
             - [ ] [Investigar más sobre...]
             - [ ] [Probar con...]
-            """
+            """,
         }
-        
+
         return templates.get(tipo.lower(), templates["reflexion"])

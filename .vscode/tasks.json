@@ -1,0 +1,172 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "uv: Install Dependencies",
+            "type": "shell",
+            "command": "uv",
+            "args": ["sync", "--group", "dev"],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "ruff: Format Code",
+            "type": "shell",
+            "command": "uv",
+            "args": ["run", "ruff", "format", "."],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "silent",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "ruff: Check Code",
+            "type": "shell",
+            "command": "uv",
+            "args": ["run", "ruff", "check", "."],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": [
+                {
+                    "owner": "ruff",
+                    "fileLocation": ["relative", "${workspaceFolder}"],
+                    "pattern": {
+                        "regexp": "^(.+):(\\d+):(\\d+):\\s+(\\w+):\\s+(.+)\\s+\\((.+)\\)$",
+                        "file": 1,
+                        "line": 2,
+                        "column": 3,
+                        "severity": 4,
+                        "message": 5,
+                        "code": 6
+                    }
+                }
+            ]
+        },
+        {
+            "label": "ruff: Fix Issues",
+            "type": "shell",
+            "command": "uv",
+            "args": ["run", "ruff", "check", ".", "--fix"],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "pyright: Type Check",
+            "type": "shell",
+            "command": "uv",
+            "args": ["run", "pyright", "."],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": [
+                {
+                    "owner": "pyright",
+                    "fileLocation": ["relative", "${workspaceFolder}"],
+                    "pattern": {
+                        "regexp": "^\\s*(.+):(\\d+):(\\d+)\\s+-\\s+(error|warning|information):\\s+(.+)$",
+                        "file": 1,
+                        "line": 2,
+                        "column": 3,
+                        "severity": 4,
+                        "message": 5
+                    }
+                }
+            ]
+        },
+        {
+            "label": "pytest: Run Tests",
+            "type": "shell",
+            "command": "uv",
+            "args": ["run", "pytest", "-v"],
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": [
+                {
+                    "owner": "pytest",
+                    "fileLocation": ["relative", "${workspaceFolder}"],
+                    "pattern": {
+                        "regexp": "^(.+):(\\d+):\\s+(.+)$",
+                        "file": 1,
+                        "line": 2,
+                        "message": 3
+                    }
+                }
+            ]
+        },
+        {
+            "label": "pytest: Run Tests with Coverage",
+            "type": "shell",
+            "command": "uv",
+            "args": ["run", "pytest", "--cov=obsidian_mcp", "--cov-report=html", "-v"],
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "MCP Server: Run Development",
+            "type": "shell",
+            "command": "uv",
+            "args": ["run", "obsidian-mcp-server"],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "dedicated"
+            },
+            "isBackground": true,
+            "problemMatcher": []
+        },
+        {
+            "label": "Quality Check: All",
+            "dependsOrder": "sequence",
+            "dependsOn": [
+                "ruff: Format Code",
+                "ruff: Check Code", 
+                "pyright: Type Check",
+                "pytest: Run Tests"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        }
+    ]
+}

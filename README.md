@@ -52,7 +52,7 @@ A modular Model Context Protocol (MCP) server for interacting with your Obsidian
 4. **Run the server**:
    ```bash
    # Using the new modular entry point (recommended)
-   uv run main.py
+   uv run obsidian-mcp-server
    ```
 
 5. **Run tests** (optional):
@@ -97,16 +97,13 @@ To use this server with Claude Desktop, add the following configuration to your 
 {
   "mcpServers": {
     "obsidian-mcp": {
-      "command": "uv",
-      "args": [
+      "command": [
+        "uv",
         "run",
         "--directory",
         "/Users/username/path/to/obsidian-mcp-server",
-        "main.py"
-      ],
-      "env": {
-        "PYTHONPATH": "/Users/username/path/to/obsidian-mcp-server"
-      }
+        "obsidian-mcp-server"
+      ]
     }
   }
 }
@@ -121,9 +118,14 @@ To use this server with Claude Desktop, add the following configuration to your 
 - `buscar_en_notas(texto, carpeta?, solo_titulos?)`: Search text in notes
 - `buscar_notas_por_fecha(fecha_desde, fecha_hasta?)`: Search by date
 
-### ✏️ Creation
+### ✏️ Creation & Editing
 - `crear_nota(titulo, contenido, carpeta?, etiquetas?)`: Create new note
 - `agregar_a_nota(nombre_archivo, contenido, al_final?)`: Add content to existing note
+
+### 🤖 Prompt Engineering (NEW!)
+- `guardar_prompt_refinado(titulo, prompt_original, prompt_refinado, contexto, tags?, carpeta?)`: Save refined prompts for reuse
+- `actualizar_prompt_biblioteca(nombre_prompt, nuevas_notas?, calificacion?, casos_uso_adicionales?, variaciones?)`: Update existing prompts
+- `listar_biblioteca_prompts()`: List all saved prompts in your library
 
 ### 📈 Analysis
 - `estadisticas_vault()`: Complete vault statistics
@@ -132,11 +134,23 @@ To use this server with Claude Desktop, add the following configuration to your 
 
 Once connected to Claude Desktop, you can use commands like:
 
+### Basic Operations
 - *"Show me all my notes about artificial intelligence"*
 - *"Create a note called 'Project Ideas' in the Work folder"*
 - *"What are my vault statistics?"*
 - *"Find notes modified in the last 7 days"*
 - *"Read my note about meditation"*
+
+### NEW! Prompt Engineering Features
+- *"Save this refined prompt to my vault"* - After Claude creates a great prompt
+- *"Show me all my saved prompts"* - List your prompt library
+- *"Update my 'Creative Writing' prompt with new usage notes"* - Improve existing prompts
+
+### Smart Prompt Management Workflow
+1. **Work with Claude** on refining a prompt until it works perfectly
+2. **Say**: *"Save this refined prompt as 'Data Analysis Helper' with context about when to use it"*
+3. **Claude uses** `guardar_prompt_refinado()` to save it to your Obsidian vault
+4. **Later**, access your prompt library anytime for reuse and iteration
 
 ## 🧪 Testing
 
@@ -153,7 +167,7 @@ uv run pytest -v
 uv run pytest tests/test_basic.py::TestConfiguration
 ```
 
-The test suite includes:
+The test suite uses `anyio` for asynchronous tests and includes:
 - ✅ Module imports and dependencies
 - ✅ Environment configuration
 - ✅ MCP server initialization
@@ -223,6 +237,39 @@ python -c "from obsidian_mcp import create_server; print('✅ Modular import wor
 # Run diagnostics
 uv run diagnose.py
 ```
+
+## 🚀 Future Features & Roadmap
+
+Here are some exciting features planned for future releases:
+
+### 🤖 AI-Powered Intelligence
+- **Smart Connection Suggestions**: AI-powered analysis to suggest meaningful links between related notes based on content similarity and semantic relationships
+- **Semantic Search**: Search by meaning and context, not just exact word matches - find conceptually related content even when different terminology is used
+- **Question Answering**: Ask specific questions about your vault content and get intelligent answers based on your knowledge base
+
+### 📝 Prompt Engineering Toolkit
+- **Refined Prompt Library**: Automatically save and organize successful prompts from AI conversations for reuse and refinement
+- **Prompt Templates**: Create template prompts for common tasks and scenarios
+- **Conversation Context Preservation**: Save important AI conversation contexts as structured notes
+
+### 🔍 Advanced Analysis
+- **Knowledge Graph Visualization**: Understand connections and patterns in your knowledge base
+- **Content Gap Detection**: Identify areas where your knowledge could be expanded
+- **Learning Path Suggestions**: AI-recommended reading and study paths based on your current knowledge
+
+### 🔗 Enhanced Connectivity
+- **Auto-linking Intelligence**: Suggest and create links between conceptually related notes
+- **Broken Link Management**: Detect and help fix broken internal links
+- **Cross-Reference Analysis**: Deep analysis of how concepts relate across your vault
+
+### 📊 Smart Organization
+- **Auto-tagging**: Intelligent tag suggestions based on content analysis
+- **Dynamic Organization**: AI-suggested folder structures and note categorization
+- **Duplicate Content Detection**: Find and manage similar or duplicate content
+
+These features will make your Obsidian vault not just a storage system, but an intelligent knowledge companion that grows and learns with you.
+
+*Want to contribute to any of these features? Check out our contributing guidelines below!*
 
 ## 🤝 Contributing
 

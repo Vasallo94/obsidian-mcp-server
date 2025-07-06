@@ -16,7 +16,7 @@ from .vault import (
 __all__ = [
     "get_logger",
     "setup_logging",
-    "extract_internal_links", 
+    "extract_internal_links",
     "extract_tags_from_content",
     "find_note_by_name",
     "format_file_size",

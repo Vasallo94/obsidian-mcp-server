@@ -1,0 +1,33 @@
+{
+    "recommendations": [
+        // Python development
+        "ms-python.python",
+        "ms-python.debugpy",
+        
+        // Ruff linter and formatter
+        "charliermarsh.ruff",
+        
+        // Additional Python tools
+        "ms-python.pylint",
+        "ms-python.mypy-type-checker",
+        
+        // TOML support for pyproject.toml
+        "tamasfe.even-better-toml",
+        
+        // Markdown support for documentation
+        "yzhang.markdown-all-in-one",
+        "davidanson.vscode-markdownlint",
+        
+        // Git integration
+        "eamodio.gitlens",
+        
+        // Code quality and productivity
+        "ms-vscode.vscode-json",
+        "redhat.vscode-yaml",
+        "ms-vscode.test-adapter-converter",
+        
+        // Optional but useful
+        "ms-vscode.hexdump",
+        "streetsidesoftware.code-spell-checker"
+    ]
+}

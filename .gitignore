@@ -30,7 +30,7 @@ share/python-wheels/
 *.egg
 MANIFEST
 
-# Virtual environments
+# Virtual environments (uv creates .venv by default)
 .venv/
 env/
 venv/
@@ -38,7 +38,12 @@ ENV/
 env.bak/
 venv.bak/
 
-# Testing
+# UV package manager
+# Keep uv.lock for reproducible builds, but exclude temp files
+.uv_cache/
+uv_resolution_cache/
+
+# Testing and coverage
 .pytest_cache/
 .coverage
 .coverage.*
@@ -49,9 +54,34 @@ coverage.xml
 *.cover
 *.py,cover
 .hypothesis/
+test-results/
+test-output/
+
+# Type checking
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+pyrightconfig.json
+
+# Linting and formatting
+.ruff_cache/
 
 # IDEs and editors
-.vscode/
+# Keep useful VS Code project settings for team collaboration
+# VS Code - Ignore only personal files, keep team configuration
+.vscode/*.local
+.vscode/.ropeproject
+.vscode/temp/
+.vscode/c_cpp_properties.json
+
+# Keep these files for team collaboration:
+# .vscode/settings.json - project Python/tool configuration
+# .vscode/tasks.json - build and test automation
+# .vscode/launch.json - debugging configuration  
+# .vscode/extensions.json - recommended extensions for team
+
 .idea/
 *.swp
 *.swo
@@ -74,6 +104,8 @@ Desktop.ini
 logs/
 *.log.*
 server.log
+mcp*.log
+obsidian-mcp*.log
 
 # Temporary files
 *.tmp
@@ -97,30 +129,17 @@ site/
 # pyenv
 .python-version
 
-# pipenv
+# Package managers (keep uv.lock for reproducibility)
 Pipfile.lock
-
-# Poetry
 poetry.lock
-
-# UV - Keep uv.lock for reproducible builds
-# uv.lock
-
-# mypy
-.mypy_cache/
-.dmypy.json
-dmypy.json
-
-# Pyre type checker
-.pyre/
-
-# pytype static type analyzer
-.pytype/
+requirements*.txt.lock
 
 # Obsidian MCP Server specific
 # Note: We generally want to keep prompts/ folder but exclude sensitive data
-# prompts/sensitive/
-# prompts/private/
+prompts/sensitive/
+prompts/private/
+vault_backup/
+test_vault/
 
 # Claude Desktop logs (if any)
 claude_*.log
@@ -131,3 +150,15 @@ fastmcp.log
 # Runtime data
 runtime/
 data/temp/
+cache/
+
+# Development and debugging
+debug/
+profiling/
+*.prof
+*.pstats
+
+# Build artifacts from different tools
+.build/
+.eggs/
+__pypackages__/

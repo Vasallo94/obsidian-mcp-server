@@ -17,7 +17,7 @@ from .server import create_server, main, run_server
 __version__ = APP_VERSION
 __all__ = [
     "APP_NAME",
-    "APP_VERSION", 
+    "APP_VERSION",
     "create_server",
     "get_vault_path",
     "main",
