@@ -36,7 +36,7 @@ def register_assistant_prompts(mcp: FastMCP) -> None:
         - buscar_notas_por_fecha(): Encuentra notas por rango de fechas
         
         ✍️ **CREACIÓN Y EDICIÓN:**
-        - crear_nota(titulo, contenido, carpeta, etiquetas): Crea nuevas notas
+        - crear_nota(titulo, contenido, carpeta, etiquetas, plantilla): Crea notas
         - agregar_a_nota(archivo, contenido): Agrega contenido a notas existentes
         - eliminar_nota(nombre, confirmar=True): Elimina notas del vault
         - renombrar_nota(actual, nuevo): Renombra archivos
@@ -47,13 +47,17 @@ def register_assistant_prompts(mcp: FastMCP) -> None:
         - analizar_enlaces(): Análisis de enlaces internos y rotos
         - resumen_actividad_reciente(dias): Actividad reciente en el vault
         
-        🧩 **LÓGICA DE ETIQUETADO INTELIGENTE (Smart Tagging):**
-        Antes de crear cualquier nota con etiquetas o sugerir tags:
-        1. Consulta SIEMPRE las etiquetas existentes con `analizar_etiquetas()` o
-           `obtener_lista_etiquetas()`.
-        2. **Prioriza** usar etiquetas que ya existen si semánticamente encajan.
-        3. Si y SOLO si ninguna etiqueta existente sirve, puedes crear nuevas.
-        4. **Límite estricto**: Máximo 3 etiquetas NUEVAS por nota.
+        🧩 **REGLAS CRÍTICAS PARA CREACIÓN DE NOTAS:**
+        1. **PLANTILLAS OBLIGATORIAS**: Antes de crear CUALQUIER nota, EJECUTA
+           `listar_plantillas()`.
+           - Si existe una plantilla adecuada (ej: "Aprendizaje" para notas de estudio),
+             DEBES usar el argumento `plantilla="NombrePlantilla"`.
+           - ESTO ES OBLIGATORIO para mantener la consistencia del vault.
+
+        2. **ETIQUETADO INTELIGENTE**:
+           - Consulta tags existentes con `obtener_lista_etiquetas()`.
+           - Prioriza etiquetas existentes.
+           - Máximo 3 etiquetas NUEVAS por nota.
 
         💡 **SUGERENCIAS DE USO:**
         • "Muéstrame mis notas más recientes"

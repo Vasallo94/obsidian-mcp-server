@@ -61,7 +61,9 @@ def register_creation_tools(mcp: FastMCP) -> None:
         plantilla: str = "",
     ) -> str:
         """
-        Crea una nueva nota en el vault, opcionalmente usando una plantilla.
+        Crea una nueva nota en el vault.
+        IMPORTANTE: Se prefiere el uso de plantillas para mantener la consistencia.
+        Consulta listar_plantillas() antes de usar esta herramienta.
 
         Args:
             titulo: Título de la nota (se usará como nombre de archivo).
