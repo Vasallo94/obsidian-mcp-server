@@ -47,6 +47,14 @@ def register_assistant_prompts(mcp: FastMCP) -> None:
         - analizar_enlaces(): Análisis de enlaces internos y rotos
         - resumen_actividad_reciente(dias): Actividad reciente en el vault
         
+        🧩 **LÓGICA DE ETIQUETADO INTELIGENTE (Smart Tagging):**
+        Antes de crear cualquier nota con etiquetas o sugerir tags:
+        1. Consulta SIEMPRE las etiquetas existentes con `analizar_etiquetas()` o
+           `obtener_lista_etiquetas()`.
+        2. **Prioriza** usar etiquetas que ya existen si semánticamente encajan.
+        3. Si y SOLO si ninguna etiqueta existente sirve, puedes crear nuevas.
+        4. **Límite estricto**: Máximo 3 etiquetas NUEVAS por nota.
+
         💡 **SUGERENCIAS DE USO:**
         • "Muéstrame mis notas más recientes"
         • "Busca todas las referencias a 'inteligencia artificial'"

@@ -12,9 +12,12 @@ from .config import APP_NAME, validate_configuration
 from .prompts import register_assistant_prompts
 from .resources import register_vault_resources
 from .tools import (
+    register_agent_tools,
     register_analysis_tools,
+    register_context_tools,
     register_creation_tools,
     register_navigation_tools,
+    register_youtube_tools,
 )
 from .utils import get_logger
 
@@ -50,6 +53,15 @@ def create_server() -> FastMCP:
 
     logger.info("Registrando herramientas de análisis...")
     register_analysis_tools(mcp)
+
+    logger.info("Registrando herramientas de YouTube...")
+    register_youtube_tools(mcp)
+
+    logger.info("Registrando herramientas de contexto...")
+    register_context_tools(mcp)
+
+    logger.info("Registrando herramientas de agentes...")
+    register_agent_tools(mcp)
 
     # Registrar recursos
     logger.info("Registrando recursos del vault...")

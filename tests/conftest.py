@@ -5,6 +5,7 @@ Configuración y fixtures para los tests de Obsidian MCP Server
 import os
 import sys
 from pathlib import Path
+
 import pytest
 from dotenv import load_dotenv
 

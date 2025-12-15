@@ -167,6 +167,43 @@ def register_analysis_tools(mcp: FastMCP) -> None:
             return f"❌ Error al analizar etiquetas: {e}"
 
     @mcp.tool()
+    def obtener_lista_etiquetas() -> str:
+        """
+        Obtiene una lista simple de las etiquetas existentes en el vault.
+        Útil para ver qué etiquetas ya existen antes de crear nuevas.
+
+        Returns:
+            Lista de etiquetas formateada como string.
+        """
+        try:
+            vault_path = get_vault_path()
+            if not vault_path:
+                return "❌ Error: La ruta del vault no está configurada."
+
+            etiquetas_set = set()
+
+            # Recorrer archivos para extraer etiquetas
+            # Recorrer archivos para extraer etiquetas
+            # Limitamos a recientes si es necesario, pero rglog es rápido.
+            for archivo in vault_path.rglob("*.md"):
+                try:
+                    with open(archivo, "r", encoding="utf-8") as f:
+                        contenido = f.read()
+                        tags = extract_tags_from_content(contenido)
+                        etiquetas_set.update(tags)
+                except Exception:
+                    continue
+
+            if not etiquetas_set:
+                return "ℹ️ No se encontraron etiquetas."
+
+            lista_ordenada = sorted(list(etiquetas_set))
+            return "🏷️ **Etiquetas existentes:**\n" + ", ".join(lista_ordenada)
+
+        except Exception as e:
+            return f"❌ Error al obtener lista de etiquetas: {e}"
+
+    @mcp.tool()
     def analizar_enlaces() -> str:
         """
         Analiza los enlaces internos en el vault

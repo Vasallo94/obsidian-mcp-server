@@ -21,8 +21,12 @@ classifiers = [
     "Topic :: Office/Business :: Groupware"
 ]
 dependencies = [
+    "aiofiles>=25.1.0",
     "fastmcp>=2.9.2",
+    "pathspec>=0.12.1",
+    "pydantic>=2.11.7",
     "python-dotenv>=1.1.1",
+    "youtube-transcript-api>=1.2.3",
 ]
 
 [project.scripts]
@@ -38,3 +42,17 @@ dev = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["obsidian_mcp"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B"]
+ignore = []
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v"
+

@@ -24,7 +24,8 @@ def diagnose_setup():
     if not vault_path_env:
         print("❌ ERROR: Variable OBSIDIAN_VAULT_PATH no configurada")
         print(
-            "💡 Solución: Crea un archivo .env con OBSIDIAN_VAULT_PATH='/ruta/a/tu/vault'"
+            "💡 Solución: Crea un archivo .env con "
+            "OBSIDIAN_VAULT_PATH='/ruta/a/tu/vault'"
         )
         return False
 

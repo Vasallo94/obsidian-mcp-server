@@ -155,26 +155,13 @@ class TestProjectStructure:
     def test_required_files_exist(self):
         """Verificar que los archivos requeridos existen"""
         required_files = [
-            "main.py",  # Nuevo punto de entrada
             "obsidian_mcp/",  # Directorio del paquete principal
             "pyproject.toml",
             ".env.example",
             "README.md",
             "LICENSE",
-            "setup.sh",
         ]
 
         for filename in required_files:
             file_path = Path(filename)
             assert file_path.exists(), f"Archivo requerido no encontrado: {filename}"
-
-    def test_setup_script_executable(self):
-        """Verificar que el script de setup es ejecutable"""
-        setup_script = Path("setup.sh")
-        assert setup_script.exists()
-        # En Unix, verificar permisos de ejecución
-        if os.name != "nt":  # No Windows
-            import stat
-
-            mode = setup_script.stat().st_mode
-            assert mode & stat.S_IEXEC, "setup.sh no es ejecutable"

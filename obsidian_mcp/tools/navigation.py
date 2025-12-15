@@ -70,7 +70,10 @@ def register_navigation_tools(mcp: FastMCP) -> None:
             for carpeta_nombre, lista_notas in sorted(notas_por_carpeta.items()):
                 resultado += f"📁 {carpeta_nombre} ({len(lista_notas)} notas):\n"
                 for nota in sorted(lista_notas, key=lambda x: x["name"]):
-                    resultado += f"   📄 {nota['name']} ({nota['size_kb']:.1f}KB, {nota['modified']})\n"
+                    resultado += (
+                        f"   📄 {nota['name']} "
+                        f"({nota['size_kb']:.1f}KB, {nota['modified']})\n"
+                    )
                 resultado += "\n"
 
             return resultado
@@ -84,7 +87,7 @@ def register_navigation_tools(mcp: FastMCP) -> None:
         Lee el contenido completo de una nota específica
 
         Args:
-            nombre_archivo: Nombre del archivo (puede incluir ruta, ej: "Diario/2024-01-01.md")
+            nombre_archivo: Nombre del archivo (ej: "Diario/2024-01-01.md")
         """
         try:
             nota_path = find_note_by_name(nombre_archivo)
@@ -101,7 +104,10 @@ def register_navigation_tools(mcp: FastMCP) -> None:
 
             resultado = f"📄 **{metadata['name']}**\n"
             resultado += f"📍 Ubicación: {metadata['relative_path']}\n"
-            resultado += f"📊 Tamaño: {metadata['size_kb']:.1f}KB | Modificado: {metadata['modified']}\n"
+            resultado += (
+                f"📊 Tamaño: {metadata['size_kb']:.1f}KB | "
+                f"Modificado: {metadata['modified']}\n"
+            )
             resultado += f"{'=' * 50}\n\n"
             resultado += contenido
 
@@ -137,24 +143,24 @@ def register_navigation_tools(mcp: FastMCP) -> None:
             resultados = []
             archivos_revisados = 0
 
-            for archivo_path in search_path.rglob("*.md"):
+            for archivo in search_path.rglob("*.md"):
                 archivos_revisados += 1
                 try:
-                    ruta_relativa = archivo_path.relative_to(vault_path)
+                    ruta_relativa = archivo.relative_to(vault_path)
 
                     if solo_titulos:
                         # Buscar solo en el nombre del archivo
-                        if texto.lower() in archivo_path.stem.lower():
+                        if texto.lower() in archivo.stem.lower():
                             resultados.append(
                                 {
                                     "archivo": str(ruta_relativa),
                                     "tipo": "título",
-                                    "coincidencia": archivo_path.stem,
+                                    "coincidencia": archivo.stem,
                                 }
                             )
                     else:
                         # Buscar en todo el contenido
-                        with open(archivo_path, "r", encoding="utf-8") as f:
+                        with open(archivo, "r", encoding="utf-8") as f:
                             contenido = f.read()
 
                         lineas = contenido.split("\n")
@@ -178,16 +184,22 @@ def register_navigation_tools(mcp: FastMCP) -> None:
 
             if not resultados:
                 busqueda_tipo = "títulos" if solo_titulos else "contenido"
-                return f"🔍 No se encontró '{texto}' en {busqueda_tipo} de {archivos_revisados} notas"
+                return (
+                    f"🔍 No se encontró '{texto}' en {busqueda_tipo} "
+                    f"de {archivos_revisados} notas"
+                )
 
             # Formatear resultados
             busqueda_tipo = "títulos" if solo_titulos else "contenido"
-            resultado = f"🔍 Búsqueda de '{texto}' en {busqueda_tipo} ({len(resultados)} coincidencias):\n\n"
+            resultado = (
+                f"🔍 Búsqueda de '{texto}' en {busqueda_tipo} "
+                f"({len(resultados)} coincidencias):\n\n"
+            )
 
             # Agrupar por archivo
-            por_archivo: dict[str, list[dict[str, str | int]]] = {}
+            por_archivo = {}
             for r in resultados:
-                archivo: str = r["archivo"]
+                archivo = r["archivo"]
                 if archivo not in por_archivo:
                     por_archivo[archivo] = []
                 por_archivo[archivo].append(r)
@@ -202,7 +214,10 @@ def register_navigation_tools(mcp: FastMCP) -> None:
                     if solo_titulos:
                         resultado += f"   📌 {coincidencia['coincidencia']}\n"
                     else:
-                        resultado += f"   📍 Línea {coincidencia['linea']}: {coincidencia['coincidencia']}\n"
+                        resultado += (
+                            f"   📍 Línea {coincidencia['linea']}: "
+                            f"{coincidencia['coincidencia']}\n"
+                        )
                 if len(coincidencias) > 5:
                     resultado += (
                         f"   ... y {len(coincidencias) - 5} coincidencias más\n"
@@ -251,12 +266,18 @@ def register_navigation_tools(mcp: FastMCP) -> None:
                     notas_encontradas.append(metadata)
 
             if not notas_encontradas:
-                return f"📅 No se encontraron notas modificadas entre {fecha_desde} y {fecha_fin}"
+                return (
+                    f"📅 No se encontraron notas modificadas entre "
+                    f"{fecha_desde} y {fecha_fin}"
+                )
 
             # Ordenar por fecha (más recientes primero)
             notas_encontradas.sort(key=lambda x: x["fecha"], reverse=True)
 
-            resultado = f"📅 Notas modificadas entre {fecha_desde} y {fecha_fin} ({len(notas_encontradas)} encontradas):\n\n"
+            resultado = (
+                f"📅 Notas modificadas entre {fecha_desde} y {fecha_fin} "
+                f"({len(notas_encontradas)} encontradas):\n\n"
+            )
 
             for nota in notas_encontradas:
                 resultado += f"📄 {nota['name']} ({nota['size_kb']:.1f}KB)\n"
@@ -268,3 +289,59 @@ def register_navigation_tools(mcp: FastMCP) -> None:
             return "❌ Formato de fecha inválido. Usa YYYY-MM-DD (ej: 2024-01-15)"
         except Exception as e:
             return f"❌ Error al buscar por fecha: {e}"
+
+    @mcp.tool()
+    def mover_nota(origen: str, destino: str, crear_carpetas: bool = True) -> str:
+        """
+        Mueve o renombra una nota dentro del vault.
+
+        Args:
+            origen: Ruta relativa actual de la nota (ej: "Sin titulo.md")
+            destino: Ruta relativa nueva de la nota (ej: "01_Inbox/Nueva Nota.md")
+            crear_carpetas: Si crear las carpetas destino si no existen (True)
+
+        Returns:
+            Mensaje de éxito o error.
+        """
+        try:
+            vault_path = get_vault_path()
+            if not vault_path:
+                return "❌ Error: Ruta del vault no configurada"
+
+            # Validaciones de seguridad para carpeta PRIVADO
+            # No permitir mover nada HACIA ni DESDE "04_Recursos/Privado"
+            ruta_prohibida = "04_Recursos/Privado"
+
+            if ruta_prohibida in str(origen) or ruta_prohibida in str(destino):
+                return (
+                    f"⛔ ACCESO DENEGADO: No se permite mover archivos hacia/desde "
+                    f"{ruta_prohibida}"
+                )
+
+            path_origen = vault_path / origen
+            path_destino = vault_path / destino
+
+            # Verificar origen
+            if not path_origen.exists():
+                return f"❌ El archivo origen no existe: {origen}"
+
+            if not path_origen.is_file():
+                return f"❌ El origen no es un archivo: {origen}"
+
+            # Verificar destino
+            if path_destino.exists():
+                return f"❌ El archivo destino ya existe: {destino}"
+
+            # Crear carpetas si es necesario
+            if crear_carpetas:
+                path_destino.parent.mkdir(parents=True, exist_ok=True)
+            elif not path_destino.parent.exists():
+                return f"❌ La carpeta destino no existe: {path_destino.parent.name}"
+
+            # Mover archivo
+            path_origen.rename(path_destino)
+
+            return f"✅ Archivo movido/renombrado:\nDe: {origen}\nA:  {destino}"
+
+        except Exception as e:
+            return f"❌ Error al mover nota: {e}"
