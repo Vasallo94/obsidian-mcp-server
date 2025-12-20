@@ -40,7 +40,7 @@ def register_analysis_tools(mcp: FastMCP) -> None:
             enlaces_internos = set()
 
             # Análisis por fecha
-            por_fecha = {}
+            por_fecha: dict[str, int] = {}
 
             for archivo in vault_path.rglob("*.md"):
                 total_notas += 1
@@ -113,21 +113,89 @@ def register_analysis_tools(mcp: FastMCP) -> None:
             return f"❌ Error al generar estadísticas: {e}"
 
     @mcp.tool()
-    def analizar_etiquetas() -> str:
+    def obtener_tags_canonicas() -> str:
         """
-        Analiza el uso de etiquetas en el vault
+        Obtiene la lista de tags oficiales/canónicas definidas en el
+        archivo 'Registro de Tags del Vault.md'.
+
+        Returns:
+            Lista de tags categorizadas según el registro oficial.
         """
         try:
             vault_path = get_vault_path()
             if not vault_path:
                 return "❌ Error: La ruta del vault no está configurada."
 
+            registry_path = (
+                vault_path
+                / "04_Recursos"
+                / "Obsidian"
+                / "Registro de Tags del Vault.md"
+            )
+
+            if not registry_path.exists():
+                return (
+                    "⚠️ No se encontró el archivo de registro en "
+                    "'04_Recursos/Obsidian/Registro de Tags del Vault.md'."
+                )
+
+            with open(registry_path, "r", encoding="utf-8") as f:
+                contenido = f.read()
+
+            import re
+
+            # Extraer tags (palabras precedidas por comilla o guión y espacio
+            # en la sección de listas)
+            tags_encontradas = re.findall(r"- `([^`]+)`", contenido)
+
+            if not tags_encontradas:
+                return (
+                    "ℹ️ No se pudieron extraer tags del registro (formato inesperado)."
+                )
+
+            return "📋 **Tags Canónicas (del Registro):**\n" + ", ".join(
+                sorted(set(tags_encontradas))
+            )
+
+        except Exception as e:
+            return f"❌ Error al obtener tags canónicas: {e}"
+
+    @mcp.tool()
+    def analizar_etiquetas() -> str:
+        """
+        Analiza el uso de etiquetas en el vault y las compara con el registro oficial.
+        """
+        try:
+            vault_path = get_vault_path()
+            if not vault_path:
+                return "❌ Error: La ruta del vault no está configurada."
+
+            # Leer tags canónicas
+            registry_path = (
+                vault_path
+                / "04_Recursos"
+                / "Obsidian"
+                / "Registro de Tags del Vault.md"
+            )
+            tags_canonicas = set()
+            if registry_path.exists():
+                with open(registry_path, "r", encoding="utf-8") as f:
+                    import re
+
+                    tags_canonicas = set(re.findall(r"- `([^`]+)`", f.read()))
+
             # Contador de etiquetas con frecuencia
-            conteo_etiquetas = {}
+            conteo_etiquetas: dict[str, int] = {}
             archivos_con_etiquetas = []
 
             for archivo in vault_path.rglob("*.md"):
                 try:
+                    # Ignorar carpetas de sistema o registro
+                    is_sys = ".github" in str(archivo)
+                    is_reg = "Registro de Tags" in archivo.name
+                    if is_sys or is_reg:
+                        continue
+
                     with open(archivo, "r", encoding="utf-8") as f:
                         contenido = f.read()
 
@@ -143,6 +211,11 @@ def register_analysis_tools(mcp: FastMCP) -> None:
             if not conteo_etiquetas:
                 return "🏷️ No se encontraron etiquetas en el vault"
 
+            # Identificar tags no oficiales
+            tags_no_oficiales = {
+                tag for tag in conteo_etiquetas if tag not in tags_canonicas
+            }
+
             # Ordenar por frecuencia
             etiquetas_ordenadas = sorted(
                 conteo_etiquetas.items(), key=lambda x: x[1], reverse=True
@@ -152,19 +225,146 @@ def register_analysis_tools(mcp: FastMCP) -> None:
             resultado += "📊 **Resumen:**\n"
             resultado += f"   • Total de etiquetas únicas: {len(conteo_etiquetas)}\n"
             resultado += f"   • Archivos con etiquetas: {len(archivos_con_etiquetas)}\n"
-            resultado += f"   • Total de usos: {sum(conteo_etiquetas.values())}\n\n"
+            resultado += f"   • **Tags NO oficiales**: {len(tags_no_oficiales)}\n\n"
 
             resultado += "🔝 **Etiquetas más frecuentes:**\n"
-            for tag, count in etiquetas_ordenadas[:15]:
-                resultado += f"   • #{tag}: {count} usos\n"
+            for tag, count in etiquetas_ordenadas[:10]:
+                marcador = "✅" if tag in tags_canonicas else "⚠️"
+                resultado += f"   • {marcador} #{tag}: {count} usos\n"
 
-            if len(etiquetas_ordenadas) > 15:
-                resultado += f"   ... y {len(etiquetas_ordenadas) - 15} etiquetas más\n"
+            if tags_no_oficiales:
+                resultado += "\n🚩 **Tags que no están en el registro:**\n"
+                tags_no_of_list = sorted(list(tags_no_oficiales))[:10]
+                for tag in tags_no_of_list:
+                    resultado += f"   • #{tag}\n"
+                if len(tags_no_oficiales) > 10:
+                    diff = len(tags_no_oficiales) - 10
+                    resultado += f"   ... y {diff} más\n"
 
             return resultado
 
         except Exception as e:
             return f"❌ Error al analizar etiquetas: {e}"
+
+    @mcp.tool()
+    def sincronizar_registro_tags(actualizar: bool = False) -> str:
+        """
+        Sincroniza el uso de tags en el vault con el registro oficial.
+
+        Args:
+            actualizar: Si es True, intenta actualizar la tabla de
+                       estadísticas en el archivo de registro.
+        """
+        try:
+            vault_path = get_vault_path()
+            if not vault_path:
+                return "❌ Error: La ruta del vault no está configurada."
+
+            registry_path = (
+                vault_path
+                / "04_Recursos"
+                / "Obsidian"
+                / "Registro de Tags del Vault.md"
+            )
+            if not registry_path.exists():
+                return "❌ No se encontró el registro oficial de tags."
+
+            # 1. Obtener tags de la realidad (Realidad)
+            conteo_real: dict[str, int] = {}
+            for archivo in vault_path.rglob("*.md"):
+                # Filtros básicos para evitar ruido
+                if (
+                    ".github" in str(archivo)
+                    or "Registro de Tags" in archivo.name
+                    or archivo.name.startswith(".")
+                ):
+                    continue
+                try:
+                    with open(archivo, "r", encoding="utf-8") as f:
+                        tags = extract_tags_from_content(f.read())
+                        for t in tags:
+                            conteo_real[t] = conteo_real.get(t, 0) + 1
+                except Exception:
+                    continue
+
+            # 2. Obtener tags del registro (Registro)
+            with open(registry_path, "r", encoding="utf-8") as f:
+                contenido_registro = f.read()
+
+            import re
+
+            tags_registradas = set(re.findall(r"- `([^`]+)`", contenido_registro))
+
+            # 3. Comparar
+            faltan_en_registro = {t for t in conteo_real if t not in tags_registradas}
+            ya_no_se_usan = {t for t in tags_registradas if t not in conteo_real}
+
+            # 4. Generar reporte
+            resultado = "🔄 **Sincronización de Tags**\n\n"
+            resultado += f"📊 Reality check: {len(conteo_real)} tags en uso.\n"
+            resultado += (
+                f"📋 Registro oficial: {len(tags_registradas)} tags registradas.\n\n"
+            )
+
+            if faltan_en_registro:
+                resultado += "🚩 **Tags en uso que NO están registradas:**\n"
+                for t in sorted(list(faltan_en_registro)):
+                    resultado += f"   • #{t} ({conteo_real[t]} usos)\n"
+            else:
+                resultado += "✅ Todas las tags en uso están debidamente registradas.\n"
+
+            if ya_no_se_usan:
+                resultado += "\n🧹 **Tags registradas que YA NO se usan:**\n"
+                for t in sorted(list(ya_no_se_usan)):
+                    resultado += f"   • #{t}\n"
+
+            # 5. Lógica de actualización (Solo las estadísticas por ahora)
+            if actualizar and conteo_real:
+                # Generar nueva tabla
+                nueva_tabla = "| Tag | Frecuencia | Última verificación |\n"
+                nueva_tabla += "|-----|-----------|------------------|\n"
+                hoy = datetime.now().strftime("%Y-%m-%d")
+
+                # Ordenar por frecuencia desc, luego nombre
+                sorted_tags = sorted(conteo_real.items(), key=lambda x: (-x[1], x[0]))
+                for t, freq in sorted_tags:
+                    status = "✅" if t in tags_registradas else "⚠️"
+                    nueva_tabla += f"| {status} {t} | {freq} | {hoy} |\n"
+
+                # Reemplazar en el archivo
+                seccion_header = "## 📊 **Estadísticas de Tags**"
+                if seccion_header not in contenido_registro:
+                    # Fallback si el header es ligeramente distinto
+                    seccion_header = "## 📊 Estadísticas de Tags"
+
+                if seccion_header in contenido_registro:
+                    partes = contenido_registro.split(seccion_header)
+                    # El resto del archivo después de la tabla (si lo hay)
+                    resto = (
+                        partes[1].split("\n\n---")[1] if "\n\n---" in partes[1] else ""
+                    )
+
+                    nuevo_contenido = partes[0] + seccion_header + "\n\n" + nueva_tabla
+                    if resto:
+                        nuevo_contenido += "\n---" + resto
+
+                    with open(registry_path, "w", encoding="utf-8") as f:
+                        f.write(nuevo_contenido)
+
+                    resultado += (
+                        "\n✅ **Registro actualizado**: "
+                        "La tabla de estadísticas ha sido regenerada."
+                    )
+                else:
+                    resultado += (
+                        "\n⚠️ No se pudo encontrar la sección de "
+                        "estadísticas para actualizar."
+                    )
+
+            return resultado
+
+        except Exception as e:
+            return f"❌ Error en sincronización: {e}"
 
     @mcp.tool()
     def obtener_lista_etiquetas() -> str:
@@ -214,7 +414,7 @@ def register_analysis_tools(mcp: FastMCP) -> None:
                 return "❌ Error: La ruta del vault no está configurada."
 
             enlaces_por_archivo = {}
-            todos_los_enlaces = {}
+            todos_los_enlaces: dict[str, int] = {}
             archivos_existentes = {f.stem for f in vault_path.rglob("*.md")}
 
             for archivo in vault_path.rglob("*.md"):
@@ -289,12 +489,13 @@ def register_analysis_tools(mcp: FastMCP) -> None:
             if not vault_path:
                 return "❌ Error: La ruta del vault no está configurada."
 
-            from datetime import datetime, timedelta
+            from datetime import timedelta
 
-            fecha_limite = datetime.now() - timedelta(days=dias)
+            fecha_limite: datetime = datetime.now() - timedelta(days=dias)
 
-            archivos_recientes = []
-            archivos_modificados = []
+            archivos_recientes: list[dict[str, str]] = []
+            archivos_modificados: list[dict[str, str]] = []
+            archivos_modificados_ref: list[dict[str, str]] = []
 
             for archivo in vault_path.rglob("*.md"):
                 stats = archivo.stat()
@@ -320,14 +521,15 @@ def register_analysis_tools(mcp: FastMCP) -> None:
 
             # Ordenar por fecha
             archivos_recientes.sort(key=lambda x: x["fecha"], reverse=True)
-            archivos_modificados.sort(key=lambda x: x["fecha"], reverse=True)
+            archivos_modificados_ref = archivos_modificados
+            archivos_modificados_ref.sort(key=lambda x: x["fecha"], reverse=True)
 
             resultado = f"📅 **Actividad Reciente (últimos {dias} días)**\n\n"
 
             if archivos_recientes:
                 resultado += f"✨ **Archivos creados ({len(archivos_recientes)}):**\n"
-                for archivo in archivos_recientes[:10]:
-                    resultado += f"   • {archivo['nombre']} - {archivo['fecha']}\n"
+                for item_rec in archivos_recientes[:10]:
+                    resultado += f"   • {item_rec['nombre']} - {item_rec['fecha']}\n"
                 if len(archivos_recientes) > 10:
                     resultado += (
                         f"   ... y {len(archivos_recientes) - 10} archivos más\n"
@@ -338,12 +540,12 @@ def register_analysis_tools(mcp: FastMCP) -> None:
                 resultado += (
                     f"📝 **Archivos modificados ({len(archivos_modificados)}):**\n"
                 )
-                for archivo in archivos_modificados[:10]:
-                    resultado += f"   • {archivo['nombre']} - {archivo['fecha']}\n"
-                if len(archivos_modificados) > 10:
-                    resultado += (
-                        f"   ... y {len(archivos_modificados) - 10} archivos más\n"
-                    )
+            for item in archivos_modificados_ref:
+                resultado += f"   • {item['nombre']} - {item['fecha']}\n"
+            if len(archivos_modificados_ref) > 10:
+                resultado += (
+                    f"   ... y {len(archivos_modificados_ref) - 10} archivos más\n"
+                )
 
             if not archivos_recientes and not archivos_modificados:
                 resultado += (

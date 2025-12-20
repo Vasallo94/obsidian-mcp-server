@@ -52,6 +52,41 @@ def register_creation_tools(mcp: FastMCP) -> None:
         except Exception as e:
             return f"❌ Error al listar plantillas: {e}"
 
+    def _get_sugerencia_ubicacion(
+        titulo: str, contenido: str, etiquetas: str = ""
+    ) -> str:
+        """Helper para sugerir ubicación."""
+        texto = (titulo + " " + contenido + " " + etiquetas).lower()
+
+        # Lógica simple de categorización basada en la estructura del vault
+        if any(k in texto for k in ["poema", "poesía", "verso", "rima"]):
+            return "📂 Sugerencia: `03_Creaciones/Poemas`"
+        elif any(k in texto for k in ["reflexión", "pienso", "creo", "opinión"]):
+            return "📂 Sugerencia: `03_Creaciones/Reflexiones`"
+        elif any(k in texto for k in ["código", "python", "sql", "mcp", "config"]):
+            return "📂 Sugerencia: `02_Aprendizaje/Programación`"
+        elif any(k in texto for k in ["filosofía", "ética", "aristóteles", "dualismo"]):
+            return "📂 Sugerencia: `02_Aprendizaje/Filosofía`"
+        elif any(k in texto for k in ["psicología", "cognitivo", "mente", "ego"]):
+            return "📂 Sugerencia: `02_Aprendizaje/Psicología`"
+
+        return "📂 Sugerencia: `01_Inbox` (Categoría general)"
+
+    @mcp.tool()
+    def sugerir_ubicacion(titulo: str, contenido: str, etiquetas: str = "") -> str:
+        """
+        Sugiere la mejor carpeta para una nota nueva según su contenido y tags.
+
+        Args:
+            titulo: Título de la nota.
+            contenido: Fragmento o contenido total de la nota.
+            etiquetas: Etiquetas enviadas o planeadas.
+        """
+        try:
+            return _get_sugerencia_ubicacion(titulo, contenido, etiquetas)
+        except Exception as e:
+            return f"❌ Error al sugerir ubicación: {e}"
+
     @mcp.tool()
     def crear_nota(
         titulo: str,
@@ -59,22 +94,19 @@ def register_creation_tools(mcp: FastMCP) -> None:
         carpeta: str = "",
         etiquetas: str = "",
         plantilla: str = "",
+        agente_creador: str = "",
     ) -> str:
         """
         Crea una nueva nota en el vault.
         IMPORTANTE: Se prefiere el uso de plantillas para mantener la consistencia.
-        Consulta listar_plantillas() antes de usar esta herramienta.
 
         Args:
-            titulo: Título de la nota (se usará como nombre de archivo).
-            contenido: Contenido de la nota en Markdown.
+            titulo: Título de la nota.
+            contenido: Contenido de la nota.
             carpeta: Carpeta donde crear la nota (vacío = raíz).
-            etiquetas: Etiquetas separadas por comas (ej: "idea,reflexion").
-            plantilla: Nombre del archivo de plantilla a usar (ej: "Diario.md").
-                       Las variables {{titulo}} y {{fecha}} se reemplazarán.
-
-        Returns:
-            Un mensaje indicando el resultado de la operación.
+            etiquetas: Etiquetas separadas por comas.
+            plantilla: Nombre del archivo de plantilla (ej: "Diario.md").
+            agente_creador: Si se creó usando un agente específico (ej: "escritor").
         """
         try:
             vault_path = get_vault_path()
@@ -84,20 +116,36 @@ def register_creation_tools(mcp: FastMCP) -> None:
             # Preparar nombre de archivo
             nombre_archivo = sanitize_filename(titulo)
 
-            # Determinar ruta
-            if carpeta:
-                carpeta_path = vault_path / carpeta
-                carpeta_path.mkdir(parents=True, exist_ok=True)
-                nota_path = carpeta_path / nombre_archivo
-            else:
-                nota_path = vault_path / nombre_archivo
+            # Determinar ruta (si no hay carpeta, sugerir una o usar Inbox)
+            if not carpeta:
+                # Intento de sugerencia automática si no se especifica
+                res_sug = _get_sugerencia_ubicacion(titulo, contenido, etiquetas)
+                # Extrae el path de vuelta entre backticks: 📂 Sugerencia: `path`
+                import re
+
+                match = re.search(r"`([^`]+)`", res_sug)
+                carpeta_sugerida = match.group(1) if match else "01_Inbox"
+                carpeta = carpeta_sugerida
+
+            carpeta_path = vault_path / carpeta
+            carpeta_path.mkdir(parents=True, exist_ok=True)
+            nota_path = carpeta_path / nombre_archivo
+
+            if not nota_path.suffix == ".md":
+                nota_path = nota_path.with_suffix(".md")
 
             # Verificar si ya existe
             if nota_path.exists():
                 return f"❌ Ya existe una nota con el nombre '{nombre_archivo}'"
 
-            # Preparar contenido
+            # Preparar contenido final
             contenido_final = ""
+            ahora = datetime.now().strftime("%Y-%m-%d")
+
+            # Lógica de inyección de metadatos del agente
+            creator_metadata = ""
+            if agente_creador:
+                creator_metadata = f"agente_creador: {agente_creador}\n"
 
             # Si se usa plantilla
             if plantilla:
@@ -106,70 +154,48 @@ def register_creation_tools(mcp: FastMCP) -> None:
                     plantilla_path = plantilla_path.with_suffix(".md")
 
                 if plantilla_path.exists():
-                    try:
-                        with open(plantilla_path, "r", encoding="utf-8") as f:
-                            plantilla_content = f.read()
+                    with open(plantilla_path, "r", encoding="utf-8") as f:
+                        plantilla_content = f.read()
 
-                        # Reemplazos básicos
-                        plantilla_content = plantilla_content.replace(
-                            "{{title}}", titulo
-                        )
-                        plantilla_content = plantilla_content.replace(
-                            "{{titulo}}", titulo
-                        )
-                        plantilla_content = plantilla_content.replace(
-                            "{{date}}", datetime.now().strftime("%Y-%m-%d")
-                        )
-                        plantilla_content = plantilla_content.replace(
-                            "{{fecha}}", datetime.now().strftime("%Y-%m-%d")
-                        )
+                    # Reemplazos básicos
+                    plantilla_content = plantilla_content.replace("{{title}}", titulo)
+                    plantilla_content = plantilla_content.replace("{{titulo}}", titulo)
+                    plantilla_content = plantilla_content.replace("{{date}}", ahora)
+                    plantilla_content = plantilla_content.replace("{{fecha}}", ahora)
 
-                        contenido_final = plantilla_content
-                        # Si hay contenido adicional, añadirlo al final
-                        if contenido:
+                    contenido_final = plantilla_content
+                    # Si hay contenido adicional, añadirlo al final
+                    if contenido:
+                        if contenido_final.endswith("\n\n"):
+                            contenido_final += contenido
+                        else:
                             contenido_final += f"\n\n{contenido}"
-                    except Exception as e:
-                        return f"❌ Error al leer plantilla: {e}"
                 else:
                     return f"❌ No se encontró la plantilla '{plantilla}'"
             else:
-                # Sin plantilla, usar lógica manual
-                contenido_final = ""
-
-                # Agregar frontmatter si hay etiquetas (y no se usó plantilla,
-                # ya que la plantilla debería tener su propio frontmatter)
-                # NOTA: Si la plantilla tiene frontmatter, las etiquetas pasadas aquí
-                # se podrían perder o duplicar. Idealmente deberíamos inyectarlas.
-                # Por simplicidad: si hay plantilla, asumimos que maneja sus tags.
-                # Pero el usuario pidió tags acotadas. Vamos a intentar inyectar tags.
-                # Mejor estrategia simple: Si hay etiquetas, inyectar frontmatter
-                # solo si no hay plantilla, o si la plantilla no tiene frontmatter.
-
-                if etiquetas:
-                    tags = [tag.strip() for tag in etiquetas.split(",") if tag.strip()]
-                    contenido_final += "---\n"
-                    contenido_final += f"tags: {tags}\n"
-                    contenido_final += f'created: "{datetime.now().isoformat()}"\n'
-                    contenido_final += "---\n\n"
-
+                # Sin plantilla, crear frontmatter básico
+                tags_list = [t.strip() for t in etiquetas.split(",") if t.strip()]
+                contenido_final = "---\n"
+                contenido_final += f'title: "{titulo}"\n'
+                contenido_final += f"tags: {tags_list}\n"
+                contenido_final += f'created: "{ahora}"\n'
+                if creator_metadata:
+                    contenido_final += creator_metadata
+                contenido_final += "---\n\n"
+                contenido_final += f"# {titulo}\n\n"
                 contenido_final += contenido
 
             # Escribir archivo
             with open(nota_path, "w", encoding="utf-8") as f:
                 f.write(contenido_final)
 
-            # Información del resultado
             ruta_relativa = nota_path.relative_to(vault_path)
             resultado = f"✅ Nota creada: **{titulo}**\n"
             resultado += f"📍 Ubicación: {ruta_relativa}\n"
-
             if plantilla:
                 resultado += f"📝 Plantilla usada: {plantilla}\n"
-
-            resultado += f"📊 Tamaño: {len(contenido_final)} caracteres"
-
-            if etiquetas and not plantilla:
-                resultado += f"\n🏷️  Etiquetas: {etiquetas}"
+            if agente_creador:
+                resultado += f"🤖 Agente: {agente_creador}\n"
 
             return resultado
 
@@ -206,7 +232,8 @@ def register_creation_tools(mcp: FastMCP) -> None:
 
             # Preparar nuevo contenido
             if al_final:
-                nuevo_contenido = contenido_actual + "\n\n" + contenido
+                sep = "\n\n" if not contenido_actual.endswith("\n\n") else ""
+                nuevo_contenido = contenido_actual + sep + contenido
             else:
                 nuevo_contenido = contenido + "\n\n" + contenido_actual
 

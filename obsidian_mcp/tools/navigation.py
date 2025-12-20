@@ -49,7 +49,7 @@ def register_navigation_tools(mcp: FastMCP) -> None:
                 return f"📂 No se encontraron notas en '{carpeta or 'raíz'}'"
 
             # Organizar por carpetas
-            notas_por_carpeta = {}
+            notas_por_carpeta: dict[str, list[dict]] = {}
             for nota in notas:
                 ruta_relativa = nota.relative_to(vault_path)
                 carpeta_padre = (
@@ -69,10 +69,10 @@ def register_navigation_tools(mcp: FastMCP) -> None:
 
             for carpeta_nombre, lista_notas in sorted(notas_por_carpeta.items()):
                 resultado += f"📁 {carpeta_nombre} ({len(lista_notas)} notas):\n"
-                for nota in sorted(lista_notas, key=lambda x: x["name"]):
+                for nota_meta in sorted(lista_notas, key=lambda x: x["name"]):
                     resultado += (
-                        f"   📄 {nota['name']} "
-                        f"({nota['size_kb']:.1f}KB, {nota['modified']})\n"
+                        f"   📄 {nota_meta['name']} "
+                        f"({nota_meta['size_kb']:.1f}KB, {nota_meta['modified']})\n"
                     )
                 resultado += "\n"
 
@@ -143,24 +143,24 @@ def register_navigation_tools(mcp: FastMCP) -> None:
             resultados = []
             archivos_revisados = 0
 
-            for archivo in search_path.rglob("*.md"):
+            for archivo_item in search_path.rglob("*.md"):
                 archivos_revisados += 1
                 try:
-                    ruta_relativa = archivo.relative_to(vault_path)
+                    ruta_relativa = archivo_item.relative_to(vault_path)
 
                     if solo_titulos:
                         # Buscar solo en el nombre del archivo
-                        if texto.lower() in archivo.stem.lower():
+                        if texto.lower() in archivo_item.stem.lower():
                             resultados.append(
                                 {
                                     "archivo": str(ruta_relativa),
                                     "tipo": "título",
-                                    "coincidencia": archivo.stem,
+                                    "coincidencia": archivo_item.stem,
                                 }
                             )
                     else:
                         # Buscar en todo el contenido
-                        with open(archivo, "r", encoding="utf-8") as f:
+                        with open(archivo_item, "r", encoding="utf-8") as f:
                             contenido = f.read()
 
                         lineas = contenido.split("\n")
@@ -175,7 +175,7 @@ def register_navigation_tools(mcp: FastMCP) -> None:
                                 resultados.append(
                                     {
                                         "archivo": str(ruta_relativa),
-                                        "linea": num_linea,
+                                        "linea": str(num_linea),
                                         "coincidencia": coincidencia_texto,
                                     }
                                 )
@@ -197,12 +197,12 @@ def register_navigation_tools(mcp: FastMCP) -> None:
             )
 
             # Agrupar por archivo
-            por_archivo = {}
+            por_archivo: dict[str, list[dict]] = {}
             for r in resultados:
-                archivo = r["archivo"]
-                if archivo not in por_archivo:
-                    por_archivo[archivo] = []
-                por_archivo[archivo].append(r)
+                archivo_res = r["archivo"]
+                if archivo_res not in por_archivo:
+                    por_archivo[archivo_res] = []
+                por_archivo[archivo_res].append(r)
 
             for archivo, coincidencias in list(por_archivo.items())[
                 :20

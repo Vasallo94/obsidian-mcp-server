@@ -23,9 +23,11 @@ classifiers = [
 dependencies = [
     "aiofiles>=25.1.0",
     "fastmcp>=2.9.2",
+    "mypy>=1.19.1",
     "pathspec>=0.12.1",
     "pydantic>=2.11.7",
     "python-dotenv>=1.1.1",
+    "ruff>=0.14.8",
     "youtube-transcript-api>=1.2.3",
 ]
 

@@ -104,17 +104,17 @@ def run_server(
             if host:
                 kwargs["host"] = host
             if port:
-                kwargs["port"] = port
+                kwargs["port"] = str(port)
             if path:
                 kwargs["path"] = path
-            mcp.run(transport="http", **kwargs)
+            mcp.run(transport="http", **kwargs)  # type: ignore[arg-type]
         elif transport == "sse":
             kwargs = {}
             if host:
                 kwargs["host"] = host
             if port:
-                kwargs["port"] = port
-            mcp.run(transport="sse", **kwargs)
+                kwargs["port"] = str(port)
+            mcp.run(transport="sse", **kwargs)  # type: ignore[arg-type]
         else:
             raise ValueError(f"Transporte no soportado: {transport}")
 

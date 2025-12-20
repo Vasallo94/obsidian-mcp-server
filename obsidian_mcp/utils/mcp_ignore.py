@@ -19,7 +19,7 @@ class McpIgnore:
             vault_path: Ruta al vault. Si es None, busca en config.
         """
         self.vault_path = vault_path or get_vault_path()
-        self.spec = None
+        self.spec: Optional[pathspec.PathSpec] = None
         self._load_ignore_file()
 
     def _load_ignore_file(self) -> None:
