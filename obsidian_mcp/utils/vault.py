@@ -45,7 +45,7 @@ def get_vault_stats() -> Dict[str, Any]:
 
 def find_note_by_name(name: str) -> Path | None:
     """
-    Busca una nota por nombre en todo el vault
+    Busca una nota por nombre en todo el vault (insensible a mayúsculas).
 
     Args:
         name: Nombre de la nota (con o sin extensión .md)
@@ -62,9 +62,10 @@ def find_note_by_name(name: str) -> Path | None:
         note_path = vault_path / name
         return note_path if note_path.exists() else None
 
-    # Buscar en todo el vault
+    # Buscar en todo el vault (insensible a mayúsculas)
+    name_lower = name.lower().replace(".md", "")
     for file_path in vault_path.rglob("*.md"):
-        if file_path.name == name or file_path.stem == name:
+        if file_path.stem.lower() == name_lower:
             return file_path
 
     return None
@@ -112,18 +113,51 @@ def get_note_metadata(note_path: Path) -> Dict[str, Any]:
 
 def extract_tags_from_content(content: str) -> List[str]:
     """
-    Extrae etiquetas del contenido de una nota
+    Extrae etiquetas tanto del frontmatter YAML como del cuerpo de la nota.
 
     Args:
         content: Contenido de la nota
 
     Returns:
-        Lista de etiquetas encontradas
+        Lista de etiquetas únicas encontradas
     """
-    # Buscar etiquetas en formato #tag (incluyendo guiones)
+    tags = set()
+
+    # 1. Extraer del YAML frontmatter
+    if content.startswith("---"):
+        parts = content.split("---", 2)
+        if len(parts) >= 3:
+            frontmatter = parts[1]
+            # Buscar línea de tags: tags: [a, b] o tags: a, b
+            tags_match = re.search(r"^tags:\s*(.*)$", frontmatter, re.MULTILINE)
+            if tags_match:
+                tags_raw = tags_match.group(1).strip()
+                # Caso [tag1, tag2]
+                if tags_raw.startswith("[") and tags_raw.endswith("]"):
+                    tags_list = tags_raw[1:-1].split(",")
+                    for t in tags_list:
+                        tags.add(t.strip().lstrip("#"))
+                # Caso lista YAML o string simple
+                else:
+                    # Intentar buscar formato de lista - tag
+                    fm_list = re.findall(r"^\s*-\s*([\w-]+)", frontmatter, re.MULTILINE)
+                    if fm_list:
+                        for t in fm_list:
+                            tags.add(t.strip())
+                    else:
+                        # Caso simple separado por comas
+                        for t in tags_raw.split(","):
+                            cleaned = t.strip().lstrip("#")
+                            if cleaned:
+                                tags.add(cleaned)
+
+    # 2. Extraer del cuerpo (formato #tag)
     # Regex mejorado: captura palabras con guiones pero no hashtags de headings
-    tags = re.findall(r"(?<!\w)#([\w-]+)", content)
-    return list(set(tags))  # Eliminar duplicados
+    body_tags = re.findall(r"(?<!\w)#([\w-]+)", content)
+    for t in body_tags:
+        tags.add(t)
+
+    return sorted(list(tags))
 
 
 def extract_internal_links(content: str) -> List[str]:
