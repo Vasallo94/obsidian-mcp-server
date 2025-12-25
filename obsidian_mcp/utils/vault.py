@@ -120,8 +120,9 @@ def extract_tags_from_content(content: str) -> List[str]:
     Returns:
         Lista de etiquetas encontradas
     """
-    # Buscar etiquetas en formato #tag
-    tags = re.findall(r"#(\w+)", content)
+    # Buscar etiquetas en formato #tag (incluyendo guiones)
+    # Regex mejorado: captura palabras con guiones pero no hashtags de headings
+    tags = re.findall(r"(?<!\w)#([\w-]+)", content)
     return list(set(tags))  # Eliminar duplicados
 
 

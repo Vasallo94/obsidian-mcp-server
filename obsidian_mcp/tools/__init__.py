@@ -6,12 +6,14 @@ from .agents import register_agent_tools
 from .analysis import register_analysis_tools
 from .context import register_context_tools
 from .creation import register_creation_tools
+from .graph import register_graph_tools
 from .navigation import register_navigation_tools
 from .youtube import register_youtube_tools
 
 __all__ = [
     "register_analysis_tools",
     "register_creation_tools",
+    "register_graph_tools",
     "register_navigation_tools",
     "register_youtube_tools",
     "register_context_tools",

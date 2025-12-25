@@ -281,3 +281,43 @@ def register_creation_tools(mcp: FastMCP) -> None:
 
         except Exception as e:
             return f"❌ Error al eliminar nota: {e}"
+
+    @mcp.tool()
+    def editar_nota(nombre_archivo: str, nuevo_contenido: str) -> str:
+        """
+        Edita una nota existente, reemplazando todo su contenido.
+        Útil para mejorar, añadir secciones, corregir frontmatter o reformatear notas.
+
+        IMPORTANTE: El agente DEBE leer la nota primero con leer_nota() antes de editarla
+        para asegurarse de preservar el contenido que no desea modificar.
+
+        Args:
+            nombre_archivo: Nombre o ruta de la nota a editar (ej: "Mi Nota.md")
+            nuevo_contenido: El contenido completo actualizado (incluye frontmatter YAML)
+
+        Returns:
+            Mensaje de confirmación o error
+        """
+        try:
+            vault_path = get_vault_path()
+            if not vault_path:
+                return "❌ Error: La ruta del vault no está configurada."
+
+            nota_path = find_note_by_name(nombre_archivo)
+            if not nota_path:
+                return f"❌ No se encontró la nota '{nombre_archivo}'"
+
+            # Protección: no editar archivos en carpeta Privado
+            ruta_prohibida = "04_Recursos/Privado"
+            if ruta_prohibida in str(nota_path):
+                return f"⛔ ACCESO DENEGADO: No se permite editar archivos en {ruta_prohibida}"
+
+            # Guardar el nuevo contenido
+            with open(nota_path, "w", encoding="utf-8") as f:
+                f.write(nuevo_contenido)
+
+            ruta_relativa = nota_path.relative_to(vault_path)
+            return f"✅ Nota editada correctamente: {ruta_relativa}"
+
+        except Exception as e:
+            return f"❌ Error al editar nota: {e}"
