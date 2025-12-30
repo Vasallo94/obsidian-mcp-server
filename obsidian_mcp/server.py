@@ -18,6 +18,7 @@ from .tools import (
     register_creation_tools,
     register_graph_tools,
     register_navigation_tools,
+    register_semantic_tools,
     register_youtube_tools,
 )
 from .utils import get_logger
@@ -66,6 +67,9 @@ def create_server() -> FastMCP:
 
     logger.info("Registrando herramientas de agentes...")
     register_agent_tools(mcp)
+
+    logger.info("Registrando herramientas semánticas (RAG)...")
+    register_semantic_tools(mcp)
 
     # Registrar recursos
     logger.info("Registrando recursos del vault...")
