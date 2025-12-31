@@ -28,6 +28,7 @@ dependencies = [
     "pydantic>=2.11.7",
     "python-dotenv>=1.1.1",
     "ruff>=0.14.8",
+    "tqdm>=4.66.0",
     "youtube-transcript-api>=1.2.3",
 ]
 

@@ -2185,6 +2185,7 @@ dependencies = [
     { name = "pydantic" },
     { name = "python-dotenv" },
     { name = "ruff" },
+    { name = "tqdm" },
     { name = "youtube-transcript-api" },
 ]
 
@@ -2237,6 +2238,7 @@ requires-dist = [
     { name = "ruff", specifier = ">=0.14.8" },
     { name = "sentence-transformers", marker = "extra == 'rag'", specifier = ">=3.0.0" },
     { name = "torch", marker = "extra == 'rag'", specifier = ">=2.0.0" },
+    { name = "tqdm", specifier = ">=4.66.0" },
     { name = "youtube-transcript-api", specifier = ">=1.2.3" },
 ]
 provides-extras = ["rag"]

@@ -113,31 +113,57 @@ def register_semantic_tools(mcp: FastMCP) -> None:
 
         @mcp.tool()
         async def encontrar_conexiones_sugeridas(
-            threshold: float = 0.85, limite: int = 5
+            threshold: float = 0.82,
+            limite: int = 5,
+            carpetas_incluir: Optional[list[str]] = None,
+            excluir_mocs: bool = True,
+            min_palabras: int = 150,
         ) -> str:
             """
             Analiza el vault para encontrar notas que tratan temas muy similares
-            pero que NO están enlazadas entre sí. Útil para el mantenimiento del vault.
+            pero que NO están enlazadas entre sí.
 
             Args:
-                threshold: Nivel de similitud mínima (0.0 a 1.0, por defecto 0.85).
-                limite: Número máximo de sugerencias a mostrar.
+                threshold: Nivel de similitud mínima (0.7 a 1.0). Default 0.82.
+                limite: Máximo de sugerencias.
+                carpetas_incluir: Lista de carpetas donde buscar (e.g. ["03_Notas"]).
+                                  Si se omite, busca en todo excepto exclusiones.
+                excluir_mocs: Ignorar archivos MOC, Home, Inbox y sistema. (Default: True).
+                min_palabras: Ignorar notas con menos de X palabras. (Default: 150).
             """
             service = get_semantic_service()
             if not service:
                 return "Error: Servicio semántico no disponible."
 
-            suggestions = service.suggest_connections(threshold=threshold, limit=limite)
+            suggestions = service.suggest_connections(
+                threshold=threshold,
+                limit=limite,
+                carpetas_incluir=carpetas_incluir,
+                excluir_mocs=excluir_mocs,
+                min_palabras=min_palabras,
+            )
             if not suggestions:
                 return (
-                    "No se encontraron conexiones sugeridas con el "
-                    "nivel de similitud actual."
+                    "No se encontraron conexiones sugeridas con los filtros actuales.\n"
+                    f"(Threshold: {threshold}, Min Words: {min_palabras}, "
+                    f"Excluir MOCs: {excluir_mocs})"
                 )
 
             result = "### 🕸️ Conexiones Sugeridas (Faltan enlaces)\n\n"
             for s in suggestions:
-                result += f"- **{s['note_a']}** <--> **{s['note_b']}**\n"
-                result += f"  - Motivo: {s['reason']}\n\n"
+                n_a = s["note_a"]
+                n_b = s["note_b"]
+                sim = s["similarity"]
+                # Formato visual rico
+                result += f"#### 🔗 {n_a} ↔ {n_b} (Similitud: {sim:.2f})\n"
+                result += (
+                    f"- **Ubicación**: `{s['folder_a']}` ↔ `{s['folder_b']}`\n"
+                    f"- **Extensión**: {s['words_a']} words ↔ {s['words_b']} words\n"
+                    f"- **Contexto sugerido**:\n"
+                    f"  - *{n_a}*: {s['section_a']}\n"
+                    f"  - *{n_b}*: {s['section_b']}\n"
+                    f"- **Razón**: {s['reason']}\n\n"
+                )
 
             result += "\n*Usa `[[Nota]]` para conectarlas manualmente en tu vault.*"
             return result

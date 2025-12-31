@@ -2,12 +2,50 @@
 
 import logging
 import os
+import traceback
 from typing import Any, Dict, List, Optional
 
+from ..utils.timeout import TimeoutError as TimeLimitExceeded
+from ..utils.timeout import time_limit
 from .indexer import load_or_create_db
 from .retriever import create_retriever_with_reranker
 
+try:
+    import numpy as np
+except ImportError:
+    np = None  # type: ignore
+
+try:
+    from tqdm import tqdm
+except ImportError:
+
+    def tqdm(iterable, **kwargs):
+        return iterable
+
+
 logger = logging.getLogger(__name__)
+
+
+# Constants for filtering
+CARPETAS_EXCLUIDAS = [
+    "00_Sistema",
+    "ZZ_Plantillas",
+    "04_Recursos/Obsidian",
+]
+
+PATRONES_EXCLUIDOS = [
+    r".*MOC\.md",
+    r".*Home\.md",
+    r".*Inbox\.md",
+    r".*Panel.*\.md",
+    r".*\.agent\.md",
+    r"copilot-instructions\.md",
+]
+
+CARPETAS_CONTENIDO = [
+    "03_Notas",  # Notas permanentes
+    "02_Proyectos",  # Proyectos activos
+]
 
 
 class SemanticService:
@@ -93,62 +131,223 @@ class SemanticService:
         self._ensure_db(force_rebuild=force)
         return self._db is not None
 
+    def _should_exclude(
+        self,
+        filepath: str,
+        carpetas_incluir: Optional[List[str]] = None,
+        excluir_mocs: bool = True,
+    ) -> bool:
+        """Check if a file should be excluded based on filters"""
+        rel_path = os.path.relpath(filepath, self.vault_path)
+        filename = os.path.basename(filepath)
+
+        # 1. Filter by specific include folders if provided
+        if carpetas_incluir:
+            if not any(rel_path.startswith(folder) for folder in carpetas_incluir):
+                return True
+        else:
+            # Otherwise use default exclusions
+            if any(rel_path.startswith(folder) for folder in CARPETAS_EXCLUIDAS):
+                return True
+
+        # 2. Filter by patterns (MOCs, System files)
+        if excluir_mocs:
+            import re
+
+            for pattern in PATRONES_EXCLUIDOS:
+                if re.match(pattern, filename):
+                    return True
+
+        return False
+
+    def _extract_section_header(self, content: str) -> str:
+        """Attempt to find the nearest header in the chunk"""
+        import re
+
+        # Look for headers in the content
+        headers = re.findall(r"^(#{1,6})\s+(.+)$", content, re.MULTILINE)
+        if headers:
+            # Return the first header found in this chunk
+            return f"{headers[0][0]} {headers[0][1]}"
+        return "Contenido General"
+
     def suggest_connections(
-        self, threshold: float = 0.85, limit: int = 10
+        self,
+        threshold: float = 0.85,
+        limit: int = 10,
+        carpetas_incluir: Optional[List[str]] = None,
+        excluir_mocs: bool = True,
+        min_palabras: int = 100,
+        timeout_seconds: int = 180,
     ) -> List[dict]:
         """
         Find notes with high semantic similarity that are NOT linked.
-        This helps maintain the vault's knowledge graph.
+        Uses vectorized operations for performance.
         """
-        self._ensure_db()
-        if not self._db:
-            return []
+        try:
+            self._ensure_db()
+            if self._db is None:
+                return []
 
-        logger.info("Analyzing vault for missing connections...")
-        db_data = self._db.get()
-        documents = db_data["documents"]
-        metadatas = db_data["metadatas"]
+            if np is None:
+                logger.error("numpy is required for fast connection suggestions")
+                return []
 
-        # This is a computationally expensive operation if done naively (O(N^2)).
-        # For small-medium vaults, we can do it. For larger ones,
-        # we'd use index-specific similarity search.
-        # Here we'll do a sample-based or targeted approach if needed,
-        # but let's try a direct approach for now.
-
-        suggestions = []
-        for i, doc_i_content in enumerate(documents):
-            source_i = metadatas[i].get("source", "")
-            links_i = metadatas[i].get("links", "").split(",")
-
-            # Find similar docs to this one
-            similar_docs = self._db.similarity_search_with_relevance_scores(
-                doc_i_content, k=5
+            logger.info(
+                f"Analyzing connections: threshold={threshold}, "
+                f"mocs={excluir_mocs}, min_words={min_palabras}"
             )
 
-            for doc_j, score in similar_docs:
-                source_j = doc_j.metadata.get("source", "")
-                if source_i == source_j:
-                    continue
+            try:
+                with time_limit(timeout_seconds):
+                    # 1. Fetch all data in one go (including embeddings)
+                    # ChromaDB .get() returns embeddings as a list of lists if requested
+                    logger.info("DEBUG: Fetching data from ChromaDB")
+                    db_data = self._db.get(
+                        include=["metadatas", "documents", "embeddings"]
+                    )
 
-                if score < threshold:
-                    continue
+                    all_metadatas = db_data.get("metadatas", [])
+                    all_documents = db_data.get("documents", [])
+                    all_embeddings = db_data.get("embeddings", [])
 
-                # Check if they are already linked
-                title_j = source_j.split("/")[-1].replace(".md", "")
-                if title_j in links_i:
-                    continue
+                    if all_embeddings is None or len(all_embeddings) == 0:
+                        logger.warning("No embeddings found in database")
+                        return []
 
-                suggestions.append(
+                    # 2. Pre-filter indices
+                    valid_indices = []
+                    for i, meta in enumerate(all_metadatas):
+                        source = meta.get("source", "")
+                        content = all_documents[i]
+
+                        # Word count filter
+                        if len(content.split()) < min_palabras:
+                            continue
+
+                        # Path/Pattern filter
+                        if self._should_exclude(source, carpetas_incluir, excluir_mocs):
+                            continue
+
+                        if all_embeddings[i] is None:
+                            continue
+
+                        valid_indices.append(i)
+
+                    n_docs = len(valid_indices)
+                    logger.info(
+                        f"DEBUG: Found {n_docs} valid notes out of {len(all_metadatas)}"
+                    )
+                    if n_docs < 2:
+                        return []
+
+                    logger.info(f"Computing similarity for {n_docs} valid notes...")
+
+                    # 3. Create Matrix for valid docs
+                    # shape: (n_docs, embedding_dim)
+                    valid_embeddings = np.array(
+                        [all_embeddings[i] for i in valid_indices]
+                    )
+
+                    # Normalize embeddings (L2 norm) for cosine similarity
+                    norm = np.linalg.norm(valid_embeddings, axis=1, keepdims=True)
+                    # Avoid division by zero using out and where
+                    normalized_embeddings = np.divide(
+                        valid_embeddings,
+                        norm,
+                        out=np.zeros_like(valid_embeddings),
+                        where=norm != 0,
+                    )
+
+                    # 4. Compute Similarity Matrix (Vectorized)
+                    # (n_docs, dim) @ (dim, n_docs) -> (n_docs, n_docs)
+                    similarity_matrix = np.dot(
+                        normalized_embeddings, normalized_embeddings.T
+                    )
+
+                    # 5. Extract Suggestions
+                    suggestions = []
+                    checked_pairs = set()
+
+                    # Iterate only the upper triangle to avoid duplicates and self-matches
+                    # triu_indices returns (rows, cols) indices
+                    rows, cols = np.triu_indices(n_docs, k=1)
+
+                    # Filter by threshold mask
+                    mask = similarity_matrix[rows, cols] >= threshold
+                    valid_rows = rows[mask]
+                    valid_cols = cols[mask]
+                    valid_scores = similarity_matrix[valid_rows, valid_cols]
+
+                    # Process candidates
+                    # Use tqdm for progress update if many candidates
+                    iterator = zip(valid_rows, valid_cols, valid_scores)
+                    if len(valid_rows) > 1000:
+                        iterator = tqdm(
+                            iterator, total=len(valid_rows), desc="Filtering candidates"
+                        )
+
+                    for r, c, score in iterator:
+                        # Map back to original indices
+                        idx_i = valid_indices[r]
+                        idx_j = valid_indices[c]
+
+                        source_i = all_metadatas[idx_i].get("source", "")
+                        source_j = all_metadatas[idx_j].get("source", "")
+
+                        title_i = os.path.basename(source_i)
+                        title_j = os.path.basename(source_j)
+
+                        # Check links
+                        links_i = all_metadatas[idx_i].get("links", "").split(",")
+                        links_j = all_metadatas[idx_j].get("links", "").split(",")
+
+                        clean_title_j = title_j.replace(".md", "")
+                        clean_title_i = title_i.replace(".md", "")
+
+                        if clean_title_j in links_i or clean_title_i in links_j:
+                            continue
+
+                        suggestions.append(
+                            {
+                                "note_a": title_i,
+                                "note_b": title_j,
+                                "similarity": float(score),
+                                "folder_a": os.path.dirname(source_i),
+                                "folder_b": os.path.dirname(source_j),
+                                "words_a": len(all_documents[idx_i].split()),
+                                "words_b": len(all_documents[idx_j].split()),
+                                "section_a": self._extract_section_header(
+                                    all_documents[idx_i]
+                                ),
+                                "section_b": self._extract_section_header(
+                                    all_documents[idx_j]
+                                ),
+                                "reason": f"Similitud {score:.2f}",
+                            }
+                        )
+
+                    # Sort and limit
+                    suggestions.sort(key=lambda x: x["similarity"], reverse=True)
+                    return suggestions[:limit]
+
+            except TimeLimitExceeded:
+                logger.warning("Suggestion search timed out")
+                return [
                     {
-                        "note_a": source_i.split("/")[-1],
-                        "note_b": source_j.split("/")[-1],
-                        "similarity": float(score),
-                        "reason": f"Alta similitud semántica ({score:.2f}) "
-                        "sin enlace directo.",
+                        "note_a": "Error",
+                        "note_b": "Timeout",
+                        "similarity": 0.0,
+                        "folder_a": "",
+                        "folder_b": "",
+                        "words_a": 0,
+                        "words_b": 0,
+                        "section_a": "",
+                        "section_b": "",
+                        "reason": "La operación tardó demasiado. Prueba a reducir el umbral o filtrar carpetas.",
                     }
-                )
-
-                if len(suggestions) >= limit:
-                    return suggestions
-
-        return suggestions
+                ]
+        except Exception as e:
+            logger.error(f"Error in suggest_connections: {e}")
+            logger.error(traceback.format_exc())
+            return []
