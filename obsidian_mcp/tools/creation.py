@@ -5,12 +5,110 @@ Estas herramientas permiten crear nuevas notas y modificar las existentes,
 facilitando la gestión de contenido del vault desde un cliente MCP.
 """
 
+import re
 from datetime import datetime
+from typing import Any
 
+import yaml
 from fastmcp import FastMCP
 
 from ..config import get_vault_path
 from ..utils import find_note_by_name, sanitize_filename
+
+
+def _extract_frontmatter_from_content(contenido: str) -> tuple[dict[str, Any], str]:
+    """
+    Extrae el frontmatter YAML del contenido si existe.
+
+    Args:
+        contenido: Contenido que puede incluir frontmatter YAML al inicio.
+
+    Returns:
+        Tupla con (diccionario de metadatos, contenido sin frontmatter).
+        Si no hay frontmatter, retorna ({}, contenido original).
+    """
+    # Patrón para detectar frontmatter YAML al inicio del contenido
+    # Debe empezar con --- y terminar con ---
+    frontmatter_pattern = re.compile(r"^---\s*\n(.*?)\n---\s*\n?", re.DOTALL)
+
+    match = frontmatter_pattern.match(contenido)
+    if not match:
+        return {}, contenido
+
+    try:
+        yaml_content = match.group(1)
+        metadata = yaml.safe_load(yaml_content) or {}
+        if not isinstance(metadata, dict):
+            # Si el YAML no es un diccionario, ignorarlo
+            return {}, contenido
+
+        # Contenido sin el frontmatter
+        contenido_limpio = contenido[match.end() :]
+        return metadata, contenido_limpio.lstrip()
+    except yaml.YAMLError:
+        # Si hay error parseando YAML, retornar contenido original
+        return {}, contenido
+
+
+def _build_frontmatter(
+    titulo: str,
+    ahora: str,
+    tags_list: list[str],
+    agente_creador: str = "",
+    extra_metadata: dict[str, Any] | None = None,
+) -> str:
+    """
+    Construye el bloque frontmatter YAML combinando metadatos.
+
+    Args:
+        titulo: Título de la nota.
+        ahora: Fecha actual en formato YYYY-MM-DD.
+        tags_list: Lista de etiquetas.
+        agente_creador: Nombre del agente creador (opcional).
+        extra_metadata: Metadatos adicionales del contenido original.
+
+    Returns:
+        String con el frontmatter YAML formateado.
+    """
+    metadata: dict[str, Any] = {}
+
+    # Si hay metadatos extra del contenido, empezar con ellos
+    if extra_metadata:
+        metadata.update(extra_metadata)
+
+    # Sobreescribir/añadir campos obligatorios
+    metadata["title"] = titulo
+    metadata["created"] = ahora
+
+    # Combinar tags: los del contenido original + los pasados explícitamente
+    existing_tags = metadata.get("tags", [])
+    if isinstance(existing_tags, str):
+        # Convertir string a lista si es necesario
+        existing_tags = [t.strip() for t in existing_tags.split(",") if t.strip()]
+    elif not isinstance(existing_tags, list):
+        existing_tags = []
+
+    # Combinar sin duplicados, manteniendo orden
+    all_tags = list(existing_tags)
+    for tag in tags_list:
+        if tag not in all_tags:
+            all_tags.append(tag)
+
+    if all_tags:
+        metadata["tags"] = all_tags
+
+    if agente_creador:
+        metadata["agente_creador"] = agente_creador
+
+    # Generar YAML
+    yaml_content = yaml.dump(
+        metadata,
+        default_flow_style=False,
+        allow_unicode=True,
+        sort_keys=False,
+    )
+
+    return f"---\n{yaml_content}---\n\n"
 
 
 def register_creation_tools(mcp: FastMCP) -> None:
@@ -142,11 +240,6 @@ def register_creation_tools(mcp: FastMCP) -> None:
             contenido_final = ""
             ahora = datetime.now().strftime("%Y-%m-%d")
 
-            # Lógica de inyección de metadatos del agente
-            creator_metadata = ""
-            if agente_creador:
-                creator_metadata = f"agente_creador: {agente_creador}\n"
-
             # Si se usa plantilla
             if plantilla:
                 plantilla_path = vault_path / "ZZ_Plantillas" / plantilla
@@ -166,24 +259,42 @@ def register_creation_tools(mcp: FastMCP) -> None:
                     contenido_final = plantilla_content
                     # Si hay contenido adicional, añadirlo al final
                     if contenido:
+                        # Extraer frontmatter del contenido si existe
+                        # para evitar duplicación con la plantilla
+                        _, contenido_limpio = _extract_frontmatter_from_content(
+                            contenido
+                        )
                         if contenido_final.endswith("\n\n"):
-                            contenido_final += contenido
+                            contenido_final += contenido_limpio
                         else:
-                            contenido_final += f"\n\n{contenido}"
+                            contenido_final += f"\n\n{contenido_limpio}"
                 else:
                     return f"❌ No se encontró la plantilla '{plantilla}'"
             else:
-                # Sin plantilla, crear frontmatter básico
+                # Sin plantilla: detectar si el contenido ya tiene frontmatter
                 tags_list = [t.strip() for t in etiquetas.split(",") if t.strip()]
-                contenido_final = "---\n"
-                contenido_final += f'title: "{titulo}"\n'
-                contenido_final += f"tags: {tags_list}\n"
-                contenido_final += f'created: "{ahora}"\n'
-                if creator_metadata:
-                    contenido_final += creator_metadata
-                contenido_final += "---\n\n"
-                contenido_final += f"# {titulo}\n\n"
-                contenido_final += contenido
+
+                # Extraer frontmatter del contenido si existe
+                extra_metadata, contenido_limpio = _extract_frontmatter_from_content(
+                    contenido
+                )
+
+                # Construir frontmatter unificado
+                frontmatter = _build_frontmatter(
+                    titulo=titulo,
+                    ahora=ahora,
+                    tags_list=tags_list,
+                    agente_creador=agente_creador,
+                    extra_metadata=extra_metadata if extra_metadata else None,
+                )
+
+                contenido_final = frontmatter
+
+                # Añadir título si el contenido limpio no empieza con un heading
+                if not contenido_limpio.lstrip().startswith("#"):
+                    contenido_final += f"# {titulo}\n\n"
+
+                contenido_final += contenido_limpio
 
             # Escribir archivo
             with open(nota_path, "w", encoding="utf-8") as f:
