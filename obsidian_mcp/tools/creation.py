@@ -14,11 +14,153 @@ from fastmcp import FastMCP
 
 from ..config import get_vault_path, get_vault_settings
 from ..utils import (
+    check_path_access,
     find_note_by_name,
     is_path_in_restricted_folder,
     sanitize_filename,
     validate_path_within_vault,
 )
+
+
+def _process_date_placeholders(content: str, date_obj: datetime | None = None) -> str:
+    """
+    Procesa placeholders de fecha en el contenido.
+
+    Soporta formatos:
+    - {{date}} o {{fecha}} -> YYYY-MM-DD
+    - {{date:FORMATO}} -> Formato personalizado estilo Moment.js/Obsidian
+
+    Formatos soportados (subset de Moment.js):
+    - YYYY: Año 4 dígitos (2026)
+    - YY: Año 2 dígitos (26)
+    - MM: Mes 2 dígitos (01-12)
+    - M: Mes sin padding (1-12)
+    - MMMM: Mes nombre completo (Enero)
+    - MMM: Mes abreviado (Ene)
+    - DD: Día 2 dígitos (01-31)
+    - D: Día sin padding (1-31)
+    - dddd: Día de semana completo (Lunes)
+    - ddd: Día de semana abreviado (Lun)
+    - HH: Hora 24h (00-23)
+    - mm: Minutos (00-59)
+    - ss: Segundos (00-59)
+
+    Args:
+        content: Contenido con placeholders de fecha.
+        date_obj: Objeto datetime a usar (por defecto: ahora).
+
+    Returns:
+        Contenido con fechas reemplazadas.
+    """
+    if date_obj is None:
+        date_obj = datetime.now()
+
+    # Mapeo de formatos Moment.js -> strftime
+    # Orden importa: más específicos primero
+    FORMAT_MAP = [
+        ("YYYY", "%Y"),
+        ("YY", "%y"),
+        ("MMMM", "%B"),  # Nombre completo del mes
+        ("MMM", "%b"),  # Nombre abreviado
+        ("MM", "%m"),
+        ("M", "%-m" if hasattr(datetime, "strftime") else "%m"),  # Sin padding
+        ("dddd", "%A"),  # Día de semana completo
+        ("ddd", "%a"),  # Día de semana abreviado
+        ("DD", "%d"),
+        ("D", "%-d" if hasattr(datetime, "strftime") else "%d"),  # Sin padding
+        ("HH", "%H"),
+        ("mm", "%M"),
+        ("ss", "%S"),
+    ]
+
+    # Nombres de meses y días en español
+    MESES_ES = {
+        "January": "Enero",
+        "February": "Febrero",
+        "March": "Marzo",
+        "April": "Abril",
+        "May": "Mayo",
+        "June": "Junio",
+        "July": "Julio",
+        "August": "Agosto",
+        "September": "Septiembre",
+        "October": "Octubre",
+        "November": "Noviembre",
+        "December": "Diciembre",
+        "Jan": "Ene",
+        "Feb": "Feb",
+        "Mar": "Mar",
+        "Apr": "Abr",
+        "Jun": "Jun",
+        "Jul": "Jul",
+        "Aug": "Ago",
+        "Sep": "Sep",
+        "Oct": "Oct",
+        "Nov": "Nov",
+        "Dec": "Dic",
+    }
+    DIAS_ES = {
+        "Monday": "Lunes",
+        "Tuesday": "Martes",
+        "Wednesday": "Miércoles",
+        "Thursday": "Jueves",
+        "Friday": "Viernes",
+        "Saturday": "Sábado",
+        "Sunday": "Domingo",
+        "Mon": "Lun",
+        "Tue": "Mar",
+        "Wed": "Mié",
+        "Thu": "Jue",
+        "Fri": "Vie",
+        "Sat": "Sáb",
+        "Sun": "Dom",
+    }
+
+    def convert_format(moment_format: str) -> str:
+        """Convierte formato Moment.js a strftime y formatea."""
+        result = moment_format
+        for moment, strftime in FORMAT_MAP:
+            result = result.replace(moment, strftime)
+
+        # Formatear con strftime
+        try:
+            formatted = date_obj.strftime(result)
+            # Traducir meses y días al español
+            for en, es in MESES_ES.items():
+                formatted = formatted.replace(en, es)
+            for en, es in DIAS_ES.items():
+                formatted = formatted.replace(en, es)
+            return formatted
+        except ValueError:
+            return moment_format  # Si falla, devolver original
+
+    # Patrón para {{date:FORMATO}} o {{fecha:FORMATO}}
+    pattern_with_format = re.compile(r"\{\{(?:date|fecha):([^}]+)\}\}")
+
+    def replace_with_format(match: re.Match) -> str:
+        formato = match.group(1)
+        return convert_format(formato)
+
+    content = pattern_with_format.sub(replace_with_format, content)
+
+    # Patrón para {{date}} o {{fecha}} sin formato -> YYYY-MM-DD
+    simple_date = date_obj.strftime("%Y-%m-%d")
+    content = re.sub(r"\{\{(?:date|fecha)\}\}", simple_date, content)
+
+    # También reemplazar placeholders literales YYYY-MM-DD (de templates mal escritos)
+    # Solo si están en contexto de metadata (cerca de "created:" o "updated:")
+    content = re.sub(
+        r'(created:\s*["\']?)YYYY-MM-DD(["\']?)',
+        rf"\g<1>{simple_date}\g<2>",
+        content,
+    )
+    content = re.sub(
+        r'(updated:\s*["\']?)YYYY-MM-DD(["\']?)',
+        rf"\g<1>{simple_date}\g<2>",
+        content,
+    )
+
+    return content
 
 
 def _extract_frontmatter_from_content(contenido: str) -> tuple[dict[str, Any], str]:
@@ -269,11 +411,12 @@ def register_creation_tools(mcp: FastMCP) -> None:
                     with open(plantilla_path, "r", encoding="utf-8") as f:
                         plantilla_content = f.read()
 
-                    # Reemplazos básicos
+                    # Reemplazos de título
                     plantilla_content = plantilla_content.replace("{{title}}", titulo)
                     plantilla_content = plantilla_content.replace("{{titulo}}", titulo)
-                    plantilla_content = plantilla_content.replace("{{date}}", ahora)
-                    plantilla_content = plantilla_content.replace("{{fecha}}", ahora)
+
+                    # Procesar todas las fechas con formatos
+                    plantilla_content = _process_date_placeholders(plantilla_content)
 
                     contenido_final = plantilla_content
                     # Si hay contenido adicional, añadirlo al final
@@ -315,6 +458,9 @@ def register_creation_tools(mcp: FastMCP) -> None:
 
                 contenido_final += contenido_limpio
 
+            # Procesar cualquier placeholder de fecha restante en el contenido
+            contenido_final = _process_date_placeholders(contenido_final)
+
             # Escribir archivo
             with open(nota_path, "w", encoding="utf-8") as f:
                 f.write(contenido_final)
@@ -355,6 +501,11 @@ def register_creation_tools(mcp: FastMCP) -> None:
             nota_path = find_note_by_name(nombre_archivo)
             if not nota_path:
                 return f"❌ No se encontró la nota '{nombre_archivo}'"
+
+            # Security: Check access to this path
+            is_allowed, error = check_path_access(nota_path, vault_path, "modificar")
+            if not is_allowed:
+                return error
 
             # Leer contenido actual
             with open(nota_path, "r", encoding="utf-8") as f:
@@ -401,6 +552,11 @@ def register_creation_tools(mcp: FastMCP) -> None:
             nota_path = find_note_by_name(nombre_archivo)
             if not nota_path:
                 return f"❌ No se encontró la nota '{nombre_archivo}'"
+
+            # Security: Check access to this path
+            is_allowed, error = check_path_access(nota_path, vault_path, "eliminar")
+            if not is_allowed:
+                return error
 
             ruta_relativa = nota_path.relative_to(vault_path)
 
@@ -453,9 +609,41 @@ def register_creation_tools(mcp: FastMCP) -> None:
                     "carpetas restringidas"
                 )
 
+            # Process date placeholders
+            contenido_procesado = _process_date_placeholders(nuevo_contenido)
+
+            # Auto-inject or update 'updated' field in frontmatter
+            ahora = datetime.now().strftime("%Y-%m-%d")
+            if contenido_procesado.startswith("---"):
+                # Tiene frontmatter, intentar actualizar 'updated'
+                if re.search(r"^updated:", contenido_procesado, re.MULTILINE):
+                    # Reemplazar valor existente
+                    contenido_procesado = re.sub(
+                        r'^(updated:\s*["\']?)[^"\'\n]+(["\']?)$',
+                        rf"\g<1>{ahora}\g<2>",
+                        contenido_procesado,
+                        count=1,
+                        flags=re.MULTILINE,
+                    )
+                else:
+                    # Añadir 'updated' después de 'created' o al final del frontmatter
+                    if re.search(r"^created:", contenido_procesado, re.MULTILINE):
+                        contenido_procesado = re.sub(
+                            r"^(created:\s*.+)$",
+                            rf"\1\nupdated: {ahora}",
+                            contenido_procesado,
+                            count=1,
+                            flags=re.MULTILINE,
+                        )
+                    else:
+                        # Añadir antes del cierre del frontmatter
+                        contenido_procesado = contenido_procesado.replace(
+                            "\n---\n", f"\nupdated: {ahora}\n---\n", 1
+                        )
+
             # Guardar el nuevo contenido
             with open(nota_path, "w", encoding="utf-8") as f:
-                f.write(nuevo_contenido)
+                f.write(contenido_procesado)
 
             ruta_relativa = nota_path.relative_to(vault_path)
             return f"✅ Nota editada correctamente: {ruta_relativa}"

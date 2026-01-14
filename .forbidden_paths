@@ -1,0 +1,17 @@
+# Rutas prohibidas para agentes IA
+# Soporta globs simples con * y **
+# Líneas que empiezan con # son comentarios
+# Las rutas son relativas al vault
+
+# Carpeta privada completa
+04_Recursos/Privado/*
+
+# Archivos específicos de contraseñas (en cualquier ubicación)
+**/Códigos.md
+**/secrets.md
+**/claves.md
+**/passwords.md
+
+# Archivos de entorno
+**/.env
+**/.env.*

@@ -10,9 +10,11 @@ from fastmcp import FastMCP
 
 from ..config import get_vault_path, get_vault_settings
 from ..utils import (
+    check_path_access,
     find_note_by_name,
     get_logger,
     get_note_metadata,
+    is_path_forbidden,
     is_path_in_restricted_folder,
     validate_path_within_vault,
 )
@@ -58,7 +60,14 @@ def register_navigation_tools(mcp: FastMCP) -> None:
 
             # Organizar por carpetas
             notas_por_carpeta: dict[str, list[dict]] = {}
+            notas_filtradas = 0
             for nota in notas:
+                # Security: Skip forbidden paths
+                is_forbidden, _ = is_path_forbidden(nota, vault_path)
+                if is_forbidden:
+                    notas_filtradas += 1
+                    continue
+
                 ruta_relativa = nota.relative_to(vault_path)
                 carpeta_padre = (
                     str(ruta_relativa.parent)
@@ -72,8 +81,12 @@ def register_navigation_tools(mcp: FastMCP) -> None:
                 metadata = get_note_metadata(nota)
                 notas_por_carpeta[carpeta_padre].append(metadata)
 
+            total_visibles = len(notas) - notas_filtradas
+
             # Formatear resultado
-            resultado = f"📚 Notas encontradas en el vault ({len(notas)} total):\n\n"
+            resultado = (
+                f"📚 Notas encontradas en el vault ({total_visibles} total):\n\n"
+            )
 
             for carpeta_nombre, lista_notas in sorted(notas_por_carpeta.items()):
                 resultado += f"📁 {carpeta_nombre} ({len(lista_notas)} notas):\n"
@@ -102,6 +115,11 @@ def register_navigation_tools(mcp: FastMCP) -> None:
 
             if not nota_path:
                 return f"❌ No se encontró la nota '{nombre_archivo}'"
+
+            # Security: Check access to this path
+            is_allowed, error = check_path_access(nota_path, operation="leer")
+            if not is_allowed:
+                return error
 
             # Leer contenido
             with open(nota_path, "r", encoding="utf-8") as f:
@@ -153,6 +171,12 @@ def register_navigation_tools(mcp: FastMCP) -> None:
 
             for archivo_item in search_path.rglob("*.md"):
                 archivos_revisados += 1
+
+                # Security: Skip forbidden paths
+                is_forbidden_path, _ = is_path_forbidden(archivo_item, vault_path)
+                if is_forbidden_path:
+                    continue
+
                 try:
                     ruta_relativa = archivo_item.relative_to(vault_path)
 
@@ -273,6 +297,11 @@ def register_navigation_tools(mcp: FastMCP) -> None:
             notas_encontradas = []
 
             for archivo in vault_path.rglob("*.md"):
+                # Security: Skip forbidden paths
+                is_forbidden_path, _ = is_path_forbidden(archivo, vault_path)
+                if is_forbidden_path:
+                    continue
+
                 fecha_mod = datetime.fromtimestamp(archivo.stat().st_mtime).date()
 
                 if fecha_inicio <= fecha_mod <= fecha_fin:
@@ -375,3 +404,112 @@ def register_navigation_tools(mcp: FastMCP) -> None:
 
         except Exception as e:
             return f"❌ Error al mover nota: {e}"
+
+    @mcp.tool()
+    def concepto_aleatorio(carpeta: str = "") -> str:
+        """
+        Extrae un concepto aleatorio del vault como flashcard sorpresa.
+        Útil para reforzar conocimiento o descubrir notas olvidadas.
+
+        Args:
+            carpeta: Carpeta específica donde buscar (vacío = todo el vault)
+        """
+        import random
+        import re
+
+        try:
+            vault_path = get_vault_path()
+            if not vault_path:
+                return "❌ Error: La ruta del vault no está configurada."
+
+            search_path = vault_path / carpeta if carpeta else vault_path
+
+            # Buscar todas las notas markdown
+            notas = list(search_path.rglob("*.md"))
+
+            # Filtrar notas del sistema y plantillas
+            notas_filtradas = []
+            for nota in notas:
+                ruta_str = str(nota.relative_to(vault_path))
+                # Excluir sistema, plantillas, y archivos de configuración
+                if any(
+                    excl in ruta_str
+                    for excl in [
+                        "ZZ_Plantillas",
+                        "ZZ_Media",
+                        ".agent",
+                        ".github",
+                        "00_Sistema",
+                        "Tags/",
+                    ]
+                ):
+                    continue
+                # Excluir archivos muy pequeños (< 200 bytes)
+                if nota.stat().st_size < 200:
+                    continue
+                # Security check
+                is_forbidden, _ = is_path_forbidden(nota, vault_path)
+                if is_forbidden:
+                    continue
+                notas_filtradas.append(nota)
+
+            if not notas_filtradas:
+                return "📭 No se encontraron notas válidas para extraer conceptos."
+
+            # Seleccionar nota aleatoria
+            nota_elegida = random.choice(notas_filtradas)
+            ruta_relativa = nota_elegida.relative_to(vault_path)
+
+            # Leer contenido
+            with open(nota_elegida, "r", encoding="utf-8") as f:
+                contenido = f.read()
+
+            # Extraer título (primer H1)
+            titulo_match = re.search(r"^#\s+(.+)$", contenido, re.MULTILINE)
+            titulo = titulo_match.group(1) if titulo_match else nota_elegida.stem
+
+            # Extraer un fragmento significativo
+            # Buscar párrafos (líneas no vacías que no son headers ni listas)
+            lineas = contenido.split("\n")
+            parrafos = []
+            for linea in lineas:
+                linea_strip = linea.strip()
+                # Saltar headers, listas, links, frontmatter, líneas vacías
+                if (
+                    linea_strip
+                    and not linea_strip.startswith("#")
+                    and not linea_strip.startswith("-")
+                    and not linea_strip.startswith("*")
+                    and not linea_strip.startswith(">")
+                    and not linea_strip.startswith("---")
+                    and not linea_strip.startswith("[[")
+                    and len(linea_strip) > 50
+                ):
+                    parrafos.append(linea_strip)
+
+            if parrafos:
+                fragmento = random.choice(parrafos)
+                if len(fragmento) > 300:
+                    fragmento = fragmento[:300] + "..."
+            else:
+                fragmento = "(No se encontró un fragmento de texto significativo)"
+
+            # Tags si existen
+            tags_match = re.search(r"tags:\s*\[([^\]]+)\]", contenido)
+            tags = tags_match.group(1) if tags_match else ""
+
+            # Formatear respuesta
+            resultado = "🎲 **Concepto Aleatorio**\n\n"
+            resultado += f"📄 **{titulo}**\n"
+            resultado += f"📍 `{ruta_relativa}`\n"
+            if tags:
+                resultado += f"🏷️ {tags}\n"
+            resultado += f"\n---\n\n{fragmento}\n"
+            resultado += (
+                f'\n---\n💡 *¿Quieres profundizar? Usa `leer_nota("{ruta_relativa}")`*'
+            )
+
+            return resultado
+
+        except Exception as e:
+            return f"❌ Error: {e}"
