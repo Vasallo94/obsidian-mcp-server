@@ -1,6 +1,7 @@
-import signal
 import contextlib
+import signal
 from typing import Generator
+
 
 class TimeoutError(Exception):
     pass

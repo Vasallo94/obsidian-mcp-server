@@ -4,7 +4,7 @@ Configura y ejecuta el servidor con todas las herramientas, recursos y prompts
 """
 
 import sys
-from typing import Optional
+from typing import Any, Dict, Literal, Optional
 
 from fastmcp import FastMCP
 
@@ -22,6 +22,9 @@ from .tools import (
     register_youtube_tools,
 )
 from .utils import get_logger
+
+# Type alias for supported transport protocols
+TransportType = Literal["stdio", "http", "sse"]
 
 # Configurar logging
 logger = get_logger(__name__)
@@ -84,13 +87,13 @@ def create_server() -> FastMCP:
 
 
 def run_server(
-    transport: str = "stdio",
+    transport: TransportType = "stdio",
     host: Optional[str] = None,
     port: Optional[int] = None,
     path: Optional[str] = None,
 ) -> None:
     """
-    Ejecuta el servidor MCP
+    Ejecuta el servidor MCP.
 
     Args:
         transport: Tipo de transporte ("stdio", "http", "sse")
@@ -108,21 +111,23 @@ def run_server(
         if transport == "stdio":
             mcp.run()
         elif transport == "http":
-            kwargs = {}
+            kwargs: Dict[str, Any] = {}
             if host:
                 kwargs["host"] = host
             if port:
                 kwargs["port"] = str(port)
             if path:
                 kwargs["path"] = path
-            mcp.run(transport="http", **kwargs)  # type: ignore[arg-type]
+            # FastMCP.run() transport param typing is incomplete
+            mcp.run(transport="http", **kwargs)
         elif transport == "sse":
-            kwargs = {}
+            kwargs_sse: Dict[str, Any] = {}
             if host:
-                kwargs["host"] = host
+                kwargs_sse["host"] = host
             if port:
-                kwargs["port"] = str(port)
-            mcp.run(transport="sse", **kwargs)  # type: ignore[arg-type]
+                kwargs_sse["port"] = str(port)
+            # FastMCP.run() transport param typing is incomplete
+            mcp.run(transport="sse", **kwargs_sse)
         else:
             raise ValueError(f"Transporte no soportado: {transport}")
 

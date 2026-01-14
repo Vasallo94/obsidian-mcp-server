@@ -1,19 +1,50 @@
 """
-Utilidades para trabajar con el vault de Obsidian
-Funciones compartidas para manejo de archivos y metadata
+Utilidades para trabajar con el vault de Obsidian.
+
+Funciones compartidas para manejo de archivos, metadata y caché.
 """
 
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List
+from time import time
+from typing import Any, Dict, List, Optional, Tuple
 
-from ..config import get_vault_path
+import aiofiles
+
+from ..config import get_vault_path, get_vault_settings
+
+# --- Note Cache ---
+# Simple time-based cache for find_note_by_name
+_note_cache: Dict[str, Tuple[float, Optional[Path]]] = {}
+
+
+def _get_cache_ttl() -> int:
+    """Get cache TTL from settings."""
+    try:
+        return get_vault_settings().cache_ttl_seconds
+    except Exception:
+        return 300  # Default 5 minutes
+
+
+def invalidate_note_cache(name: Optional[str] = None) -> None:
+    """
+    Invalidate the note cache.
+
+    Args:
+        name: Optional specific note name to invalidate. If None, clears all.
+    """
+    global _note_cache
+    if name is None:
+        _note_cache.clear()
+    else:
+        cache_key = name.lower().replace(".md", "")
+        _note_cache.pop(cache_key, None)
 
 
 def get_vault_stats() -> Dict[str, Any]:
     """
-    Obtiene estadísticas básicas del vault
+    Obtiene estadísticas básicas del vault.
 
     Returns:
         Diccionario con estadísticas del vault
@@ -43,16 +74,39 @@ def get_vault_stats() -> Dict[str, Any]:
     }
 
 
-def find_note_by_name(name: str) -> Path | None:
+def find_note_by_name(name: str, use_cache: bool = True) -> Optional[Path]:
     """
     Busca una nota por nombre en todo el vault (insensible a mayúsculas).
 
     Args:
         name: Nombre de la nota (con o sin extensión .md)
+        use_cache: Si usar resultados cacheados (default: True)
 
     Returns:
         Path de la nota si se encuentra, None en caso contrario
     """
+    cache_key = name.lower().replace(".md", "")
+    cache_ttl = _get_cache_ttl()
+
+    # Check cache
+    if use_cache and cache_key in _note_cache:
+        cached_time, cached_path = _note_cache[cache_key]
+        if time() - cached_time < cache_ttl:
+            # Verify file still exists
+            if cached_path is None or cached_path.exists():
+                return cached_path
+
+    # Perform actual lookup
+    result = _find_note_by_name_impl(name)
+
+    # Cache result
+    _note_cache[cache_key] = (time(), result)
+
+    return result
+
+
+def _find_note_by_name_impl(name: str) -> Optional[Path]:
+    """Internal implementation of note lookup."""
     vault_path = get_vault_path()
     if not vault_path:
         return None
@@ -73,7 +127,7 @@ def find_note_by_name(name: str) -> Path | None:
 
 def get_note_metadata(note_path: Path) -> Dict[str, Any]:
     """
-    Obtiene metadata de una nota
+    Obtiene metadata de una nota.
 
     Args:
         note_path: Path de la nota
@@ -82,14 +136,13 @@ def get_note_metadata(note_path: Path) -> Dict[str, Any]:
         Diccionario con metadata de la nota
     """
     vault_path = get_vault_path()
+    stats = note_path.stat()
+
     if not vault_path:
-        stats = note_path.stat()
         return {
             "name": note_path.name,
             "stem": note_path.stem,
-            "relative_path": str(
-                note_path
-            ),  # Usar ruta absoluta si vault_path no está disponible
+            "relative_path": str(note_path),
             "size_kb": stats.st_size / 1024,
             "modified": datetime.fromtimestamp(stats.st_mtime).strftime(
                 "%Y-%m-%d %H:%M"
@@ -99,8 +152,6 @@ def get_note_metadata(note_path: Path) -> Dict[str, Any]:
             ),
         }
 
-    stats = note_path.stat()
-
     return {
         "name": note_path.name,
         "stem": note_path.stem,
@@ -109,6 +160,38 @@ def get_note_metadata(note_path: Path) -> Dict[str, Any]:
         "modified": datetime.fromtimestamp(stats.st_mtime).strftime("%Y-%m-%d %H:%M"),
         "created": datetime.fromtimestamp(stats.st_ctime).strftime("%Y-%m-%d %H:%M"),
     }
+
+
+# --- Async File Operations ---
+
+
+async def read_note_async(note_path: Path) -> str:
+    """
+    Read note content asynchronously.
+
+    Args:
+        note_path: Path to the note file
+
+    Returns:
+        Content of the note as string
+    """
+    async with aiofiles.open(note_path, "r", encoding="utf-8") as f:
+        return await f.read()
+
+
+async def write_note_async(note_path: Path, content: str) -> None:
+    """
+    Write note content asynchronously.
+
+    Args:
+        note_path: Path to the note file
+        content: Content to write
+    """
+    async with aiofiles.open(note_path, "w", encoding="utf-8") as f:
+        await f.write(content)
+
+
+# --- Tag and Link Extraction ---
 
 
 def extract_tags_from_content(content: str) -> List[str]:
@@ -140,7 +223,9 @@ def extract_tags_from_content(content: str) -> List[str]:
                 # Caso lista YAML o string simple
                 else:
                     # Intentar buscar formato de lista - tag
-                    fm_list = re.findall(r"^\s*-\s*([\w-]+)", frontmatter, re.MULTILINE)
+                    fm_list = re.findall(
+                        r"^\s*-\s*([\w-]+)", frontmatter, re.MULTILINE
+                    )
                     if fm_list:
                         for t in fm_list:
                             tags.add(t.strip())
@@ -162,7 +247,7 @@ def extract_tags_from_content(content: str) -> List[str]:
 
 def extract_internal_links(content: str) -> List[str]:
     """
-    Extrae enlaces internos del contenido de una nota
+    Extrae enlaces internos del contenido de una nota.
 
     Args:
         content: Contenido de la nota
@@ -175,9 +260,12 @@ def extract_internal_links(content: str) -> List[str]:
     return list(set(links))  # Eliminar duplicados
 
 
+# --- Utility Functions ---
+
+
 def format_file_size(size_bytes: int) -> str:
     """
-    Formatea el tamaño de archivo en una unidad legible
+    Formatea el tamaño de archivo en una unidad legible.
 
     Args:
         size_bytes: Tamaño en bytes
@@ -195,7 +283,7 @@ def format_file_size(size_bytes: int) -> str:
 
 def sanitize_filename(filename: str) -> str:
     """
-    Sanitiza un nombre de archivo para que sea válido en el sistema
+    Sanitiza un nombre de archivo para que sea válido en el sistema.
 
     Args:
         filename: Nombre de archivo original

@@ -8,8 +8,16 @@ from pathlib import Path
 
 from fastmcp import FastMCP
 
-from ..config import get_vault_path
-from ..utils import find_note_by_name, get_note_metadata
+from ..config import get_vault_path, get_vault_settings
+from ..utils import (
+    find_note_by_name,
+    get_logger,
+    get_note_metadata,
+    is_path_in_restricted_folder,
+    validate_path_within_vault,
+)
+
+logger = get_logger(__name__)
 
 
 def register_navigation_tools(mcp: FastMCP) -> None:
@@ -179,7 +187,14 @@ def register_navigation_tools(mcp: FastMCP) -> None:
                                         "coincidencia": coincidencia_texto,
                                     }
                                 )
-                except Exception:
+                except UnicodeDecodeError:
+                    logger.debug(f"Could not decode {archivo_item}: encoding error")
+                    continue
+                except PermissionError:
+                    logger.debug(f"Permission denied reading {archivo_item}")
+                    continue
+                except Exception as e:
+                    logger.warning(f"Error reading {archivo_item}: {e}")
                     continue
 
             if not resultados:
@@ -308,14 +323,29 @@ def register_navigation_tools(mcp: FastMCP) -> None:
             if not vault_path:
                 return "❌ Error: Ruta del vault no configurada"
 
-            # Validaciones de seguridad para carpeta PRIVADO
-            # No permitir mover nada HACIA ni DESDE "04_Recursos/Privado"
-            ruta_prohibida = "04_Recursos/Privado"
+            # Security: Validate paths are within vault (prevent path traversal)
+            is_valid, error = validate_path_within_vault(origen, vault_path)
+            if not is_valid:
+                return f"⛔ Error de seguridad (origen): {error}"
 
-            if ruta_prohibida in str(origen) or ruta_prohibida in str(destino):
+            is_valid, error = validate_path_within_vault(destino, vault_path)
+            if not is_valid:
+                return f"⛔ Error de seguridad (destino): {error}"
+
+            # Security: Check restricted folders with proper path validation
+            settings = get_vault_settings()
+            restricted_folders = [settings.private_folder]
+
+            if is_path_in_restricted_folder(origen, restricted_folders, vault_path):
                 return (
-                    f"⛔ ACCESO DENEGADO: No se permite mover archivos hacia/desde "
-                    f"{ruta_prohibida}"
+                    "⛔ ACCESO DENEGADO: No se permite mover archivos desde "
+                    "carpetas restringidas"
+                )
+
+            if is_path_in_restricted_folder(destino, restricted_folders, vault_path):
+                return (
+                    "⛔ ACCESO DENEGADO: No se permite mover archivos hacia "
+                    "carpetas restringidas"
                 )
 
             path_origen = vault_path / origen

@@ -3,6 +3,7 @@ Herramientas de análisis y estadísticas para el vault de Obsidian
 Incluye funciones para generar estadísticas y análisis del vault
 """
 
+import re
 from datetime import datetime
 
 from fastmcp import FastMCP
@@ -142,8 +143,6 @@ def register_analysis_tools(mcp: FastMCP) -> None:
             with open(registry_path, "r", encoding="utf-8") as f:
                 contenido = f.read()
 
-            import re
-
             # Extraer tags (palabras precedidas por comilla o guión y espacio
             # en la sección de listas)
             tags_encontradas = re.findall(r"- `([^`]+)`", contenido)
@@ -180,8 +179,6 @@ def register_analysis_tools(mcp: FastMCP) -> None:
             tags_canonicas = set()
             if registry_path.exists():
                 with open(registry_path, "r", encoding="utf-8") as f:
-                    import re
-
                     tags_canonicas = set(re.findall(r"- `([^`]+)`", f.read()))
 
             # Contador de etiquetas con frecuencia
@@ -290,8 +287,6 @@ def register_analysis_tools(mcp: FastMCP) -> None:
             # 2. Obtener tags del registro (Registro)
             with open(registry_path, "r", encoding="utf-8") as f:
                 contenido_registro = f.read()
-
-            import re
 
             tags_registradas = set(re.findall(r"- `([^`]+)`", contenido_registro))
 

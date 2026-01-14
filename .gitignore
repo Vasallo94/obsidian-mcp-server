@@ -113,6 +113,7 @@ obsidian-mcp*.log
 *.bak
 *.backup
 *~
+tmpclaude-*
 
 # MCP specific files
 mcp-logs/

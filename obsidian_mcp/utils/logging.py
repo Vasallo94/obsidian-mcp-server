@@ -1,17 +1,64 @@
 """
-Configuración de logging para el servidor MCP
+Configuración centralizada de logging para el servidor MCP.
+
+Proporciona funciones para obtener loggers consistentes en toda la aplicación.
 """
 
 import logging
 import sys
 from typing import Optional
 
+# Flag to track if logging has been configured
+_configured = False
+
+
+def _get_log_level() -> int:
+    """Get log level from configuration (lazy import to avoid circular deps)."""
+    try:
+        from ..config import get_app_settings
+
+        settings = get_app_settings()
+        return getattr(logging, settings.log_level.upper(), logging.INFO)
+    except Exception:
+        return logging.INFO
+
+
+def configure_logging(level: Optional[int] = None) -> None:
+    """
+    Configure root logging for the obsidian_mcp package.
+
+    Args:
+        level: Optional log level override. If None, uses config setting.
+    """
+    global _configured
+    if _configured:
+        return
+
+    if level is None:
+        level = _get_log_level()
+
+    # Configure root logger for obsidian_mcp
+    root_logger = logging.getLogger("obsidian_mcp")
+    root_logger.setLevel(level)
+
+    if not root_logger.handlers:
+        formatter = logging.Formatter(
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        )
+        handler = logging.StreamHandler(sys.stderr)
+        handler.setFormatter(formatter)
+        root_logger.addHandler(handler)
+
+    root_logger.propagate = False
+    _configured = True
+
 
 def setup_logging(
-    level: int = logging.INFO, logger_name: Optional[str] = None
+    level: int = logging.INFO,
+    logger_name: Optional[str] = None,
 ) -> logging.Logger:
     """
-    Configura el logging para el servidor MCP
+    Configura el logging para el servidor MCP.
 
     Args:
         level: Nivel de logging (DEBUG, INFO, WARNING, ERROR)
@@ -45,12 +92,15 @@ def setup_logging(
 
 def get_logger(name: str) -> logging.Logger:
     """
-    Obtiene un logger con el nombre especificado
+    Obtiene un logger configurado con el nombre especificado.
+
+    Automatically configures the root obsidian_mcp logger if not yet configured.
 
     Args:
-        name: Nombre del logger
+        name: Nombre del logger (típicamente __name__)
 
     Returns:
         Logger configurado
     """
-    return setup_logging(logger_name=name)
+    configure_logging()
+    return logging.getLogger(name)

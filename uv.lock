@@ -2180,11 +2180,10 @@ source = { editable = "." }
 dependencies = [
     { name = "aiofiles" },
     { name = "fastmcp" },
-    { name = "mypy" },
     { name = "pathspec" },
     { name = "pydantic" },
+    { name = "pydantic-settings" },
     { name = "python-dotenv" },
-    { name = "ruff" },
     { name = "tqdm" },
     { name = "youtube-transcript-api" },
 ]
@@ -2210,6 +2209,7 @@ rag = [
 [package.dev-dependencies]
 dev = [
     { name = "anyio" },
+    { name = "mypy" },
     { name = "pyright" },
     { name = "pytest" },
     { name = "ruff" },
@@ -2229,13 +2229,12 @@ requires-dist = [
     { name = "langchain-ollama", marker = "extra == 'rag'", specifier = ">=0.2.0" },
     { name = "langchain-text-splitters", marker = "extra == 'rag'", specifier = ">=0.3.0" },
     { name = "langgraph", marker = "extra == 'rag'", specifier = ">=0.2.0" },
-    { name = "mypy", specifier = ">=1.19.1" },
     { name = "pathspec", specifier = ">=0.12.1" },
     { name = "pydantic", specifier = ">=2.11.7" },
+    { name = "pydantic-settings", specifier = ">=2.7.0" },
     { name = "python-dotenv", specifier = ">=1.1.1" },
     { name = "pyyaml", marker = "extra == 'rag'", specifier = ">=6.0.0" },
     { name = "rank-bm25", marker = "extra == 'rag'", specifier = ">=0.2.2" },
-    { name = "ruff", specifier = ">=0.14.8" },
     { name = "sentence-transformers", marker = "extra == 'rag'", specifier = ">=3.0.0" },
     { name = "torch", marker = "extra == 'rag'", specifier = ">=2.0.0" },
     { name = "tqdm", specifier = ">=4.66.0" },
@@ -2246,9 +2245,10 @@ provides-extras = ["rag"]
 [package.metadata.requires-dev]
 dev = [
     { name = "anyio", specifier = ">=4.4.0" },
+    { name = "mypy", specifier = ">=1.19.1" },
     { name = "pyright", specifier = ">=1.1.372" },
     { name = "pytest", specifier = ">=8.4.1" },
-    { name = "ruff", specifier = ">=0.5.5" },
+    { name = "ruff", specifier = ">=0.14.8" },
 ]
 
 [[package]]

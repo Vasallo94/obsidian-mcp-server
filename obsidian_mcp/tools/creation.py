@@ -12,8 +12,13 @@ from typing import Any
 import yaml
 from fastmcp import FastMCP
 
-from ..config import get_vault_path
-from ..utils import find_note_by_name, sanitize_filename
+from ..config import get_vault_path, get_vault_settings
+from ..utils import (
+    find_note_by_name,
+    is_path_in_restricted_folder,
+    sanitize_filename,
+    validate_path_within_vault,
+)
 
 
 def _extract_frontmatter_from_content(contenido: str) -> tuple[dict[str, Any], str]:
@@ -132,16 +137,17 @@ def register_creation_tools(mcp: FastMCP) -> None:
             if not vault_path:
                 return "❌ Error: La ruta del vault no está configurada."
 
-            plantillas_path = vault_path / "ZZ_Plantillas"
+            settings = get_vault_settings()
+            plantillas_path = vault_path / settings.templates_folder
             if not plantillas_path.exists():
-                return "❌ No se encontró la carpeta 'ZZ_Plantillas'"
+                return f"❌ No se encontró la carpeta '{settings.templates_folder}'"
 
             plantillas = []
             for item in sorted(plantillas_path.glob("*.md")):
                 plantillas.append(item.name)
 
             if not plantillas:
-                return "ℹ️ No hay plantillas disponibles en ZZ_Plantillas"
+                return f"ℹ️ No hay plantillas disponibles en {settings.templates_folder}"
 
             return "📝 **Plantillas disponibles:**\n" + "\n".join(
                 [f"- {p}" for p in plantillas]
@@ -168,7 +174,8 @@ def register_creation_tools(mcp: FastMCP) -> None:
         elif any(k in texto for k in ["psicología", "cognitivo", "mente", "ego"]):
             return "📂 Sugerencia: `02_Aprendizaje/Psicología`"
 
-        return "📂 Sugerencia: `01_Inbox` (Categoría general)"
+        settings = get_vault_settings()
+        return f"📂 Sugerencia: `{settings.inbox_folder}` (Categoría general)"
 
     @mcp.tool()
     def sugerir_ubicacion(titulo: str, contenido: str, etiquetas: str = "") -> str:
@@ -215,14 +222,13 @@ def register_creation_tools(mcp: FastMCP) -> None:
             nombre_archivo = sanitize_filename(titulo)
 
             # Determinar ruta (si no hay carpeta, sugerir una o usar Inbox)
+            settings = get_vault_settings()
             if not carpeta:
                 # Intento de sugerencia automática si no se especifica
                 res_sug = _get_sugerencia_ubicacion(titulo, contenido, etiquetas)
                 # Extrae el path de vuelta entre backticks: 📂 Sugerencia: `path`
-                import re
-
                 match = re.search(r"`([^`]+)`", res_sug)
-                carpeta_sugerida = match.group(1) if match else "01_Inbox"
+                carpeta_sugerida = match.group(1) if match else settings.inbox_folder
                 carpeta = carpeta_sugerida
 
             carpeta_path = vault_path / carpeta
@@ -231,6 +237,19 @@ def register_creation_tools(mcp: FastMCP) -> None:
 
             if not nota_path.suffix == ".md":
                 nota_path = nota_path.with_suffix(".md")
+
+            # Security: Validate path is within vault (prevent path traversal)
+            is_valid, error = validate_path_within_vault(nota_path, vault_path)
+            if not is_valid:
+                return f"⛔ Error de seguridad: {error}"
+
+            # Security: Prevent creating notes in restricted folders
+            restricted_folders = [settings.private_folder]
+            if is_path_in_restricted_folder(nota_path, restricted_folders, vault_path):
+                return (
+                    "⛔ ACCESO DENEGADO: No se permite crear notas en "
+                    "carpetas restringidas"
+                )
 
             # Verificar si ya existe
             if nota_path.exists():
@@ -242,7 +261,7 @@ def register_creation_tools(mcp: FastMCP) -> None:
 
             # Si se usa plantilla
             if plantilla:
-                plantilla_path = vault_path / "ZZ_Plantillas" / plantilla
+                plantilla_path = vault_path / settings.templates_folder / plantilla
                 if not plantilla.endswith(".md"):
                     plantilla_path = plantilla_path.with_suffix(".md")
 
@@ -420,12 +439,18 @@ def register_creation_tools(mcp: FastMCP) -> None:
             if not nota_path:
                 return f"❌ No se encontró la nota '{nombre_archivo}'"
 
-            # Protección: no editar archivos en carpeta Privado
-            ruta_prohibida = "04_Recursos/Privado"
-            if ruta_prohibida in str(nota_path):
+            # Security: Validate path is within vault
+            is_valid, error = validate_path_within_vault(nota_path, vault_path)
+            if not is_valid:
+                return f"⛔ Error de seguridad: {error}"
+
+            # Security: Check restricted folders with proper path validation
+            settings = get_vault_settings()
+            restricted_folders = [settings.private_folder]
+            if is_path_in_restricted_folder(nota_path, restricted_folders, vault_path):
                 return (
-                    f"⛔ ACCESO DENEGADO: No se permite editar archivos en "
-                    f"{ruta_prohibida}"
+                    "⛔ ACCESO DENEGADO: No se permite editar archivos en "
+                    "carpetas restringidas"
                 )
 
             # Guardar el nuevo contenido

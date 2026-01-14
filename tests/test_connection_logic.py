@@ -3,6 +3,14 @@ import sys
 import unittest
 from unittest.mock import MagicMock
 
+# Check if numpy is available (required for vectorized tests)
+try:
+    import numpy  # noqa: F401
+
+    HAS_NUMPY = True
+except ImportError:
+    HAS_NUMPY = False
+
 # Add project root to path
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, project_root)
@@ -39,7 +47,7 @@ internal_mocks = [
 for mod in internal_mocks:
     sys.modules[mod] = MagicMock()
 
-from obsidian_mcp.semantic.service import SemanticService
+from obsidian_mcp.semantic.service import SemanticService  # noqa: E402
 
 
 class TestConnectionLogic(unittest.TestCase):
@@ -48,6 +56,7 @@ class TestConnectionLogic(unittest.TestCase):
         self.service._db = MagicMock()
         self.service._ensure_db = MagicMock()
 
+    @unittest.skipUnless(HAS_NUMPY, "numpy is required for vectorized tests")
     def test_suggest_connections_vectorized(self):
         # Setup mock data with known embeddings
         # Note A and Note B are identical vectors -> max similarity (1.0)

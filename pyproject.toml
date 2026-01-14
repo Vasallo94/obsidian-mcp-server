@@ -23,11 +23,10 @@ classifiers = [
 dependencies = [
     "aiofiles>=25.1.0",
     "fastmcp>=2.9.2",
-    "mypy>=1.19.1",
     "pathspec>=0.12.1",
     "pydantic>=2.11.7",
+    "pydantic-settings>=2.7.0",
     "python-dotenv>=1.1.1",
-    "ruff>=0.14.8",
     "tqdm>=4.66.0",
     "youtube-transcript-api>=1.2.3",
 ]
@@ -57,8 +56,9 @@ obsidian-mcp-server = "obsidian_mcp.server:main"
 dev = [
     "pytest>=8.4.1",
     "anyio>=4.4.0",
-    "ruff>=0.5.5",
+    "ruff>=0.14.8",
     "pyright>=1.1.372",
+    "mypy>=1.19.1",
 ]
 
 [tool.hatch.build.targets.wheel]

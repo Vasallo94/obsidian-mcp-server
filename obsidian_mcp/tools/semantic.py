@@ -128,7 +128,7 @@ def register_semantic_tools(mcp: FastMCP) -> None:
                 limite: Máximo de sugerencias.
                 carpetas_incluir: Lista de carpetas donde buscar (e.g. ["03_Notas"]).
                                   Si se omite, busca en todo excepto exclusiones.
-                excluir_mocs: Ignorar archivos MOC, Home, Inbox y sistema. (Default: True).
+                excluir_mocs: Ignorar MOC, Home, Inbox y sistema. (Default: True).
                 min_palabras: Ignorar notas con menos de X palabras. (Default: 150).
             """
             service = get_semantic_service()

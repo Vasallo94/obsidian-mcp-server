@@ -2,6 +2,7 @@
 
 import logging
 import os
+import re
 import traceback
 from typing import Any, Dict, List, Optional
 
@@ -152,8 +153,6 @@ class SemanticService:
 
         # 2. Filter by patterns (MOCs, System files)
         if excluir_mocs:
-            import re
-
             for pattern in PATRONES_EXCLUIDOS:
                 if re.match(pattern, filename):
                     return True
@@ -162,8 +161,6 @@ class SemanticService:
 
     def _extract_section_header(self, content: str) -> str:
         """Attempt to find the nearest header in the chunk"""
-        import re
-
         # Look for headers in the content
         headers = re.findall(r"^(#{1,6})\s+(.+)$", content, re.MULTILINE)
         if headers:
@@ -267,10 +264,8 @@ class SemanticService:
 
                     # 5. Extract Suggestions
                     suggestions = []
-                    checked_pairs = set()
 
-                    # Iterate only the upper triangle to avoid duplicates and self-matches
-                    # triu_indices returns (rows, cols) indices
+                    # Upper triangle only: avoids duplicates and self-matches
                     rows, cols = np.triu_indices(n_docs, k=1)
 
                     # Filter by threshold mask
@@ -281,7 +276,7 @@ class SemanticService:
 
                     # Process candidates
                     # Use tqdm for progress update if many candidates
-                    iterator = zip(valid_rows, valid_cols, valid_scores)
+                    iterator = zip(valid_rows, valid_cols, valid_scores, strict=False)
                     if len(valid_rows) > 1000:
                         iterator = tqdm(
                             iterator, total=len(valid_rows), desc="Filtering candidates"
@@ -344,7 +339,7 @@ class SemanticService:
                         "words_b": 0,
                         "section_a": "",
                         "section_b": "",
-                        "reason": "La operación tardó demasiado. Prueba a reducir el umbral o filtrar carpetas.",
+                        "reason": "Timeout. Reduce el umbral o filtra carpetas.",
                     }
                 ]
         except Exception as e:
