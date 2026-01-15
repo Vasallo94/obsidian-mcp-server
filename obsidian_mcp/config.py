@@ -29,7 +29,7 @@ class VaultSettings(BaseSettings):
 
     # Folder names (previously hardcoded across multiple files)
     templates_folder: str = Field(
-        default="ZZ_Plantillas",
+        default="06_Plantillas",
         description="Name of the templates folder",
     )
     system_folder: str = Field(
@@ -37,7 +37,7 @@ class VaultSettings(BaseSettings):
         description="Name of the system folder",
     )
     inbox_folder: str = Field(
-        default="01_Inbox",
+        default="00_Bandeja",
         description="Default inbox folder for new notes",
     )
     private_folder: str = Field(
@@ -47,7 +47,7 @@ class VaultSettings(BaseSettings):
 
     # Exclusions for semantic search
     excluded_folders: List[str] = Field(
-        default=["00_Sistema", "ZZ_Plantillas", "04_Recursos/Obsidian"],
+        default=["00_Sistema", "06_Plantillas", "04_Recursos/Obsidian"],
         description="Folders to exclude from semantic search",
     )
     excluded_patterns: List[str] = Field(
