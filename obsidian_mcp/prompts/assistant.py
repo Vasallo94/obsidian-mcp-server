@@ -5,6 +5,7 @@ Prompts especializados para el asistente de Obsidian
 from fastmcp import FastMCP
 
 from ..config import get_vault_path
+from ..tools.agents import SkillInfo, _get_cached_skills
 
 
 def register_assistant_prompts(mcp: FastMCP) -> None:
@@ -24,8 +25,29 @@ def register_assistant_prompts(mcp: FastMCP) -> None:
         else:
             vault_name = vault_path.name
 
+        # Obtener skills dinámicamente del vault
+        skills_section = ""
+        if vault_path:
+            skills = _get_cached_skills(str(vault_path))
+            valid_skills = [
+                s for s in skills.values() if isinstance(s, SkillInfo)
+            ]
+            if valid_skills:
+                skills_section = "\n        🎭 **SKILLS ESPECIALIZADAS DISPONIBLES:**\n"
+                for skill in valid_skills:
+                    skills_section += (
+                        f"        - **{skill.metadata.name}** (`{skill.folder_name}`): "
+                        f"{skill.metadata.description}\n"
+                    )
+                skills_section += """
+        ⚠️ **IMPORTANTE**: Antes de realizar tareas complejas (documentación,
+        escritura, análisis), DEBES cargar la skill apropiada usando:
+        `obtener_instrucciones_agente("nombre_skill")`
+        """
+
         return f"""
         Soy tu asistente especializado para el vault de Obsidian '{vault_name}'.
+        {skills_section}
         
         🧠 **CAPACIDADES DISPONIBLES:**
         
