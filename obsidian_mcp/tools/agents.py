@@ -8,7 +8,7 @@ Mejoras v2:
 - Parsing estructurado de YAML frontmatter
 - Validación de schema con Pydantic
 - Caché en memoria para evitar re-lecturas innecesarias
-- Soporte para .agent/GLOBAL.md como reglas globales
+- Soporte para .agent/REGLAS_GLOBALES.md como reglas globales
 """
 
 from __future__ import annotations
@@ -233,8 +233,8 @@ def register_agent_tools(mcp: FastMCP) -> None:
             if not vault_path:
                 return "❌ Error: La ruta del vault no está configurada."
 
-            # Nueva ubicación preferida: .agent/GLOBAL.md
-            new_rules_path = vault_path / ".agent" / "GLOBAL.md"
+            # Nueva ubicación preferida: .agent/REGLAS_GLOBALES.md
+            new_rules_path = vault_path / ".agent" / "REGLAS_GLOBALES.md"
 
             # Fallback a ubicación legacy
             legacy_rules_path = vault_path / ".github" / "copilot-instructions.md"
@@ -246,7 +246,9 @@ def register_agent_tools(mcp: FastMCP) -> None:
                 rules_path = legacy_rules_path
 
             if not rules_path:
-                return "ℹ️ No se encontraron reglas globales (.agent/GLOBAL.md)."
+                return (
+                    "ℹ️ No se encontraron reglas globales (.agent/REGLAS_GLOBALES.md)."
+                )
 
             contenido = rules_path.read_text(encoding="utf-8")
             location = "📍 " + str(rules_path.relative_to(vault_path))
