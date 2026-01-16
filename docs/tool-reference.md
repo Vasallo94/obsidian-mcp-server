@@ -49,7 +49,13 @@ Herramientas basadas en inteligencia artificial y embeddings.
 ## 📺 YouTube
 - **`get_youtube_transcript(url, language)`**: Descarga la transcripción de un video para procesarla como una nota más.
 
-## 🤖 Agentes
-- **`listar_agentes()`**: Muestra las personalidades disponibles en `.github/agents/`.
-- **`obtener_instrucciones_agente(nombre)`**: Lee el prompt específico de un agente.
-- **`obtener_reglas_globales()`**: Lee las instrucciones maestras del vault.
+## 🤖 Skills (Agentes)
+
+Las skills son personalidades o roles especializados que defines en **tu vault de Obsidian** (no en el repositorio del MCP). Se almacenan en la carpeta `.agent/skills/` dentro de tu vault.
+
+> **Importante**: Estas herramientas leen archivos desde tu vault, no desde el servidor MCP.
+
+- **`listar_agentes()`**: Lista las skills disponibles en `{tu_vault}/.agent/skills/`.
+- **`obtener_instrucciones_agente(nombre)`**: Lee el contenido de una skill específica (`SKILL.md`).
+- **`obtener_reglas_globales()`**: Lee las reglas globales desde `{tu_vault}/.agent/REGLAS_GLOBALES.md`.
+- **`refrescar_cache_skills()`**: Invalida el caché de skills (útil tras editar archivos).

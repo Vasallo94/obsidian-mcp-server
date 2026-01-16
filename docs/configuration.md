@@ -17,26 +17,6 @@ OBSIDIAN_VAULT_PATH="/Users/enrique/Documentos/MiCerebroDigital"
 LOG_LEVEL="DEBUG"
 ```
 
-## Estructuras Especiales del Vault
-
-El servidor interactúa con ciertas carpetas y archivos específicos para ofrecer funcionalidades avanzadas:
-
-### 1. Plantillas (`ZZ_Plantillas/`)
-El servidor busca automáticamente plantillas en esta carpeta cuando se usa la herramienta `crear_nota`.
-- **Variables soportadas**: `{{title}}` (se reemplaza por el título de la nota) y `{{date}}` (fecha actual).
-- **Tip**: Mantén tus plantillas en formato `.md`.
-
-### 2. Agentes (`.github/agents/`)
-Aquí es donde reside la "personalidad" de tu IA.
-- El servidor lista cualquier archivo que termine en `.agent.md` o `.md` dentro de esta carpeta.
-- Estos archivos contienen los system prompts que el agente debe seguir para tareas específicas (ej: Investigador, Guardián).
-
-### 3. Registro de Tags (`Registro de Tags del Vault.md`)
-Utilizado por las herramientas de análisis para validar el uso de etiquetas.
-- El servidor intenta leer las etiquetas "oficiales" de este archivo para compararlas con las usadas en tus notas.
-
-### 4. Instrucciones Globales (`.github/copilot-instructions.md`)
-Contiene las reglas de oro que el agente siempre debe recordar al interactuar con tu vault.
 
 ## Seguridad y Exclusiones
 
@@ -130,3 +110,68 @@ En Windows, si usas `npx` o scripts que requieren shell, usa el prefijo `cmd /c`
   "args": ["/c", "uv", "run", "--directory", "C:/ruta/al/servidor", "obsidian-mcp-server"]
 }
 ```
+
+## 🤖 Skills y Reglas Globales (en tu Vault)
+
+El servidor MCP puede leer **skills** (personalidades/roles de IA) y **reglas globales** directamente desde tu vault de Obsidian. Estos archivos **no están en el repositorio del MCP**, sino en tu vault personal.
+
+### Estructura esperada en tu Vault
+
+```
+Tu_Vault/
+├── .agent/
+│   ├── REGLAS_GLOBALES.md      # Instrucciones generales para el asistente
+│   └── skills/
+│       ├── escritor/
+│       │   └── SKILL.md        # Definición de la skill "escritor"
+│       ├── investigador/
+│       │   └── SKILL.md
+│       └── revisor/
+│           └── SKILL.md
+```
+
+### Formato de SKILL.md
+
+Cada skill se define con un archivo `SKILL.md` que contiene frontmatter YAML y el prompt:
+
+```markdown
+---
+name: Escritor Técnico
+description: Especialista en documentación clara y concisa
+tools:
+  - crear_nota
+  - editar_nota
+  - buscar_en_notas
+---
+
+# Instrucciones
+
+Eres un escritor técnico especializado en...
+
+## Estilo
+- Usa voz activa
+- Evita jerga innecesaria
+...
+```
+
+### Campos del frontmatter
+
+| Campo | Requerido | Descripción |
+| :--- | :---: | :--- |
+| `name` | Sí | Nombre legible de la skill |
+| `description` | Sí | Descripción breve del rol |
+| `tools` | No | Lista de herramientas MCP que esta skill puede usar |
+
+### REGLAS_GLOBALES.md
+
+Este archivo contiene instrucciones que aplican a **todas** las interacciones con el asistente, independientemente de la skill activa. Por ejemplo:
+
+```markdown
+# Reglas Globales del Vault
+
+- Siempre usa español
+- Prefiere etiquetas existentes antes de crear nuevas
+- No modifiques notas en 00_Sistema sin confirmación
+```
+
+> **Nota**: El servidor también busca en `.github/copilot-instructions.md` como ubicación legacy.

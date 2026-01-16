@@ -1,5 +1,5 @@
 """
-Herramientas para la integración de Habilidades (Skills) de Antigravity.
+Herramientas para la integración de Habilidades (Skills).
 
 Estas herramientas permiten al cliente MCP leer las definiciones y prompts
 de las skills almacenadas en la carpeta .agent/skills del vault.

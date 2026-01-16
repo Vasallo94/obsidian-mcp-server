@@ -75,13 +75,70 @@ This document contains critical information about working with this codebase. Fo
 
 ## System Architecture
 
-[fill in here]
+This is an MCP (Model Context Protocol) server built with FastMCP that exposes Obsidian vault operations as tools, resources, and prompts.
+
+```
+obsidian-mcp-server/
+├── obsidian_mcp/
+│   ├── server.py          # Entry point - creates FastMCP instance and registers all modules
+│   ├── config.py          # Pydantic Settings for env vars (OBSIDIAN_VAULT_PATH, LOG_LEVEL)
+│   ├── tools/             # MCP Tools (callable functions)
+│   │   ├── navigation.py  # Read, list, search notes
+│   │   ├── creation.py    # Create, edit, delete notes
+│   │   ├── analysis.py    # Vault stats, tag management
+│   │   ├── graph.py       # Backlinks, orphan detection
+│   │   ├── agents.py      # Skills loader (reads from user's vault/.agent/skills/)
+│   │   ├── semantic.py    # RAG/vector search integration
+│   │   ├── context.py     # Vault context and structure
+│   │   └── youtube.py     # Transcript extraction
+│   ├── semantic/          # Optional RAG module (ChromaDB)
+│   │   ├── indexer.py     # Embedding generation
+│   │   ├── retriever.py   # Similarity search
+│   │   └── service.py     # High-level RAG API
+│   ├── resources/         # MCP Resources (read-only data endpoints)
+│   ├── prompts/           # MCP Prompts (system prompts for AI)
+│   └── utils/             # Shared utilities
+│       ├── logging.py     # Centralized logging (stderr)
+│       ├── security.py    # Path validation
+│       └── vault.py       # Vault file operations
+├── tests/                 # Pytest test suite
+└── docs/                  # Documentation
+```
 
 ## Core Components
 
-- `config.py`: Configuration management
-- `daemon.py`: Main daemon
-[etc... fill in here]
+### Entry Point
+- `server.py`: Creates `FastMCP` instance, validates config, registers all tool modules
+
+### Configuration
+- `config.py`: Pydantic Settings loading from `.env`
+  - `OBSIDIAN_VAULT_PATH`: Absolute path to vault (required)
+  - `LOG_LEVEL`: DEBUG|INFO|WARNING|ERROR (default: INFO)
+  - Folder names, exclusions, timeouts are configurable
+
+### Tools Pattern
+Each tool module follows this pattern:
+```python
+from fastmcp import FastMCP
+from ..config import get_vault_path
+
+def register_xxx_tools(mcp: FastMCP) -> None:
+    @mcp.tool()
+    def my_tool(param: str) -> str:
+        vault_path = get_vault_path()
+        # ... implementation
+        return result
+```
+
+### Skills System
+Skills are loaded from the **user's vault**, not this repo:
+- Location: `{vault}/.agent/skills/{skill_name}/SKILL.md`
+- Format: YAML frontmatter (name, description, tools) + Markdown body
+- Global rules: `{vault}/.agent/REGLAS_GLOBALES.md`
+
+### Logging
+- All logs go to `stderr` (stdout is reserved for MCP protocol)
+- Use `from ..utils import get_logger; logger = get_logger(__name__)`
 
 ## Pull Requests
 

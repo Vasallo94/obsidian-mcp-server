@@ -3,7 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 
-Un servidor avanzado de **MCP** (Model Context Protocol) que convierte tu vault de Obsidian en un cerebro dinámico para tu IA (Claude Desktop, IDEs, etc.). Mucho más que un lector de archivos: es un ecosistema de herramientas para la gestión del conocimiento, automatización y análisis semántico.
+Un servidor avanzado de **MCP** (Model Context Protocol) que convierte tu vault de Obsidian en un cerebro dinámico para tu IA (Claude Desktop, Claude Code, Cursor, etc.). Mucho más que un lector de archivos: es un ecosistema de herramientas para la gestión del conocimiento, automatización y análisis semántico.
 
 ---
 
@@ -12,17 +12,18 @@ Un servidor avanzado de **MCP** (Model Context Protocol) que convierte tu vault 
 ### 🛠️ Ecosistema de Herramientas (30+)
 El servidor expone una amplia variedad de herramientas categorizadas por su función:
 - **📂 Navegación**: Listado inteligente, lectura recursiva y búsqueda avanzada.
-- **✍️ Creación y Edición**: Uso automático de plantillas (`ZZ_Plantillas`), sugerencia de ubicación y edición con preservación de metadatos.
+- **✍️ Creación y Edición**: Uso automático de plantillas, sugerencia de ubicación y edición con preservación de metadatos.
 - **📊 Análisis y Calidad**: Estadísticas del vault, sincronización de etiquetas con el registro oficial y comprobación de integridad.
 - **🕸️ Grafos y Conexiones**: Análisis de backlinks, detección de notas huérfanas y visualización de grafos locales.
-- **🤖 Sistema de Agentes**: Carga dinámica de personalidades desde `.github/agents`.
+- **🤖 Skills (Agentes)**: Carga dinámica de personalidades/roles desde tu vault (`{vault}/.agent/skills/`).
 - **🔍 Búsqueda Semántica (RAG)**: Búsquedas por significado, sugerencia de conexiones no obvias e indexación vectorial.
 - **📺 YouTube**: Extracción de transcripciones para alimentar tu base de conocimientos.
 
 ### 🤖 Inteligencia Integrada
-- **Plantillas Dinámicas**: Reemplazo automático de variables en archivos de `ZZ_Plantillas`.
+- **Plantillas Dinámicas**: Reemplazo automático de variables en archivos de plantillas.
 - **Smart Tagging**: Consulta el historial de etiquetas para mantener la coherencia semántica.
 - **Seguridad**: Protección estricta de carpetas sensibles y validación de rutas.
+- **Skills Personalizables**: Define roles de IA en tu vault para tareas específicas.
 
 ---
 

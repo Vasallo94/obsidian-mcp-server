@@ -45,7 +45,7 @@ Cada dominio funcional tiene su propio archivo, lo que facilita el mantenimiento
 - **`creation.py`**: Lógica de escritura, plantillas y gestión de archivos.
 - **`analysis.py`**: Auditoría de metadatos y etiquetas.
 - **`graph.py`**: Navegación por las conexiones entre notas.
-- **`agents.py`**: Puente hacia las personalidades personalizadas almacenadas en el vault.
+- **`agents.py`**: Lee las skills (personalidades/roles) desde `{vault}/.agent/skills/` y las reglas globales desde `{vault}/.agent/REGLAS_GLOBALES.md`. Estos archivos están en el vault del usuario, no en el repositorio del MCP.
 - **`semantic.py`**: Integración con el motor de búsqueda vectorial.
 - **`youtube.py`**: Utilidad externa para transcripciones.
 
