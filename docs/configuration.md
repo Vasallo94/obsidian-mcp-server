@@ -48,3 +48,85 @@ Por diseño, el servidor ignora carpetas de sistema y ocultas para evitar fugas 
 
 > [!WARNING]
 > Nunca apuntes `OBSIDIAN_VAULT_PATH` a una carpeta que contenga información privada sensible fuera de Obsidian, ya que el agente podría leerla si tiene permisos de lectura.
+
+## 🔌 Integración con Clientes MCP
+
+El servidor puede configurarse para múltiples clientes MCP. A continuación se muestran las configuraciones para los más comunes.
+
+### Claude Code (CLI)
+
+```bash
+# Añadir a nivel de usuario (disponible en todos los proyectos)
+claude mcp add-json --scope user obsidian '{
+  "command": "uv",
+  "args": ["run", "--directory", "/ruta/a/obsidian-mcp-server", "obsidian-mcp-server"],
+  "env": {
+    "OBSIDIAN_VAULT_PATH": "/ruta/a/tu/vault"
+  }
+}'
+```
+
+### Claude Desktop
+
+Archivo: `%APPDATA%\Claude\claude_desktop_config.json` (Windows) o `~/.config/claude/claude_desktop_config.json` (Linux/Mac)
+
+```json
+{
+  "mcpServers": {
+    "obsidian": {
+      "command": "uv",
+      "args": ["run", "--directory", "/ruta/a/obsidian-mcp-server", "obsidian-mcp-server"],
+      "env": {
+        "OBSIDIAN_VAULT_PATH": "/ruta/a/tu/vault"
+      }
+    }
+  }
+}
+```
+
+### VSCode (Extensión Claude / GitHub Copilot)
+
+Archivo: `~/.vscode/mcp.json`
+
+```json
+{
+  "servers": {
+    "obsidian": {
+      "command": "uv",
+      "args": ["run", "--directory", "/ruta/a/obsidian-mcp-server", "obsidian-mcp-server"],
+      "env": {
+        "OBSIDIAN_VAULT_PATH": "/ruta/a/tu/vault"
+      }
+    }
+  }
+}
+```
+
+### Gemini CLI
+
+Archivo: `~/.gemini/settings.json`
+
+```json
+{
+  "mcpServers": {
+    "obsidian": {
+      "command": "uv",
+      "args": ["run", "--directory", "/ruta/a/obsidian-mcp-server", "obsidian-mcp-server"],
+      "env": {
+        "OBSIDIAN_VAULT_PATH": "/ruta/a/tu/vault"
+      }
+    }
+  }
+}
+```
+
+### Nota para Windows
+
+En Windows, si usas `npx` o scripts que requieren shell, usa el prefijo `cmd /c`:
+
+```json
+{
+  "command": "cmd",
+  "args": ["/c", "uv", "run", "--directory", "C:/ruta/al/servidor", "obsidian-mcp-server"]
+}
+```
