@@ -8,21 +8,20 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 ## [Unreleased]
 
 ### Added
-- Implementado sistema de seguridad con `.forbidden_paths` para restringir acceso a carpetas sensibles.
-- Añadida función `check_path_access` en `security.py` integrada en herramientas de navegación y creación.
-- Soporte para placeholders de fecha dinámicos `{{date:FORMAT}}` y `{{fecha:FORMAT}}` en `crear_nota`.
-- Nueva herramienta `refrescar_cache_skills()` para invalidar el caché de skills.
+- Nueva arquitectura **Vault-Agnostic**: el servidor es ahora genérico e independiente de la estructura de carpetas.
+- Lógica de **auto-detección inteligente** de carpetas de plantillas y recursos.
+- Configuración opcional mediante `.agent/vault.yaml` para personalización avanzada de rutas y privacidad.
+- Soporte para **procesamiento de fechas** dinámico (`{{date}}`, `{{fecha}}`) en `crear_nota`.
+- Seguridad mejorada con **listas blancas y negras** configurables mediante `private_paths`.
+- Herramienta `leer_contexto_vault` mejorada con resumen de estructura y etiquetas.
 
 ### Changed
-- Actualizada lógica de `crear_nota` para procesar correctamente metadatos de fecha en YAML frontmatter.
-- Mejorada la validación de rutas en herramientas de sistema de archivos.
-
-### Fixed
-- Corregido error en la actualización del campo `updated` al editar notas.
+- Refactorizado `vault_config.py` para un enfoque minimalista y no prescriptivo.
+- Herramientas de navegación, creación y seguridad migradas para usar la nueva arquitectura dinámica.
+- Prompt del asistente actualizado para priorizar el chequeo de `skills` disponibles.
 
 ### Docs
-- Clarificada ubicación de skills: están en el vault del usuario (`{vault}/.agent/skills/`), no en el repositorio.
-- Actualizada documentación en README, architecture.md, tool-reference.md y configuration.md.
-- Añadida sección completa sobre estructura de skills y REGLAS_GLOBALES.md en configuration.md.
-- Completada arquitectura del sistema en `.github/copilot-instructions.md`.
-- Expandida skill `mcp-developer` con patrones de código y guía de desarrollo.
+- Nueva guía: `docs/agent-folder-setup.md`.
+- Roadmap de mejoras futuras: `docs/FUTURE.md`.
+- Actualizados `README.md`, `configuration.md`, `tool-reference.md` y `architecture.md` con los nuevos patrones.
+- Añadidos ejemplos de `SKILL.md` y `REGLAS_GLOBALES.md` en `docs/examples/`.

@@ -24,6 +24,7 @@ graph TD
     
     subgraph Core
         E[Config]
+        H[Vault Config]
         F[Utils]
         G[Semantic Service]
     end
@@ -55,8 +56,9 @@ Este es un componente opcional (requiere dependencias extras) que gestiona:
 - **RAG**: Pipeline de recuperación de información basado en similitud de coseno.
 - **Metadatos**: Tracking de cambios para actualizaciones parciales del índice.
 
-### 4. Utilidades y Configuración (`obsidian_mcp/utils/` y `config.py`)
+### 4. Utilidades y Configuración (`obsidian_mcp/utils/` y archivos de config)
 - **`config.py`**: Gestión centralizada de variables de entorno mediante `python-dotenv`.
+- **`vault_config.py`**: Lógica de auto-detección de la estructura del vault y carga opcional de `.agent/vault.yaml`.
 - **`utils/`**: Funciones compartidas para manejo de strings, extracción de etiquetas y búsqueda de archivos.
 
 ## Flujo de una Petición MCP

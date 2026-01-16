@@ -20,10 +20,9 @@ El servidor expone una amplia variedad de herramientas categorizadas por su func
 - **📺 YouTube**: Extracción de transcripciones para alimentar tu base de conocimientos.
 
 ### 🤖 Inteligencia Integrada
-- **Plantillas Dinámicas**: Reemplazo automático de variables en archivos de plantillas.
-- **Smart Tagging**: Consulta el historial de etiquetas para mantener la coherencia semántica.
-- **Seguridad**: Protección estricta de carpetas sensibles y validación de rutas.
-- **Skills Personalizables**: Define roles de IA en tu vault para tareas específicas.
+- **Arquitectura Vault-Agnostic**: Independiente de la estructura de carpetas; utiliza auto-detección inteligente para encontrar plantillas y recursos.
+- **Seguridad**: Protección estricta de carpetas sensibles mediante `.forbidden_paths` y configuración de privacidad en el vault.
+- **Skills Personalizables**: Define roles de IA en tu vault (`.agent/skills/`) para tareas específicas.
 
 ---
 
@@ -79,8 +78,9 @@ Para profundizar en el funcionamiento del servidor, consulta nuestras guías det
 
 1.  [🏛️ Arquitectura](docs/architecture.md): Estructura modular y flujo de datos.
 2.  [🔧 Referencia de Herramientas](docs/tool-reference.md): Listado completo y parámetros de cada herramienta.
-3.  [⚙️ Configuración](docs/configuration.md): Guía sobre variables de entorno y carpetas especiales.
-4.  [🧠 Búsqueda Semántica (RAG)](docs/semantic-search.md): Cómo funciona la indexación vectorial y el modo RAG.
+3.  [⚙️ Configuración del Servidor](docs/configuration.md): Guía sobre variables de entorno y configuración técnica.
+4.  [🤖 Configuración del Agente](docs/agent-folder-setup.md): Cómo organizar tu vault (`.agent/`) con skills y reglas.
+5.  [🧠 Búsqueda Semántica (RAG)](docs/semantic-search.md): Cómo funciona la indexación vectorial y el modo RAG.
 
 ---
 

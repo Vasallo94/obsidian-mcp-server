@@ -9,7 +9,8 @@ import fnmatch
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from ..config import get_vault_path, get_vault_settings
+from ..config import get_vault_path
+from ..vault_config import get_vault_config
 
 # Cache for forbidden patterns
 _forbidden_patterns: Optional[List[str]] = None
@@ -66,11 +67,20 @@ def load_forbidden_patterns(force_reload: bool = False) -> List[str]:
             except Exception:
                 continue
 
-    # Always include private folder from settings as fallback
-    settings = get_vault_settings()
-    private_pattern = f"{settings.private_folder}/*"
-    if private_pattern not in patterns:
-        patterns.append(private_pattern)
+    # Add private folders from vault config as fallback patterns
+    vault_path = get_vault_path()
+    if vault_path:
+        config = get_vault_config(vault_path)
+        if config and config.private_paths:
+            for private_pattern in config.private_paths:
+                if private_pattern not in patterns:
+                    patterns.append(private_pattern)
+        else:
+            # Default fallback if no config
+            if "**/Privado/*" not in patterns:
+                patterns.append("**/Privado/*")
+            if "**/Private/*" not in patterns:
+                patterns.append("**/Private/*")
 
     _forbidden_patterns = patterns
     return patterns

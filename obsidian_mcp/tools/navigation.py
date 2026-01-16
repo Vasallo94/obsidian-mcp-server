@@ -8,7 +8,7 @@ from pathlib import Path
 
 from fastmcp import FastMCP
 
-from ..config import get_vault_path, get_vault_settings
+from ..config import get_vault_path
 from ..utils import (
     check_path_access,
     find_note_by_name,
@@ -18,6 +18,7 @@ from ..utils import (
     is_path_in_restricted_folder,
     validate_path_within_vault,
 )
+from ..vault_config import get_vault_config
 
 logger = get_logger(__name__)
 
@@ -361,17 +362,19 @@ def register_navigation_tools(mcp: FastMCP) -> None:
             if not is_valid:
                 return f"⛔ Error de seguridad (destino): {error}"
 
-            # Security: Check restricted folders with proper path validation
-            settings = get_vault_settings()
-            restricted_folders = [settings.private_folder]
+            # Security: Check restricted folders via vault config
+            config = get_vault_config(vault_path)
+            private_folders = ["**/Private/", "**/Privado/*"]
+            if config and config.private_paths:
+                private_folders = config.private_paths
 
-            if is_path_in_restricted_folder(origen, restricted_folders, vault_path):
+            if is_path_in_restricted_folder(origen, private_folders, vault_path):
                 return (
                     "⛔ ACCESO DENEGADO: No se permite mover archivos desde "
                     "carpetas restringidas"
                 )
 
-            if is_path_in_restricted_folder(destino, restricted_folders, vault_path):
+            if is_path_in_restricted_folder(destino, private_folders, vault_path):
                 return (
                     "⛔ ACCESO DENEGADO: No se permite mover archivos hacia "
                     "carpetas restringidas"
@@ -428,21 +431,26 @@ def register_navigation_tools(mcp: FastMCP) -> None:
             notas = list(search_path.rglob("*.md"))
 
             # Filtrar notas del sistema y plantillas
+            config = get_vault_config(vault_path)
+            templates_folder = ""
+            if config and config.templates_folder:
+                templates_folder = config.templates_folder
+            else:
+                # Auto-detect
+                for item in vault_path.iterdir():
+                    if item.is_dir() and any(
+                        t in item.name.lower() for t in ["plantilla", "template"]
+                    ):
+                        templates_folder = item.name
+                        break
+
+            excl_folders = [templates_folder, "System", "Sistema", ".agent", ".github"]
+
             notas_filtradas = []
             for nota in notas:
                 ruta_str = str(nota.relative_to(vault_path))
                 # Excluir sistema, plantillas, y archivos de configuración
-                if any(
-                    excl in ruta_str
-                    for excl in [
-                        "ZZ_Plantillas",
-                        "ZZ_Media",
-                        ".agent",
-                        ".github",
-                        "00_Sistema",
-                        "Tags/",
-                    ]
-                ):
+                if any(excl in ruta_str for excl in excl_folders):
                     continue
                 # Excluir archivos muy pequeños (< 200 bytes)
                 if nota.stat().st_size < 200:

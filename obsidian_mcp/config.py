@@ -6,14 +6,23 @@ proporcionando validación tipada y valores por defecto sensatos.
 """
 
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Optional, Tuple
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class VaultSettings(BaseSettings):
-    """Vault-specific configuration loaded from environment."""
+    """
+    Environment-level vault configuration.
+
+    NOTE: Vault-specific settings (folder names, exclusions, etc.) are now
+    loaded from .agent/vault.yaml within the vault. See vault_config.py.
+
+    This class only contains:
+    - vault_path: Required path to the Obsidian vault
+    - Performance/operational settings that are server-level, not vault-level
+    """
 
     model_config = SettingsConfigDict(
         env_prefix="OBSIDIAN_",
@@ -27,46 +36,7 @@ class VaultSettings(BaseSettings):
         description="Path to the Obsidian vault",
     )
 
-    # Folder names (previously hardcoded across multiple files)
-    templates_folder: str = Field(
-        default="06_Plantillas",
-        description="Name of the templates folder",
-    )
-    system_folder: str = Field(
-        default="00_Sistema",
-        description="Name of the system folder",
-    )
-    inbox_folder: str = Field(
-        default="00_Bandeja",
-        description="Default inbox folder for new notes",
-    )
-    private_folder: str = Field(
-        default="04_Recursos/Privado",
-        description="Private/restricted folder path",
-    )
-
-    # Exclusions for semantic search
-    excluded_folders: List[str] = Field(
-        default=["00_Sistema", "06_Plantillas", "04_Recursos/Obsidian"],
-        description="Folders to exclude from semantic search",
-    )
-    excluded_patterns: List[str] = Field(
-        default=[
-            r".*MOC\.md",
-            r".*Home\.md",
-            r".*Inbox\.md",
-            r".*Panel.*\.md",
-            r".*\.agent\.md",
-            r"copilot-instructions\.md",
-        ],
-        description="File patterns to exclude from semantic search",
-    )
-    content_folders: List[str] = Field(
-        default=["03_Notas", "02_Proyectos"],
-        description="Folders containing main content for indexing",
-    )
-
-    # Performance settings
+    # Performance settings (server-level, not vault-specific)
     search_timeout_seconds: int = Field(
         default=180,
         ge=30,
@@ -84,12 +54,6 @@ class VaultSettings(BaseSettings):
         ge=60,
         le=3600,
         description="Cache TTL for note lookups",
-    )
-    min_words_for_indexing: int = Field(
-        default=100,
-        ge=10,
-        le=1000,
-        description="Minimum words for a note to be indexed",
     )
 
     @field_validator("vault_path", mode="before")

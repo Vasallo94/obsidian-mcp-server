@@ -24,7 +24,35 @@ Por diseño, el servidor ignora carpetas de sistema y ocultas para evitar fugas 
 - `.obsidian`
 - `.git`
 - `.trash`
-- Otros directorios configurados en `context.py`.
+- Otros directorios configurados automáticamente.
+
+Para proteger carpetas adicionales, usa el archivo `.forbidden_paths` en la raíz del servidor o la configuración de `private_paths` en `vault.yaml`.
+
+## 🧠 Arquitectura Vault-Agnostic
+
+El servidor está diseñado para ser **independiente del vault**. No impone ninguna estructura de carpetas obligatoria y utiliza una lógica de auto-detección inteligente.
+
+### 1. Auto-detección
+El servidor intenta encontrar carpetas clave automáticamente:
+- **Plantillas**: Busca cualquier carpeta que contenga "plantilla" o "template" en su nombre (ej: `ZZ_Plantillas`, `Templates`, `06_Plantillas`).
+
+### 2. Configuración Opcional (`vault.yaml`)
+Si tienes una estructura no estándar o quieres un control más granular, puedes crear un archivo `.agent/vault.yaml` en la raíz de tu vault:
+
+```yaml
+# .agent/vault.yaml
+version: "1.0"
+
+# Opcional: Especifica la carpeta de plantillas si la auto-detección falla
+templates_folder: "MiCarpetaEspecialDePlantillas"
+
+# Opcional: Rutas adicionales a proteger del acceso del agente
+private_paths:
+  - "**/Privado/*"
+  - "**/secrets.md"
+```
+
+Para una guía detallada sobre cómo configurar la carpeta `.agent/`, consulta la [Guía de Configuración del Agente](agent-folder-setup.md).
 
 > [!WARNING]
 > Nunca apuntes `OBSIDIAN_VAULT_PATH` a una carpeta que contenga información privada sensible fuera de Obsidian, ya que el agente podría leerla si tiene permisos de lectura.

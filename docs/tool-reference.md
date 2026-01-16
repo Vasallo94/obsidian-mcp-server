@@ -14,7 +14,7 @@ Herramientas para explorar y leer el contenido del vault.
 ## ✍️ Creación y Edición
 Herramientas para manipular la información.
 
-- **`crear_nota(titulo, contenido, carpeta, etiquetas, plantilla, agente_creador)`**: Crea una nueva nota. Soporta el uso de plantillas de `ZZ_Plantillas`.
+- **`crear_nota(titulo, contenido, carpeta, etiquetas, plantilla, agente_creador)`**: Crea una nueva nota. Soporta el uso de plantillas desde la carpeta de plantillas (auto-detectada o configurada en `vault.yaml`).
 - **`editar_nota(nombre_archivo, nuevo_contenido)`**: Reemplaza el contenido de una nota. Se recomienda leerla primero.
 - **`agregar_a_nota(nombre_archivo, contenido, al_final)`**: Añade texto al principio o al final de una nota existente.
 - **`sugerir_ubicacion(titulo, contenido, etiquetas)`**: La IA analiza el contenido y sugiere la carpeta más adecuada.
