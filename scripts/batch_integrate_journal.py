@@ -1,6 +1,6 @@
 from pathlib import Path
 
-VAULT_PATH = "/Users/enriquebook/Desktop/Obsidian/Secundo Selebro"
+VAULT_PATH = "/Users/enriquebook/Personal/Obsidian/Secundo Selebro"
 JOURNAL_FOLDER = "01_Diario"
 
 FOOTER = """

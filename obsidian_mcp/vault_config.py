@@ -37,6 +37,9 @@ class VaultConfig(BaseModel):
     private_paths: list[str] = Field(
         default_factory=list, description="Glob patterns for private/restricted paths"
     )
+    excluded_folders: list[str] = Field(
+        default_factory=list, description="List of folder names to exclude from search"
+    )
 
 
 @lru_cache(maxsize=1)

@@ -141,8 +141,8 @@ def register_graph_tools(mcp: FastMCP) -> None:
 
             for carpeta, notas in sorted(por_carpeta.items()):
                 resultado += f"📁 {carpeta}:\n"
-                for nota in sorted(notas):
-                    resultado += f"   • [[{nota}]]\n"
+                for nombre_nota in sorted(notas):
+                    resultado += f"   • [[{nombre_nota}]]\n"
                 resultado += "\n"
 
             return resultado

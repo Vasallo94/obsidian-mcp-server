@@ -12,12 +12,12 @@ from .indexer import load_or_create_db
 from .retriever import create_retriever_with_reranker
 
 try:
-    import numpy as np
+    import numpy as np  # type: ignore
 except ImportError:
     np = None  # type: ignore
 
 try:
-    from tqdm import tqdm
+    from tqdm import tqdm  # type: ignore
 except ImportError:
 
     def tqdm(iterable, **kwargs):

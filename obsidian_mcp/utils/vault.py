@@ -223,9 +223,7 @@ def extract_tags_from_content(content: str) -> List[str]:
                 # Caso lista YAML o string simple
                 else:
                     # Intentar buscar formato de lista - tag
-                    fm_list = re.findall(
-                        r"^\s*-\s*([\w-]+)", frontmatter, re.MULTILINE
-                    )
+                    fm_list = re.findall(r"^\s*-\s*([\w-]+)", frontmatter, re.MULTILINE)
                     if fm_list:
                         for t in fm_list:
                             tags.add(t.strip())

@@ -7,12 +7,12 @@ import shutil
 from typing import Any, Dict, List, Optional, Set
 
 import yaml
-from langchain_chroma import Chroma
-from langchain_core.documents import Document
-from langchain_core.embeddings import Embeddings
-from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_ollama import OllamaEmbeddings
-from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_chroma import Chroma  # type: ignore
+from langchain_core.documents import Document  # type: ignore
+from langchain_core.embeddings import Embeddings  # type: ignore
+from langchain_huggingface import HuggingFaceEmbeddings  # type: ignore
+from langchain_ollama import OllamaEmbeddings  # type: ignore
+from langchain_text_splitters import RecursiveCharacterTextSplitter  # type: ignore
 
 from .metadata_tracker import FileMetadataTracker
 

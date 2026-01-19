@@ -43,8 +43,8 @@ def register_semantic_tools(mcp: FastMCP) -> None:
     """
     try:
         # Check for core dependencies
-        import chromadb  # noqa: F401 # pylint: disable=import-outside-toplevel,unused-import
-        import langchain  # noqa: F401 # pylint: disable=import-outside-toplevel,unused-import
+        import chromadb  # noqa: F401 # pylint: disable=import-outside-toplevel,unused-import # type: ignore
+        import langchain  # noqa: F401 # pylint: disable=import-outside-toplevel,unused-import # type: ignore
 
         @mcp.tool()
         async def preguntar_al_conocimiento(

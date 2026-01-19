@@ -4,14 +4,10 @@ Tests para el módulo de seguridad del servidor MCP.
 Verifica que las rutas prohibidas se bloquean correctamente.
 """
 
-import pytest
-from pathlib import Path
-
 from obsidian_mcp.utils.security import (
-    load_forbidden_patterns,
-    is_path_forbidden,
     check_path_access,
-    AccessDeniedError,
+    is_path_forbidden,
+    load_forbidden_patterns,
 )
 
 
@@ -81,8 +77,7 @@ class TestCheckPathAccess:
     def test_forbidden_path_returns_error(self):
         """Verifica que paths prohibidos retornan error."""
         is_allowed, error = check_path_access(
-            "04_Recursos/Privado/Códigos.md", 
-            operation="leer"
+            "04_Recursos/Privado/Códigos.md", operation="leer"
         )
         assert is_allowed is False
         assert "ACCESO DENEGADO" in error
@@ -90,8 +85,7 @@ class TestCheckPathAccess:
     def test_allowed_path_returns_success(self):
         """Verifica que paths permitidos retornan éxito."""
         is_allowed, error = check_path_access(
-            "01_Inbox/nota_normal.md",
-            operation="leer"
+            "01_Inbox/nota_normal.md", operation="leer"
         )
         assert is_allowed is True
         assert error == ""
@@ -99,7 +93,6 @@ class TestCheckPathAccess:
     def test_operation_included_in_error(self):
         """Verifica que la operación aparece en el mensaje de error."""
         is_allowed, error = check_path_access(
-            "04_Recursos/Privado/test.md",
-            operation="modificar"
+            "04_Recursos/Privado/test.md", operation="modificar"
         )
         assert "modificar" in error

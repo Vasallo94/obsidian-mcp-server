@@ -22,8 +22,15 @@ def register_context_tools(mcp: FastMCP) -> None:
     @mcp.tool()
     def leer_contexto_vault() -> str:
         """
-        Lee la estructura general del vault y estadísticas clave para dar
-        contexto al agente.
+        Lee la estructura general del vault y estadísticas clave.
+
+        ⚠️ OBLIGATORIO PARA AGENTES DE IA: ⚠️
+        Esta debe ser SIEMPRE la PRIMERA herramienta que ejecutes al comenzar
+        cualquier tarea con el vault. Te informa de:
+        1. Estructura de carpetas válida.
+        2. Plantillas disponibles.
+        3. Estado de la configuración de Agentes (.agent).
+
         Devuelve un resumen de carpetas, plantillas y etiquetas comunes.
         """
         try:
@@ -128,14 +135,18 @@ def register_context_tools(mcp: FastMCP) -> None:
                         ]
                         desc = f"  - 📂 {item.name}/"
                         if subitems:
-                            desc += f" ({', '.join(subitems[:5])}{'...' if len(subitems) > 5 else ''})"
+                            desc += (
+                                f" ({', '.join(subitems[:5])}"
+                                f"{'...' if len(subitems) > 5 else ''})"
+                            )
                         agent_info.append(desc)
                     else:
                         agent_info.append(f"  - 📄 {item.name}")
             else:
                 agent_info.append("⚠️ No se encontró la carpeta .agent")
                 agent_info.append(
-                    "  -> SUGESTIÓN: Lee la documentación para configurar tus Agentes y Reglas."
+                    "  -> SUGESTIÓN: Lee la documentación para configurar "
+                    "tus Agentes y Reglas."
                 )
 
             # Construir reporte

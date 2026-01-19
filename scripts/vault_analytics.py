@@ -48,9 +48,9 @@ def analyze_vault(vault_path: str):
     newest = note_times[-1]
 
     # Count by year-month
-    by_month = Counter()
-    by_year = Counter()
-    for note, birth in note_times:
+    by_month: Counter[str] = Counter()
+    by_year: Counter[int] = Counter()
+    for _note, birth in note_times:
         by_month[birth.strftime("%Y-%m")] += 1
         by_year[birth.year] += 1
 
@@ -81,7 +81,8 @@ def analyze_vault(vault_path: str):
     # Time span
     span = newest[1] - oldest[1]
     print(
-        f"\n⏱️ TIME SPAN: {span.days} days ({span.days // 365} years, {(span.days % 365) // 30} months)"
+        f"\n⏱️ TIME SPAN: {span.days} days "
+        f"({span.days // 365} years, {(span.days % 365) // 30} months)"
     )
 
     print("\n" + "=" * 60)
@@ -94,7 +95,8 @@ if __name__ == "__main__":
         sys.argv[1]
         if len(sys.argv) > 1
         else os.environ.get(
-            "OBSIDIAN_VAULT_PATH", "/Users/enriquebook/Desktop/Obsidian/Secundo Selebro"
+            "OBSIDIAN_VAULT_PATH",
+            "/Users/enriquebook/Personal/Obsidian/Secundo Selebro",
         )
     )
     analyze_vault(vault_path)

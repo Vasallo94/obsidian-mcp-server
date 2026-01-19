@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 
 # Check if numpy is available (required for vectorized tests)
 try:
-    import numpy  # noqa: F401
+    import numpy  # noqa: F401 # type: ignore
 
     HAS_NUMPY = True
 except ImportError:

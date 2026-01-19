@@ -3,13 +3,15 @@
 import logging
 
 from langchain_classic.retrievers import (
-    ContextualCompressionRetriever,
-    EnsembleRetriever,
+    ContextualCompressionRetriever,  # type: ignore
+    EnsembleRetriever,  # type: ignore
 )
-from langchain_classic.retrievers.document_compressors import CrossEncoderReranker
-from langchain_community.cross_encoders import HuggingFaceCrossEncoder
-from langchain_community.retrievers import BM25Retriever
-from langchain_core.documents import Document
+from langchain_classic.retrievers.document_compressors import (
+    CrossEncoderReranker,  # type: ignore
+)
+from langchain_community.cross_encoders import HuggingFaceCrossEncoder  # type: ignore
+from langchain_community.retrievers import BM25Retriever  # type: ignore
+from langchain_core.documents import Document  # type: ignore
 
 logger = logging.getLogger(__name__)
 

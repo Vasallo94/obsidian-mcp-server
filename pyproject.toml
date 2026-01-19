@@ -29,6 +29,7 @@ dependencies = [
     "python-dotenv>=1.1.1",
     "tqdm>=4.66.0",
     "youtube-transcript-api>=1.2.3",
+    "PyYAML>=6.0.0",
 ]
 
 [project.optional-dependencies]
@@ -46,7 +47,7 @@ rag = [
     "rank-bm25>=0.2.2",
     "sentence-transformers>=3.0.0",
     "torch>=2.0.0",
-    "PyYAML>=6.0.0",
+    "torch>=2.0.0",
 ]
 
 [project.scripts]
@@ -59,6 +60,8 @@ dev = [
     "ruff>=0.14.8",
     "pyright>=1.1.372",
     "mypy>=1.19.1",
+    "types-PyYAML>=6.0.0",
+    "types-aiofiles>=24.1.0",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -76,4 +79,8 @@ ignore = []
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 addopts = "-v"
+
+[[tool.mypy.overrides]]
+module = ["chromadb", "langchain", "numpy"]
+ignore_missing_imports = true
 

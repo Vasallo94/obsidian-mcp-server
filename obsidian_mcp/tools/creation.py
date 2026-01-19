@@ -372,10 +372,18 @@ def register_creation_tools(mcp: FastMCP) -> None:
         etiquetas: str = "",
         plantilla: str = "",
         agente_creador: str = "",
+        descripcion: str = "",
     ) -> str:
         """
         Crea una nueva nota en el vault.
-        IMPORTANTE: Se prefiere el uso de plantillas para mantener la consistencia.
+
+        ⚠️ ADVERTENCIA CRÍTICA PARA AGENTES DE IA: ⚠️
+        1. NO uses herramientas genéricas de sistema de archivos (como write_file).
+           SIEMPRE usa esta herramienta para crear notas en el vault.
+        2. ANTES de ejecutar esta acción, DEBES haber leído las reglas globales
+           con `leer_contexto_vault` y `obtener_reglas_globales`.
+        3. Verifica si existe una SKILL aplicable (ej: investigador, escritor)
+           y sigue sus instrucciones específicas.
 
         Args:
             titulo: Título de la nota.
@@ -384,6 +392,7 @@ def register_creation_tools(mcp: FastMCP) -> None:
             etiquetas: Etiquetas separadas por comas.
             plantilla: Nombre del archivo de plantilla (ej: "Diario.md").
             agente_creador: Si se creó usando un agente específico (ej: "escritor").
+            descripcion: Descripción breve de la nota (para placeholder {{description}}).
         """
         try:
             vault_path = get_vault_path()
@@ -473,6 +482,38 @@ def register_creation_tools(mcp: FastMCP) -> None:
                     # Reemplazos de título
                     plantilla_content = plantilla_content.replace("{{title}}", titulo)
                     plantilla_content = plantilla_content.replace("{{titulo}}", titulo)
+
+                    # Reemplazos de descripción
+                    plantilla_content = plantilla_content.replace(
+                        "{{description}}", descripcion
+                    )
+                    plantilla_content = plantilla_content.replace(
+                        "{{descripcion}}", descripcion
+                    )
+
+                    # Reemplazos de hora (HH:mm)
+                    hora_actual = datetime.now().strftime("%H:%M")
+                    plantilla_content = plantilla_content.replace(
+                        "{{time}}", hora_actual
+                    )
+                    plantilla_content = plantilla_content.replace(
+                        "{{hora}}", hora_actual
+                    )
+
+                    # Reemplazos de carpeta
+                    carpeta_final = carpeta if carpeta else ""
+                    plantilla_content = plantilla_content.replace(
+                        "{{folder}}", carpeta_final
+                    )
+                    plantilla_content = plantilla_content.replace(
+                        "{{carpeta}}", carpeta_final
+                    )
+
+                    # Reemplazos de etiquetas
+                    plantilla_content = plantilla_content.replace("{{tags}}", etiquetas)
+                    plantilla_content = plantilla_content.replace(
+                        "{{etiquetas}}", etiquetas
+                    )
 
                     # Procesar todas las fechas con formatos
                     plantilla_content = _process_date_placeholders(plantilla_content)
@@ -631,11 +672,12 @@ def register_creation_tools(mcp: FastMCP) -> None:
     def editar_nota(nombre_archivo: str, nuevo_contenido: str) -> str:
         """
         Edita una nota existente, reemplazando todo su contenido.
-        Útil para mejorar, añadir secciones, corregir frontmatter o reformatear notas.
 
-        IMPORTANTE: El agente DEBE leer la nota primero con leer_nota()
-        antes de editarla para asegurarse de preservar el contenido
-        que no desea modificar.
+        ⚠️ ADVERTENCIA CRÍTICA PARA AGENTES DE IA: ⚠️
+        1. NO uses herramientas genéricas de sistema de archivos.
+        2. ANTES de ejecutar, DEBES leer la nota original con `leer_nota`.
+        3. DEBES respetar las Reglas Globales (sin emojis en títulos, frontmatter válido).
+        4. El nuevo contenido debe ser TOTAL (no diffs).
 
         Args:
             nombre_archivo: Nombre o ruta de la nota a editar (ej: "Mi Nota.md")
@@ -712,3 +754,141 @@ def register_creation_tools(mcp: FastMCP) -> None:
 
         except Exception as e:
             return f"❌ Error al editar nota: {e}"
+
+    @mcp.tool()
+    def buscar_y_reemplazar_global(
+        buscar: str,
+        reemplazar: str,
+        carpeta: str = "",
+        solo_preview: bool = True,
+        limite: int = 100,
+    ) -> str:
+        """
+        Busca y reemplaza texto en todas las notas del vault.
+        Útil para corregir enlaces rotos, renombrar tags, o actualizar rutas.
+
+        Args:
+            buscar: Texto o patrón a buscar (texto literal, no regex).
+            reemplazar: Texto de reemplazo.
+            carpeta: Carpeta específica donde buscar (vacío = todo el vault).
+            solo_preview: Si True, solo muestra qué cambiaría sin modificar.
+            limite: Máximo de archivos a procesar (seguridad).
+
+        Returns:
+            Resumen de archivos afectados y cambios realizados.
+        """
+        try:
+            vault_path = get_vault_path()
+            if not vault_path:
+                return "❌ Error: La ruta del vault no está configurada."
+
+            if not buscar:
+                return "❌ Debes especificar un texto a buscar."
+
+            # Determinar carpeta de búsqueda
+            if carpeta:
+                search_path = vault_path / carpeta
+                if not search_path.exists():
+                    return f"❌ La carpeta '{carpeta}' no existe."
+            else:
+                search_path = vault_path
+
+            # Carpetas excluidas por seguridad
+            config = get_vault_config(vault_path)
+            excluded = [".git", ".obsidian", ".trash", "node_modules"]
+            if config and config.excluded_folders:
+                excluded.extend(config.excluded_folders)
+
+            # Buscar archivos .md
+            archivos_afectados: list[dict[str, Any]] = []
+            archivos_procesados = 0
+
+            for md_file in search_path.rglob("*.md"):
+                # Saltar carpetas excluidas
+                if any(excl in md_file.parts for excl in excluded):
+                    continue
+
+                # Verificar acceso
+                is_valid, _ = validate_path_within_vault(md_file, vault_path)
+                if not is_valid:
+                    continue
+
+                # Verificar si está en carpeta privada
+                private_paths = ["**/Privado/*", "**/Private/*"]
+                if config and config.private_paths:
+                    private_paths = config.private_paths
+                if is_path_in_restricted_folder(md_file, private_paths, vault_path):
+                    continue
+
+                try:
+                    with open(md_file, "r", encoding="utf-8") as f:
+                        contenido = f.read()
+
+                    if buscar in contenido:
+                        ocurrencias = contenido.count(buscar)
+                        ruta_rel = md_file.relative_to(vault_path)
+                        archivos_afectados.append(
+                            {
+                                "path": md_file,
+                                "ruta_rel": str(ruta_rel),
+                                "ocurrencias": ocurrencias,
+                                "contenido_original": contenido,
+                            }
+                        )
+
+                        archivos_procesados += 1
+                        if archivos_procesados >= limite:
+                            break
+
+                except Exception:
+                    continue
+
+            if not archivos_afectados:
+                return f"ℹ️ No se encontró '{buscar}' en ninguna nota."
+
+            # Modo preview
+            if solo_preview:
+                resultado = f"🔍 **Preview de búsqueda**: `{buscar}`\n"
+                resultado += f"📊 Se encontraron **{len(archivos_afectados)}** "
+                total_ocurrencias = sum(a["ocurrencias"] for a in archivos_afectados)
+                resultado += (
+                    f"archivos con {total_ocurrencias} ocurrencias totales.\n\n"
+                )
+                resultado += "**Archivos afectados:**\n"
+                for arch in archivos_afectados[:20]:  # Limitar output
+                    resultado += (
+                        f"- `{arch['ruta_rel']}` ({arch['ocurrencias']} ocurrencias)\n"
+                    )
+                if len(archivos_afectados) > 20:
+                    resultado += (
+                        f"- ... y {len(archivos_afectados) - 20} archivos más\n"
+                    )
+                resultado += (
+                    "\n⚠️ Ejecuta con `solo_preview=False` para aplicar los cambios."
+                )
+                return resultado
+
+            # Modo ejecución
+            archivos_modificados = 0
+            total_reemplazos = 0
+
+            for arch in archivos_afectados:
+                try:
+                    nuevo_contenido = arch["contenido_original"].replace(
+                        buscar, reemplazar
+                    )
+                    with open(arch["path"], "w", encoding="utf-8") as f:
+                        f.write(nuevo_contenido)
+                    archivos_modificados += 1
+                    total_reemplazos += arch["ocurrencias"]
+                except Exception:
+                    continue
+
+            resultado = "✅ **Reemplazo completado**\n"
+            resultado += f"- Archivos modificados: {archivos_modificados}\n"
+            resultado += f"- Reemplazos realizados: {total_reemplazos}\n"
+            resultado += f"- `{buscar}` → `{reemplazar}`"
+            return resultado
+
+        except Exception as e:
+            return f"❌ Error en búsqueda global: {e}"
