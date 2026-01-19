@@ -44,3 +44,18 @@ Pre-made vault configurations for common use cases:
 - Academic Research
 - Software Documentation
 - Creative Writing
+
+---
+
+## Automated Image Captioning (VLM)
+
+**Status**: Proposed
+
+**Description**: Use local Multimodal models (Ollama + Llava/Moondream) to automatically generate descriptions for images that lack them.
+
+**Implementation ideas**:
+- New tool `auto_caption_images(path, use_model=True)`.
+- Scan vault for images without matching wikilinks captions.
+- Send image to Ollama API for description.
+- Either edit the note to add the caption `![[img|Generated Description]]` or inject purely into metadata.
+- Benefits: Full semantic search for images without manual effort.
