@@ -36,5 +36,46 @@ Analiza la similitud semántica entre todas tus notas.
 - Si dos notas hablan de temas muy parecidos pero no tienen un enlace `[[Nota]]` entre ellas, el servidor las marcará como una conexión sugerida.
 - Es ideal para el mantenimiento y el crecimiento orgánico de tu Zettelkasten.
 
+### 4. `sugerir_ubicacion` (Recomendación de Carpetas)
+
+Esta herramienta utiliza **búsqueda semántica** para sugerir la carpeta más adecuada donde ubicar una nueva nota, basándose en notas similares ya existentes en tu vault.
+
+#### ¿Cómo funciona?
+
+1. **Búsqueda vectorial**: Combina el título, etiquetas y contenido de la nueva nota para crear una consulta.
+2. **Recuperación RAG**: Busca las notas más similares en el índice vectorial (ChromaDB).
+3. **Sistema de votación**: Las carpetas de las notas similares "votan" por la ubicación sugerida.
+4. **Ranking con confianza**: Devuelve múltiples candidatos ordenados por número de votos y porcentaje de confianza.
+
+#### Ejemplo de uso
+
+Cuando le pides a la IA que cree una nota sobre "Configuración SSH para NAS", el sistema:
+
+```
+📂 Sugerencias basadas en contenido similar:
+
+1. `Tecnología/Infraestructura`
+   Confianza: ████████░░ 80% (4 votos)
+   Notas similares: NAS, Docker Setup, Redes Locales
+
+2. `Tecnología/Guías`
+   Confianza: ██░░░░░░░░ 20% (1 voto)
+   Notas similares: Guía VPN
+
+💡 La opción 1 tiene alta confianza (80%). Puedes sugerirla al usuario.
+```
+
+#### Interpretación de resultados
+
+| Confianza | Recomendación |
+|-----------|---------------|
+| ≥60% | Alta confianza. La IA puede sugerir directamente esta carpeta. |
+| 40-59% | Confianza moderada. Mostrar opciones al usuario para que decida. |
+| <40% | Baja confianza. Preguntar al usuario dónde prefiere ubicar la nota. |
+
+#### Fallback automático
+
+Si el índice semántico no está disponible o no encuentra coincidencias, la herramienta utiliza automáticamente un **sistema de reglas por palabras clave** como respaldo, garantizando siempre una sugerencia útil.
+
 ## Almacenamiento de Datos
 El índice vectorial se guarda localmente en una carpeta dentro de tu vault (normalmente `.obsidianrag/` o similar), lo que garantiza que tu conocimiento nunca salga de tu control.

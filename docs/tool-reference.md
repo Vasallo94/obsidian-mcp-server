@@ -17,7 +17,7 @@ Herramientas para manipular la información.
 - **`crear_nota(titulo, contenido, carpeta, etiquetas, plantilla, agente_creador)`**: Crea una nueva nota. Soporta el uso de plantillas desde la carpeta de plantillas (auto-detectada o configurada en `vault.yaml`).
 - **`editar_nota(nombre_archivo, nuevo_contenido)`**: Reemplaza el contenido de una nota. Se recomienda leerla primero.
 - **`agregar_a_nota(nombre_archivo, contenido, al_final)`**: Añade texto al principio o al final de una nota existente.
-- **`sugerir_ubicacion(titulo, contenido, etiquetas)`**: La IA analiza el contenido y sugiere la carpeta más adecuada.
+- **`sugerir_ubicacion(titulo, contenido, etiquetas)`**: Sugiere carpetas usando **búsqueda semántica RAG**. Encuentra notas similares y sus carpetas "votan" por la ubicación. Devuelve múltiples candidatos con nivel de confianza. Ver [Búsqueda Semántica](semantic-search.md#4-sugerir_ubicacion-recomendación-de-carpetas) para detalles.
 - **`mover_nota(origen, destino, crear_carpetas)`**: Renombra o mueve archivos, gestionando la creación de directorios si es necesario.
 - **`eliminar_nota(nombre_archivo, confirmar)`**: Borra una nota previa confirmación.
 
