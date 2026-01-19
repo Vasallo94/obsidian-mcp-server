@@ -174,8 +174,10 @@ def register_navigation_tools(mcp: FastMCP) -> None:
         texto: str, carpeta: str = "", solo_titulos: bool = False
     ) -> str:
         """
-        Busca texto en las notas del vault usando búsqueda inteligente (ripgrep o fallback Python).
-        Soporta múltiples términos: "nas ssh" buscará notas que contengan "nas" Y "ssh".
+        Busca texto en las notas del vault usando búsqueda inteligente
+        (ripgrep o fallback Python).
+        Soporta múltiples términos: "nas ssh" buscará notas que contengan
+        "nas" Y "ssh".
 
         Args:
             texto: Texto a buscar (puede incluir múltiples palabras)
@@ -201,6 +203,15 @@ def register_navigation_tools(mcp: FastMCP) -> None:
             terminos = [t.strip() for t in texto.split() if t.strip()]
             if not terminos:
                 return "❌ Debes proporcionar texto para buscar."
+
+            # P3: Tip for short terms (<=3 chars) when not using solo_titulos
+            short_term_tip = ""
+            short_terms = [t for t in terminos if len(t) <= 3]
+            if short_terms and not solo_titulos:
+                short_term_tip = (
+                    f"💡 **Tip**: Para términos cortos como '{short_terms[0]}', "
+                    "considera usar `solo_titulos=True` para mayor precisión.\n\n"
+                )
 
             resultados = []
             archivos_coincidentes = set()
@@ -358,7 +369,7 @@ def register_navigation_tools(mcp: FastMCP) -> None:
                                         "coincidencia": co,
                                     }
                                 )
-                                # Límite: solo 3 líneas por archivo para no saturar
+                                # P3: Límite: solo 2 líneas por archivo (era 3)
                                 if (
                                     len(
                                         [
@@ -367,7 +378,7 @@ def register_navigation_tools(mcp: FastMCP) -> None:
                                             if r["archivo"] == str(ruta_relativa)
                                         ]
                                     )
-                                    >= 3
+                                    >= 2
                                 ):
                                     break
 
@@ -380,7 +391,9 @@ def register_navigation_tools(mcp: FastMCP) -> None:
                     f"🔍 No se encontraron notas que contengan: {', '.join(terminos)}"
                 )
 
-            return _formatear_resultados(resultados, solo_titulos=False)
+            return short_term_tip + _formatear_resultados(
+                resultados, solo_titulos=False
+            )
 
         except Exception as e:
             return f"❌ Error en búsqueda: {e}"

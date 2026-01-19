@@ -11,6 +11,9 @@ from fastmcp import FastMCP
 from ..config import get_vault_path
 from ..utils import extract_internal_links, extract_tags_from_content
 
+# Pattern to detect hex color codes used as tags (e.g., #fff, #0f0f0f)
+HEX_COLOR_PATTERN = re.compile(r"^([0-9a-fA-F]{3}){1,2}$")
+
 
 def register_analysis_tools(mcp: FastMCP) -> None:
     """
@@ -208,21 +211,36 @@ def register_analysis_tools(mcp: FastMCP) -> None:
             if not conteo_etiquetas:
                 return "🏷️ No se encontraron etiquetas en el vault"
 
-            # Identificar tags no oficiales
-            tags_no_oficiales = {
-                tag for tag in conteo_etiquetas if tag not in tags_canonicas
+            # P2 FIX: Separate garbage hex color tags from legitimate tags
+            tags_hex_basura = {
+                tag: count
+                for tag, count in conteo_etiquetas.items()
+                if HEX_COLOR_PATTERN.match(tag)
+            }
+            tags_validas = {
+                tag: count
+                for tag, count in conteo_etiquetas.items()
+                if not HEX_COLOR_PATTERN.match(tag)
             }
 
-            # Ordenar por frecuencia
+            # Identificar tags no oficiales (only from valid tags)
+            tags_no_oficiales = {
+                tag for tag in tags_validas if tag not in tags_canonicas
+            }
+
+            # Ordenar por frecuencia (only valid tags)
             etiquetas_ordenadas = sorted(
-                conteo_etiquetas.items(), key=lambda x: x[1], reverse=True
+                tags_validas.items(), key=lambda x: x[1], reverse=True
             )
 
             resultado = "🏷️ **Análisis de Etiquetas**\n\n"
             resultado += "📊 **Resumen:**\n"
-            resultado += f"   • Total de etiquetas únicas: {len(conteo_etiquetas)}\n"
+            resultado += f"   • Total de etiquetas únicas: {len(tags_validas)}\n"
             resultado += f"   • Archivos con etiquetas: {len(archivos_con_etiquetas)}\n"
-            resultado += f"   • **Tags NO oficiales**: {len(tags_no_oficiales)}\n\n"
+            resultado += f"   • **Tags NO oficiales**: {len(tags_no_oficiales)}\n"
+            if tags_hex_basura:
+                resultado += f"   • ⚠️ **Tags basura (hex)**: {len(tags_hex_basura)}\n"
+            resultado += "\n"
 
             resultado += "🔝 **Etiquetas más frecuentes:**\n"
             for tag, count in etiquetas_ordenadas[:10]:
@@ -237,6 +255,19 @@ def register_analysis_tools(mcp: FastMCP) -> None:
                 if len(tags_no_oficiales) > 10:
                     diff = len(tags_no_oficiales) - 10
                     resultado += f"   ... y {diff} más\n"
+
+            # P2: Report garbage hex tags
+            if tags_hex_basura:
+                resultado += "\n🗑️ **Tags Basura (códigos de color CSS):**\n"
+                for tag, count in sorted(
+                    tags_hex_basura.items(), key=lambda x: x[1], reverse=True
+                )[:5]:
+                    resultado += f"   • `#{tag}` ({count} usos)\n"
+                if len(tags_hex_basura) > 5:
+                    resultado += f"   ... y {len(tags_hex_basura) - 5} más\n"
+                resultado += (
+                    "💡 *Tip: Usa `buscar_y_reemplazar_global` para limpiarlos.*\n"
+                )
 
             return resultado
 

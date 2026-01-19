@@ -32,6 +32,14 @@ CARPETAS_EXCLUIDAS = [
     "00_Sistema",
     "ZZ_Plantillas",
     "04_Recursos/Obsidian",
+    ".agent",
+    ".trash",
+    ".git",
+    ".obsidian",
+    ".gemini",
+    ".space",
+    ".makemd",
+    ".obsidianrag",
 ]
 
 PATRONES_EXCLUIDOS = [
@@ -43,10 +51,9 @@ PATRONES_EXCLUIDOS = [
     r"copilot-instructions\.md",
 ]
 
-CARPETAS_CONTENIDO = [
-    "03_Notas",  # Notas permanentes
-    "02_Proyectos",  # Proyectos activos
-]
+# NO USAR CARPETAS_CONTENIDO (Deprecado, usar lógica de exclusión)
+# Mantener vacío para evitar errores de importación si se usa en otros lados
+CARPETAS_CONTENIDO = []
 
 
 class SemanticService:
@@ -63,7 +70,7 @@ class SemanticService:
     def _ensure_db(self, force_rebuild: bool = False):
         """Ensure the vector database is loaded"""
         if self._db is None or force_rebuild:
-            self._db = load_or_create_db(
+            self._db, _ = load_or_create_db(
                 obsidian_path=self.vault_path,
                 db_path=self.db_path,
                 metadata_file=self.metadata_file,
@@ -127,10 +134,107 @@ class SemanticService:
 
         return results
 
-    def index_vault(self, force: bool = False):
-        """Force a manual indexing of the vault"""
-        self._ensure_db(force_rebuild=force)
-        return self._db is not None
+    def suggest_folder(
+        self, content: str, limit: int = 5, top_k: int = 3
+    ) -> List[Dict[str, Any]]:
+        """Suggest folders based on semantic similarity to existing notes.
+
+        Returns a ranked list of folder candidates with confidence scores,
+        allowing the LLM to reason about the best option rather than
+        blindly trusting a single winner.
+
+        Args:
+            content: The content to analyze (title + tags + body snippet).
+            limit: Number of top similar notes to consider for voting.
+            top_k: Number of top folder suggestions to return.
+
+        Returns:
+            List of dicts with keys: folder, votes, confidence, similar_notes.
+            Empty list if no suggestions available.
+        """
+        try:
+            self._ensure_retriever()
+            if self._retriever is None:
+                return []
+
+            # Invoke retriever (which uses the vector store)
+            docs = self._retriever.invoke(content)
+            if not docs:
+                return []
+
+            # Count folder frequency from top k results
+            folders: Dict[str, int] = {}
+            folder_notes: Dict[str, List[str]] = {}  # Track which notes voted
+
+            for doc in docs[:limit]:
+                source = doc.metadata.get("source", "")
+                if source:
+                    folder = os.path.dirname(source)
+                    note_name = os.path.basename(source)
+                    # Ignore root (.) or if empty
+                    if folder and folder != ".":
+                        folders[folder] = folders.get(folder, 0) + 1
+                        if folder not in folder_notes:
+                            folder_notes[folder] = []
+                        folder_notes[folder].append(note_name.replace(".md", ""))
+
+            if not folders:
+                return []
+
+            # Calculate total votes for confidence computation
+            total_votes = sum(folders.values())
+
+            # Sort by votes descending and take top_k
+            sorted_folders = sorted(folders.items(), key=lambda x: x[1], reverse=True)[
+                :top_k
+            ]
+
+            suggestions = []
+            for folder, votes in sorted_folders:
+                confidence = round(votes / total_votes, 2) if total_votes > 0 else 0.0
+                suggestions.append(
+                    {
+                        "folder": folder,
+                        "votes": votes,
+                        "confidence": confidence,
+                        "similar_notes": folder_notes.get(folder, [])[
+                            :3
+                        ],  # Max 3 examples
+                    }
+                )
+
+            logger.info(
+                f"Suggested {len(suggestions)} folders: "
+                f"{[s['folder'] for s in suggestions]}"
+            )
+            return suggestions
+
+        except Exception as e:
+            logger.error(f"Error suggesting folder: {e}")
+            # Don't raise, just return empty to allow fallback
+            return []
+
+    def index_vault(self, force: bool = False) -> dict:
+        """Force a manual indexing of the vault.
+
+        Returns:
+            dict with keys: success, docs_processed, docs_new, docs_modified,
+            docs_deleted, time_seconds, is_incremental
+        """
+        import time
+
+        start = time.time()
+        self._db, stats = load_or_create_db(
+            obsidian_path=self.vault_path,
+            db_path=self.db_path,
+            metadata_file=self.metadata_file,
+            force_rebuild=force,
+        )
+        self._retriever = None  # Reset retriever to use new DB
+
+        stats["success"] = self._db is not None
+        stats["time_seconds"] = round(time.time() - start, 2)
+        return stats
 
     def _should_exclude(
         self,
@@ -147,7 +251,8 @@ class SemanticService:
             if not any(rel_path.startswith(folder) for folder in carpetas_incluir):
                 return True
         else:
-            # Otherwise use default exclusions
+            # Otherwise use default exclusions (Blacklist approach)
+            # If path starts with any excluded folder, we exclude it.
             if any(rel_path.startswith(folder) for folder in CARPETAS_EXCLUIDAS):
                 return True
 
@@ -170,7 +275,7 @@ class SemanticService:
 
     def suggest_connections(
         self,
-        threshold: float = 0.85,
+        threshold: float = 0.70,
         limit: int = 10,
         carpetas_incluir: Optional[List[str]] = None,
         excluir_mocs: bool = True,
@@ -289,6 +394,10 @@ class SemanticService:
 
                         source_i = all_metadatas[idx_i].get("source", "")
                         source_j = all_metadatas[idx_j].get("source", "")
+
+                        # P0 FIX: Skip self-references (same file appearing as similar)
+                        if source_i == source_j:
+                            continue
 
                         title_i = os.path.basename(source_i)
                         title_j = os.path.basename(source_j)

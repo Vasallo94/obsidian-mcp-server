@@ -231,8 +231,9 @@ def register_agent_tools(mcp: FastMCP) -> None:
         Obtiene las reglas globales del Agente (.agent/REGLAS_GLOBALES.md).
 
         ⚠️ OBLIGATORIO PARA AGENTES DE IA: ⚠️
-        DEBES leer estas reglas ANTES de realizar cualquier escritura o modificación
-        en el vault. Contienen restricciones críticas (ej: NO emojis, formatos permitidos).
+        DEBES leer estas reglas ANTES de realizar cualquier escritura
+        o modificación en el vault.
+        Contienen restricciones críticas (ej: NO emojis, formatos permitidos).
         """
         try:
             vault_path = get_vault_path()

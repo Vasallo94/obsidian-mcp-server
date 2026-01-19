@@ -260,6 +260,84 @@ def _build_frontmatter(
     return f"---\n{yaml_content}---\n\n"
 
 
+def _get_sugerencia_ubicacion(titulo: str, contenido: str, etiquetas: str = "") -> str:
+    """Helper para sugerir ubicación basado en palabras clave."""
+    texto = (titulo + " " + contenido + " " + etiquetas).lower()
+
+    # IA / Machine Learning
+    if any(
+        k in texto
+        for k in [
+            "ia",
+            "inteligencia artificial",
+            "mcp",
+            "llm",
+            "gpt",
+            "claude",
+            "agente",
+            "embedding",
+            "rag",
+            "machine learning",
+            "ml",
+            "modelo",
+        ]
+    ):
+        return "📂 Sugerencia: `02_Aprendizaje/IA`"
+
+    # Lógica simple de categorización basada en la estructura del vault
+    if any(k in texto for k in ["poema", "poesía", "verso", "rima"]):
+        return "📂 Sugerencia: `03_Creaciones/Poemas`"
+    elif any(k in texto for k in ["reflexión", "pienso", "creo", "opinión"]):
+        return "📂 Sugerencia: `03_Creaciones/Reflexiones`"
+    elif any(
+        k in texto
+        for k in [
+            "código",
+            "python",
+            "sql",
+            "config",
+            "bash",
+            "script",
+            "git",
+            "docker",
+        ]
+    ):
+        return "📂 Sugerencia: `02_Aprendizaje/Programación`"
+    elif any(
+        k in texto
+        for k in [
+            "sistema",
+            "linux",
+            "ssh",
+            "nas",
+            "red",
+            "networking",
+            "homelab",
+        ]
+    ):
+        return "📂 Sugerencia: `02_Aprendizaje/Sistemas`"
+    elif any(k in texto for k in ["filosofía", "ética", "aristóteles", "dualismo"]):
+        return "📂 Sugerencia: `02_Aprendizaje/Filosofía`"
+    elif any(k in texto for k in ["psicología", "cognitivo", "mente", "ego"]):
+        return "📂 Sugerencia: `02_Aprendizaje/Psicología`"
+
+    # Default fallback - scan for inbox-like folders or use root
+    try:
+        from ..config import get_vault_path
+
+        vault_path = get_vault_path()
+        if vault_path:
+            for item in Path(vault_path).iterdir():
+                if item.is_dir() and any(
+                    t in item.name.lower() for t in ["inbox", "bandeja", "entrada"]
+                ):
+                    return f"📂 Sugerencia: `{item.name}` (Categoría general)"
+    except Exception:
+        pass
+
+    return "📂 Sugerencia: Ubicación a confirmar con el usuario"
+
+
 def register_creation_tools(mcp: FastMCP) -> None:
     """
     Registra todas las herramientas de creación en el servidor MCP.
@@ -323,44 +401,94 @@ def register_creation_tools(mcp: FastMCP) -> None:
         except Exception as e:
             return f"❌ Error al listar plantillas: {e}"
 
-    def _get_sugerencia_ubicacion(
-        titulo: str, contenido: str, etiquetas: str = ""
-    ) -> str:
-        """Helper para sugerir ubicación."""
-        texto = (titulo + " " + contenido + " " + etiquetas).lower()
-
-        # Lógica simple de categorización basada en la estructura del vault
-        if any(k in texto for k in ["poema", "poesía", "verso", "rima"]):
-            return "📂 Sugerencia: `03_Creaciones/Poemas`"
-        elif any(k in texto for k in ["reflexión", "pienso", "creo", "opinión"]):
-            return "📂 Sugerencia: `03_Creaciones/Reflexiones`"
-        elif any(k in texto for k in ["código", "python", "sql", "mcp", "config"]):
-            return "📂 Sugerencia: `02_Aprendizaje/Programación`"
-        elif any(k in texto for k in ["filosofía", "ética", "aristóteles", "dualismo"]):
-            return "📂 Sugerencia: `02_Aprendizaje/Filosofía`"
-        elif any(k in texto for k in ["psicología", "cognitivo", "mente", "ego"]):
-            return "📂 Sugerencia: `02_Aprendizaje/Psicología`"
-
-        # Default fallback - scan for inbox-like folders or use root
-        for item in (get_vault_path() or Path(".")).iterdir():
-            if item.is_dir() and any(
-                t in item.name.lower() for t in ["inbox", "bandeja", "entrada"]
-            ):
-                return f"📂 Sugerencia: `{item.name}` (Categoría general)"
-        return "📂 Sugerencia: Ubicación a confirmar con el usuario"
-
     @mcp.tool()
     def sugerir_ubicacion(titulo: str, contenido: str, etiquetas: str = "") -> str:
         """
-        Sugiere la mejor carpeta para una nota nueva según su contenido y tags.
+        Sugiere carpetas candidatas para una nota nueva según su contenido y tags.
+
+        ⚠️ IMPORTANTE PARA AGENTES DE IA: ⚠️
+        Esta herramienta devuelve SUGERENCIAS PROBABILÍSTICAS, no respuestas
+        definitivas. Debes:
+        1. Evaluar las opciones junto con el contexto del usuario.
+        2. Considerar la confianza (confidence) de cada sugerencia.
+        3. Proponer la mejor opción al usuario, explicando tu razonamiento.
+        4. Si ninguna sugerencia tiene alta confianza (>0.5), preguntar al usuario.
+
+        La sugerencia se basa en notas similares ya existentes en el vault.
+        No es infalible: el usuario puede tener una mejor idea de dónde ubicarla.
 
         Args:
             titulo: Título de la nota.
             contenido: Fragmento o contenido total de la nota.
             etiquetas: Etiquetas enviadas o planeadas.
+
+        Returns:
+            Lista de carpetas sugeridas con confianza, o fallback a reglas.
         """
         try:
+            # 1. Try Semantic Suggestion (multi-candidate)
+            try:
+                from ..semantic.service import SemanticService
+
+                vault_path = get_vault_path()
+                if vault_path:
+                    service = SemanticService(str(vault_path))
+
+                    # Combine distinct terms for better retrieval
+                    # Limit content to first 1000 chars to avoid huge queries
+                    query = f"{titulo} {etiquetas} {contenido[:1000]}"
+                    suggestions = service.suggest_folder(query, limit=5, top_k=3)
+
+                    if suggestions:
+                        # Format multi-candidate response
+                        lines = [
+                            "📂 **Sugerencias basadas en contenido similar:**\n",
+                            "(Evalúa estas opciones y propón la mejor al usuario)\n",
+                        ]
+                        for i, s in enumerate(suggestions, 1):
+                            conf_pct = int(s["confidence"] * 100)
+                            conf_bar = "█" * (conf_pct // 10) + "░" * (
+                                10 - conf_pct // 10
+                            )
+                            notes_str = (
+                                ", ".join(s["similar_notes"])
+                                if s["similar_notes"]
+                                else "—"
+                            )
+                            lines.append(
+                                f"{i}. `{s['folder']}`\n"
+                                f"   Confianza: {conf_bar} {conf_pct}% "
+                                f"({s['votes']} votos)\n"
+                                f"   Notas similares: {notes_str}"
+                            )
+
+                        # Add guidance for the LLM
+                        top_conf = suggestions[0]["confidence"]
+                        if top_conf >= 0.6:
+                            pct = int(top_conf * 100)
+                            lines.append(
+                                f"\n💡 La opción 1 tiene alta confianza ({pct}%). "
+                                "Puedes sugerirla al usuario."
+                            )
+                        elif top_conf >= 0.4:
+                            lines.append(
+                                "\n⚠️ Confianza moderada. Muestra las opciones al "
+                                "usuario para que decida."
+                            )
+                        else:
+                            lines.append(
+                                "\n⚠️ Baja confianza. Pregunta al usuario dónde "
+                                "prefiere ubicar la nota."
+                            )
+
+                        return "\n".join(lines)
+
+            except Exception:
+                pass  # Silent fallback to regex/keywords
+
+            # 2. Fallback to Keyword/Regex logic
             return _get_sugerencia_ubicacion(titulo, contenido, etiquetas)
+
         except Exception as e:
             return f"❌ Error al sugerir ubicación: {e}"
 
@@ -392,7 +520,8 @@ def register_creation_tools(mcp: FastMCP) -> None:
             etiquetas: Etiquetas separadas por comas.
             plantilla: Nombre del archivo de plantilla (ej: "Diario.md").
             agente_creador: Si se creó usando un agente específico (ej: "escritor").
-            descripcion: Descripción breve de la nota (para placeholder {{description}}).
+            descripcion: Descripción breve de la nota (para placeholder
+                {{description}}).
         """
         try:
             vault_path = get_vault_path()
@@ -676,7 +805,8 @@ def register_creation_tools(mcp: FastMCP) -> None:
         ⚠️ ADVERTENCIA CRÍTICA PARA AGENTES DE IA: ⚠️
         1. NO uses herramientas genéricas de sistema de archivos.
         2. ANTES de ejecutar, DEBES leer la nota original con `leer_nota`.
-        3. DEBES respetar las Reglas Globales (sin emojis en títulos, frontmatter válido).
+        3. DEBES respetar las Reglas Globales (sin emojis en títulos,
+           frontmatter válido).
         4. El nuevo contenido debe ser TOTAL (no diffs).
 
         Args:

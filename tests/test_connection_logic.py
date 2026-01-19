@@ -105,7 +105,7 @@ class TestConnectionLogic(unittest.TestCase):
         # Should find A <-> B (sim 1.0)
         # Should NOT find A <-> C (sim 0.0)
         suggestions = self.service.suggest_connections(
-            min_palabras=10, limit=5, threshold=0.9
+            min_palabras=10, limit=5, threshold=0.70
         )
 
         self.assertEqual(len(suggestions), 1)

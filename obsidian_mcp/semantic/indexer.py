@@ -175,8 +175,25 @@ def load_or_create_db(
     obsidian_path: str,
     db_path: str,
     **kwargs: Any,
-) -> Optional[Chroma]:
-    """Load or create vector database with incremental indexing support"""
+) -> tuple[Optional[Chroma], Dict[str, Any]]:
+    """Load or create vector database with incremental indexing support.
+
+    Returns:
+        Tuple of (db, stats_dict) where stats contains:
+        - docs_processed: total documents in the operation
+        - docs_new: new documents added
+        - docs_modified: documents updated
+        - docs_deleted: documents removed
+        - is_incremental: whether update was incremental
+    """
+    stats: Dict[str, Any] = {
+        "docs_processed": 0,
+        "docs_new": 0,
+        "docs_modified": 0,
+        "docs_deleted": 0,
+        "is_incremental": False,
+    }
+
     metadata_file = kwargs.get("metadata_file", "")
     embeddings_provider = kwargs.get("embeddings_provider", "ollama")
     embeddings_model = kwargs.get("embeddings_model", "embeddinggemma")
@@ -195,14 +212,17 @@ def load_or_create_db(
                 obsidian_path
             )
             if not new_files and not modified_files and not deleted_files:
-                return Chroma(persist_directory=db_path, embedding_function=embeddings)
+                db = Chroma(persist_directory=db_path, embedding_function=embeddings)
+                return db, stats
 
-            # Do incremental update (simplified for now)
+            # Do incremental update
+            stats["is_incremental"] = True
+            stats["docs_new"] = len(new_files)
+            stats["docs_modified"] = len(modified_files)
+            stats["docs_deleted"] = len(deleted_files)
+            stats["docs_processed"] = len(new_files) + len(modified_files)
+
             db = Chroma(persist_directory=db_path, embedding_function=embeddings)
-            # Port the more robust incremental update if needed later
-            # For now, if changes exist and no force rebuild,
-            # we just reload everything if tracker says so
-            # but let's implement a basic version
             for f in deleted_files | modified_files:
                 db.delete(where={"source": f})
 
@@ -213,12 +233,15 @@ def load_or_create_db(
                 db.add_documents(texts)
 
             tracker.update_metadata(obsidian_path)
-            return db
+            return db, stats
 
     # Full rebuild
     documents = load_all_obsidian_documents(obsidian_path)
     if not documents:
-        return None
+        return None, stats
+
+    stats["docs_processed"] = len(documents)
+    stats["is_incremental"] = False
 
     splitter = get_text_splitter()
     texts = splitter.split_documents(documents)
@@ -233,4 +256,4 @@ def load_or_create_db(
         collection_metadata={"hnsw:space": "cosine"},
     )
     tracker.update_metadata(obsidian_path)
-    return db
+    return db, stats

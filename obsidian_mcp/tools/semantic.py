@@ -106,14 +106,27 @@ def register_semantic_tools(mcp: FastMCP) -> None:
             if not service:
                 return "Error: Servicio semántico no disponible."
 
-            success = service.index_vault(force=forzar)
-            if success:
-                return "✅ Índice semántico actualizado correctamente."
+            stats = service.index_vault(force=forzar)
+
+            if stats.get("success"):
+                mode = "completo" if not stats.get("is_incremental") else "incremental"
+                result = f"✅ Índice semántico actualizado correctamente ({mode}).\n\n"
+                result += "📊 **Estadísticas:**\n"
+                result += f"- Documentos procesados: {stats.get('docs_processed', 0)}\n"
+
+                if stats.get("is_incremental"):
+                    result += f"- Nuevos: {stats.get('docs_new', 0)}\n"
+                    result += f"- Modificados: {stats.get('docs_modified', 0)}\n"
+                    result += f"- Eliminados: {stats.get('docs_deleted', 0)}\n"
+
+                result += f"- Tiempo: {stats.get('time_seconds', 0):.2f}s"
+                return result
+
             return "❌ Error al actualizar el índice semántico."
 
         @mcp.tool()
         async def encontrar_conexiones_sugeridas(
-            threshold: float = 0.82,
+            threshold: float = 0.70,
             limite: int = 5,
             carpetas_incluir: Optional[list[str]] = None,
             excluir_mocs: bool = True,
