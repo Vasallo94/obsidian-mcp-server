@@ -14,6 +14,7 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 - Soporte para **procesamiento de fechas** dinámico (`{{date}}`, `{{fecha}}`) en `crear_nota`.
 - Seguridad mejorada con **listas blancas y negras** configurables mediante `private_paths`.
 - Herramienta `leer_contexto_vault` mejorada con resumen de estructura y etiquetas.
+- **Indexación Semántica de Imágenes**: El sistema ahora extrae descripciones de imágenes (`![[img|desc]]` o `![desc](img)`) y las inyecta como contexto semántico, haciendo buscable el contenido visual.
 
 ### Changed
 - Refactorizado `vault_config.py` para un enfoque minimalista y no prescriptivo.

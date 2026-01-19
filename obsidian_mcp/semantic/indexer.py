@@ -90,8 +90,24 @@ def get_text_splitter(
     )
 
 
+def extract_image_captions(content: str) -> List[str]:
+    """Extract captions from Obsidian image links ![[image.png|caption]] and ![caption](image.png)"""
+    captions = []
+
+    # 1. Wikilinks: ![[image.ext|caption]]
+    matches_wiki = re.findall(r"!\[\[(.*?)\|(.*?)\]\]", content)
+    captions.extend([caption.strip() for _, caption in matches_wiki if caption.strip()])
+
+    # 2. Standard Markdown: ![caption](image.ext)
+    # Exclude invalid links or empty captions
+    matches_md = re.findall(r"!\[(.*?)\]\(.*?\)", content)
+    captions.extend([caption.strip() for caption in matches_md if caption.strip()])
+
+    return captions
+
+
 def load_documents_from_paths(filepaths: Set[str]) -> List[Document]:
-    """Load documents from specific file paths with link extraction"""
+    """Load documents from specific file paths with link and caption extraction"""
     documents = []
 
     for filepath in filepaths:
@@ -102,6 +118,9 @@ def load_documents_from_paths(filepaths: Set[str]) -> List[Document]:
             # Extract Obsidian links
             links = extract_obsidian_links(content)
 
+            # Extract image captions
+            captions = extract_image_captions(content)
+
             # Extract frontmatter metadata
             fm_metadata = parse_frontmatter(content)
 
@@ -109,6 +128,13 @@ def load_documents_from_paths(filepaths: Set[str]) -> List[Document]:
                 "source": filepath,
                 "links": ",".join(links) if links else "",
             }
+
+            if captions:
+                metadata["image_captions"] = ",".join(captions)
+                # Enrich content with specific context for embeddings
+                # We add this at the end so it's part of the text but clearly labeled
+                content += "\n\nImage Context:\n" + "\n".join(captions)
+
             # Merge with frontmatter metadata
             metadata.update(fm_metadata)
 
@@ -151,12 +177,18 @@ def load_all_obsidian_documents(obsidian_path: str) -> List[Document]:
 
                         if content.strip():
                             links = extract_obsidian_links(content)
+                            captions = extract_image_captions(content)
                             fm_metadata = parse_frontmatter(content)
 
                             doc_metadata = {
                                 "source": filepath,
                                 "links": ",".join(links) if links else "",
                             }
+
+                            if captions:
+                                doc_metadata["image_captions"] = ",".join(captions)
+                                content += "\n\nImage Context:\n" + "\n".join(captions)
+
                             doc_metadata.update(fm_metadata)
 
                             doc = Document(

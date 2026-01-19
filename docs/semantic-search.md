@@ -79,3 +79,24 @@ Si el índice semántico no está disponible o no encuentra coincidencias, la he
 
 ## Almacenamiento de Datos
 El índice vectorial se guarda localmente en una carpeta dentro de tu vault (normalmente `.obsidianrag/` o similar), lo que garantiza que tu conocimiento nunca salga de tu control.
+
+### 5. Indexación Semántica de Imágenes
+
+El sistema tiene la capacidad de "leer" las imágenes de tu vault a través de sus descripciones.
+
+#### El Problema
+Los modelos de lenguaje de texto (como el que usa este RAG) no pueden ver los píxeles de una imagen `grafico.png`. Si buscas "gráfico de ventas", la IA no sabrá que esa imagen contiene un gráfico de ventas a menos que el nombre del archivo sea muy explícito.
+
+#### La Solución MCP
+El indexador escanea todas tus notas buscando imágenes con **pie de foto (caption)**.
+- Formato Obsidian: `![[imagen.png|Este es un gráfico de ventas]]`
+- Formato Markdown: `![Este es un gráfico de ventas](imagen.png)`
+
+Cuando encuentra una, toma esa descripción e **inyecta el texto en el índice vectorial** asociado a la nota, bajo una sección oculta llamada "Image Context".
+
+#### Resultado
+Puedes preguntar: *"¿Tienes algún gráfico sobre ventas?"*
+El sistema encontrará la nota porque semánticamente "sabe" que contiene esa imagen, aunque el texto principal de la nota nunca mencione la palabra "gráfico".
+
+> [!TIP]
+> Para que esto funcione, es **OBLIGATORIO** poner descripciones a las imágenes relevantes. Una imagen sin descripción es invisible para el buscador semántico.
