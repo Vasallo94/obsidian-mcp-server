@@ -21,6 +21,31 @@ from typing import Optional
 import yaml
 from pydantic import BaseModel, Field
 
+# Default excluded folders for semantic search
+DEFAULT_EXCLUDED_FOLDERS: tuple[str, ...] = (
+    "00_Sistema",
+    "ZZ_Plantillas",
+    "04_Recursos/Obsidian",
+    ".agent",
+    ".trash",
+    ".git",
+    ".obsidian",
+    ".gemini",
+    ".space",
+    ".makemd",
+    ".obsidianrag",
+)
+
+# Default excluded file patterns (regex)
+DEFAULT_EXCLUDED_PATTERNS: tuple[str, ...] = (
+    r".*MOC\.md",
+    r".*Home\.md",
+    r".*Inbox\.md",
+    r".*Panel.*\.md",
+    r".*\.agent\.md",
+    r"copilot-instructions\.md",
+)
+
 
 class VaultConfig(BaseModel):
     """
@@ -38,7 +63,12 @@ class VaultConfig(BaseModel):
         default_factory=list, description="Glob patterns for private/restricted paths"
     )
     excluded_folders: list[str] = Field(
-        default_factory=list, description="List of folder names to exclude from search"
+        default_factory=lambda: list(DEFAULT_EXCLUDED_FOLDERS),
+        description="List of folder names to exclude from search",
+    )
+    excluded_patterns: list[str] = Field(
+        default_factory=lambda: list(DEFAULT_EXCLUDED_PATTERNS),
+        description="Regex patterns for files to exclude from search",
     )
 
 

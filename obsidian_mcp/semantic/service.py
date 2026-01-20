@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional
 
 from ..utils.timeout import TimeoutError as TimeLimitExceeded
 from ..utils.timeout import time_limit
+from ..vault_config import DEFAULT_EXCLUDED_FOLDERS, DEFAULT_EXCLUDED_PATTERNS
 from .indexer import load_or_create_db
 from .retriever import create_retriever_with_reranker
 
@@ -27,32 +28,11 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
-# Constants for filtering
-CARPETAS_EXCLUIDAS = [
-    "00_Sistema",
-    "ZZ_Plantillas",
-    "04_Recursos/Obsidian",
-    ".agent",
-    ".trash",
-    ".git",
-    ".obsidian",
-    ".gemini",
-    ".space",
-    ".makemd",
-    ".obsidianrag",
-]
+# Use centralized config for exclusions
+CARPETAS_EXCLUIDAS = list(DEFAULT_EXCLUDED_FOLDERS)
+PATRONES_EXCLUIDOS = list(DEFAULT_EXCLUDED_PATTERNS)
 
-PATRONES_EXCLUIDOS = [
-    r".*MOC\.md",
-    r".*Home\.md",
-    r".*Inbox\.md",
-    r".*Panel.*\.md",
-    r".*\.agent\.md",
-    r"copilot-instructions\.md",
-]
-
-# NO USAR CARPETAS_CONTENIDO (Deprecado, usar lógica de exclusión)
-# Mantener vacío para evitar errores de importación si se usa en otros lados
+# Deprecated, kept for backward compatibility
 CARPETAS_CONTENIDO = []
 
 

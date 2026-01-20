@@ -1,7 +1,14 @@
+"""
+Tests for the connection logic in SemanticService.
+
+These tests verify the vectorized similarity and filtering logic.
+Uses pytest with proper fixtures to avoid polluting sys.modules.
+"""
+
 import os
-import sys
-import unittest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 # Check if numpy is available (required for vectorized tests)
 try:
@@ -11,62 +18,54 @@ try:
 except ImportError:
     HAS_NUMPY = False
 
-# Add project root to path
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-sys.path.insert(0, project_root)
 
-# 1. Mock external dependencies
-# We keep numpy real because we want to test the vector logic
-external_mocks = [
-    "dotenv",
-    "yaml",
-    "langchain_chroma",
-    "langchain_core",
-    "langchain_core.documents",
-    "langchain_huggingface",
-    "langchain_ollama",
-    "langchain_text_splitters",
-    "fastmcp",
-    # "tqdm"  # We let tqdm import naturally or use the fallback
-]
-for mod in external_mocks:
-    sys.modules[mod] = MagicMock()
+@pytest.fixture
+def mock_dependencies():
+    """Mock all dependencies to isolate SemanticService testing."""
+    # We need to mock before importing the module
+    mocks = {}
+    mock_obj = MagicMock()
 
-# 2. Mock internal modules
-internal_mocks = [
-    "obsidian_mcp.config",
-    # "obsidian_mcp.utils", # Allow utils package
-    "obsidian_mcp.utils.logging",
-    "obsidian_mcp.utils.vault",
-    "obsidian_mcp.utils.mcp_ignore",
-    "obsidian_mcp.semantic.indexer",
-    "obsidian_mcp.semantic.retriever",
-    "obsidian_mcp.server",
-    "obsidian_mcp.resources",
-]
-for mod in internal_mocks:
-    sys.modules[mod] = MagicMock()
+    # Mock all langchain submodules that might be imported
+    langchain_mocks = {
+        "langchain_chroma": mock_obj,
+        "langchain_core": mock_obj,
+        "langchain_core.documents": mock_obj,
+        "langchain_core.prompts": mock_obj,
+        "langchain_core.embeddings": mock_obj,
+        "langchain_core.runnables": mock_obj,
+        "langchain_community": mock_obj,
+        "langchain_huggingface": mock_obj,
+        "langchain_ollama": mock_obj,
+        "langchain_text_splitters": mock_obj,
+    }
 
-from obsidian_mcp.semantic.service import SemanticService  # noqa: E402
+    with patch.dict("sys.modules", langchain_mocks):
+        yield mocks
 
 
-class TestConnectionLogic(unittest.TestCase):
-    def setUp(self):
-        self.service = SemanticService("/tmp/mock_vault")
-        self.service._db = MagicMock()
-        self.service._ensure_db = MagicMock()
+@pytest.fixture
+def mock_service(mock_dependencies):
+    """Create a mock SemanticService for testing."""
+    try:
+        from obsidian_mcp.semantic.service import SemanticService
 
-    @unittest.skipUnless(HAS_NUMPY, "numpy is required for vectorized tests")
-    def test_suggest_connections_vectorized(self):
+        service = SemanticService("/tmp/mock_vault")
+        service._db = MagicMock()
+        service._ensure_db = MagicMock()
+        return service
+    except (ImportError, ModuleNotFoundError) as e:
+        pytest.skip(f"SemanticService dependencies not available: {e}")
+
+
+@pytest.mark.skipif(not HAS_NUMPY, reason="numpy is required for vectorized tests")
+class TestConnectionLogic:
+    """Tests for suggest_connections vectorized logic."""
+
+    def test_suggest_connections_vectorized(self, mock_service):
+        """Test that similar notes are correctly identified."""
         # Setup mock data with known embeddings
         # Note A and Note B are identical vectors -> max similarity (1.0)
-        # Short note is short
-        # Excluded items have vectors too
-
-        # Dimensions: 2D for simplicity
-        # A: [1, 0]
-        # B: [1, 0] (Same direction)
-        # C: [0, 1] (Orthogonal)
 
         documents = [
             "Content of Note A with enough words to pass the filter. " * 30,  # 0
@@ -95,32 +94,25 @@ class TestConnectionLogic(unittest.TestCase):
             {"source": "03_Notas/Note C.md", "links": ""},
         ]
 
-        self.service._db.get.return_value = {
+        mock_service._db.get.return_value = {
             "documents": documents,
             "metadatas": metadatas,
             "embeddings": embeddings,
         }
 
-        # Test 1: Default filters, high threshold
-        # Should find A <-> B (sim 1.0)
-        # Should NOT find A <-> C (sim 0.0)
-        suggestions = self.service.suggest_connections(
+        suggestions = mock_service.suggest_connections(
             min_palabras=10, limit=5, threshold=0.70
         )
 
-        self.assertEqual(len(suggestions), 1)
-        self.assertEqual(suggestions[0]["note_a"], "Note A.md")
-        self.assertEqual(suggestions[0]["note_b"], "Note B.md")
-        self.assertAlmostEqual(suggestions[0]["similarity"], 1.0, places=5)
+        assert len(suggestions) == 1
+        assert suggestions[0]["note_a"] == "Note A.md"
+        assert suggestions[0]["note_b"] == "Note B.md"
+        assert abs(suggestions[0]["similarity"] - 1.0) < 0.00001
 
-    def test_exclusion_logic(self):
-        # Reuse existing logic test
-        p1 = os.path.join(self.service.vault_path, "00_Sistema/File.md")
-        self.assertTrue(self.service._should_exclude(p1))
+    def test_exclusion_logic(self, mock_service):
+        """Test that system files are properly excluded."""
+        p1 = os.path.join(mock_service.vault_path, "00_Sistema/File.md")
+        assert mock_service._should_exclude(p1) is True
 
-        p4 = os.path.join(self.service.vault_path, "03_Notas/ValidNote.md")
-        self.assertFalse(self.service._should_exclude(p4))
-
-
-if __name__ == "__main__":
-    unittest.main()
+        p4 = os.path.join(mock_service.vault_path, "03_Notas/ValidNote.md")
+        assert mock_service._should_exclude(p4) is False

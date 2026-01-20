@@ -91,7 +91,11 @@ def get_text_splitter(
 
 
 def extract_image_captions(content: str) -> List[str]:
-    """Extract captions from Obsidian image links ![[image.png|caption]] and ![caption](image.png)"""
+    """
+    Extract captions from Obsidian image links.
+
+    Supports both ![[image.png|caption]] and ![caption](image.png) formats.
+    """
     captions = []
 
     # 1. Wikilinks: ![[image.ext|caption]]
