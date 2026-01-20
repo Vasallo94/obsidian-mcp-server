@@ -16,6 +16,9 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 - Herramienta `leer_contexto_vault` mejorada con resumen de estructura y etiquetas.
 - **Indexación Semántica de Imágenes**: El sistema ahora extrae descripciones de imágenes (`![[img|desc]]` o `![desc](img)`) y las inyecta como contexto semántico, haciendo buscable el contenido visual.
 
+### Fixed
+- **Import circular** en `security.py` que impedía el arranque del servidor MCP. El import de `vault_config` se movió a nivel de función para romper el ciclo de dependencias.
+
 ### Changed
 - Refactorizado `vault_config.py` para un enfoque minimalista y no prescriptivo.
 - Herramientas de navegación, creación y seguridad migradas para usar la nueva arquitectura dinámica.
