@@ -13,13 +13,15 @@ from langchain_community.cross_encoders import HuggingFaceCrossEncoder  # type: 
 from langchain_community.retrievers import BM25Retriever  # type: ignore
 from langchain_core.documents import Document  # type: ignore
 
+from ..constants import SemanticDefaults
+
 logger = logging.getLogger(__name__)
 
 
 def create_hybrid_retriever(
     db,
-    bm25_k: int = 5,
-    vector_k: int = 12,
+    bm25_k: int = SemanticDefaults.BM25_K,
+    vector_k: int = SemanticDefaults.VECTOR_K,
     bm25_weight: float = 0.4,
     vector_weight: float = 0.6,
 ):

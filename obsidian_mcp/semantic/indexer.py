@@ -14,6 +14,7 @@ from langchain_huggingface import HuggingFaceEmbeddings  # type: ignore
 from langchain_ollama import OllamaEmbeddings  # type: ignore
 from langchain_text_splitters import RecursiveCharacterTextSplitter  # type: ignore
 
+from ..constants import CHUNK_OVERLAP, CHUNK_SIZE
 from .metadata_tracker import FileMetadataTracker
 
 logger = logging.getLogger(__name__)
@@ -79,7 +80,7 @@ def get_embeddings(
 
 
 def get_text_splitter(
-    chunk_size: int = 1500, chunk_overlap: int = 300
+    chunk_size: int = CHUNK_SIZE, chunk_overlap: int = CHUNK_OVERLAP
 ) -> RecursiveCharacterTextSplitter:
     """Get configured text splitter"""
     return RecursiveCharacterTextSplitter(
