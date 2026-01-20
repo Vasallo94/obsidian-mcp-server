@@ -7,10 +7,12 @@ proper validation of restricted folder access.
 
 import fnmatch
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import TYPE_CHECKING, List, Optional, Tuple
 
 from ..config import get_vault_path
-from ..vault_config import get_vault_config
+
+if TYPE_CHECKING:
+    from ..vault_config import VaultConfig
 
 # Cache for forbidden patterns
 _forbidden_patterns: Optional[List[str]] = None
@@ -68,6 +70,9 @@ def load_forbidden_patterns(force_reload: bool = False) -> List[str]:
                 continue
 
     # Add private folders from vault config as fallback patterns
+    # Import here to avoid circular import
+    from ..vault_config import get_vault_config
+
     vault_path = get_vault_path()
     if vault_path:
         config = get_vault_config(vault_path)
