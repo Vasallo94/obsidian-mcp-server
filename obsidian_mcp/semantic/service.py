@@ -81,6 +81,8 @@ class SemanticService:
         # If filter is provided, we bypass the ensemble for now as BM25
         # doesn't easily support metadata filtering without rebuild.
         if metadata_filter:
+            if self._db is None:
+                return []
             logger.info(f"Performing filtered search: {metadata_filter}")
             docs = self._db.similarity_search(text, k=10, filter=metadata_filter)
         else:

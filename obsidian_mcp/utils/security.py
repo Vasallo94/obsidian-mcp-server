@@ -7,12 +7,9 @@ proper validation of restricted folder access.
 
 import fnmatch
 from pathlib import Path
-from typing import TYPE_CHECKING, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 from ..config import get_vault_path
-
-if TYPE_CHECKING:
-    from ..vault_config import VaultConfig
 
 # Cache for forbidden patterns
 _forbidden_patterns: Optional[List[str]] = None
@@ -135,7 +132,7 @@ def is_path_forbidden(
                 # **/ matches any directory depth
                 pattern_parts = pattern.split("**")
                 if len(pattern_parts) == 2:
-                    prefix, suffix = pattern_parts
+                    _, suffix = pattern_parts
                     suffix = suffix.lstrip("/")
                     # Check if the path ends with the suffix pattern
                     if fnmatch.fnmatch(relative_str, f"*{suffix}"):
@@ -185,7 +182,7 @@ def check_path_access(
         return False, f"⛔ Error de seguridad: {error}"
 
     # Second: check if path is forbidden
-    is_forbidden, pattern = is_path_forbidden(path, vault_path)
+    is_forbidden, _ = is_path_forbidden(path, vault_path)
     if is_forbidden:
         return False, f"⛔ ACCESO DENEGADO: No se permite {operation} rutas protegidas"
 

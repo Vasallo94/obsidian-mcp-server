@@ -97,7 +97,7 @@ def parse_skill_file(skill_path: Path) -> SkillInfo | str:
 
 
 @lru_cache(maxsize=1)
-def _get_cached_skills(vault_path_str: str) -> dict[str, SkillInfo | str]:
+def get_cached_skills(vault_path_str: str) -> dict[str, SkillInfo | str]:
     """
     Escanea y cachea todas las skills del vault.
     El caché se invalida si cambia vault_path_str.
@@ -120,7 +120,7 @@ def _get_cached_skills(vault_path_str: str) -> dict[str, SkillInfo | str]:
 
 def invalidate_skills_cache() -> None:
     """Invalida el caché de skills (útil tras crear/editar skills)."""
-    _get_cached_skills.cache_clear()
+    get_cached_skills.cache_clear()
 
 
 # ============================================================================
@@ -149,7 +149,7 @@ def register_agent_tools(mcp: FastMCP) -> None:
             if not vault_path:
                 return "❌ Error: La ruta del vault no está configurada."
 
-            skills = _get_cached_skills(str(vault_path))
+            skills = get_cached_skills(str(vault_path))
 
             if not skills:
                 return f"ℹ️ No se encontraron skills en {vault_path}/.agent/skills/"
@@ -201,7 +201,7 @@ def register_agent_tools(mcp: FastMCP) -> None:
             if not vault_path:
                 return "❌ Error: La ruta del vault no está configurada."
 
-            skills = _get_cached_skills(str(vault_path))
+            skills = get_cached_skills(str(vault_path))
 
             if nombre not in skills:
                 available = ", ".join(sorted(skills.keys())) or "ninguna"
