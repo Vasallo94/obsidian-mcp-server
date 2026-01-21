@@ -66,19 +66,74 @@ obsidian-mcp-server/
 
 ## Patrón para Crear una Nueva Tool
 
-Cada módulo de tools sigue este patrón:
+> **IMPORTANTE**: Separa siempre la lógica del registro MCP.
+> Esto permite testear las funciones independientemente y reduce la complejidad.
+
+### Estructura de archivos
+
+Para cada módulo de tools, mantén **dos archivos**:
+
+```
+obsidian_mcp/tools/
+├── navigation.py        # Solo registro MCP (wrappers delgados)
+├── navigation_logic.py  # Lógica de negocio (funciones puras)
+├── analysis.py
+├── analysis_logic.py
+└── ...
+```
+
+### 1. Archivo de lógica (`*_logic.py`)
+
+Contiene la implementación real, testeable independientemente:
 
 ```python
 """
-Descripción del módulo de herramientas.
+Core business logic for XXX tools.
+
+This module contains the actual implementation, separated from MCP
+registration to improve testability and maintain single responsibility.
 """
 
-from fastmcp import FastMCP
+from pathlib import Path
 
 from ..config import get_vault_path
 from ..utils import get_logger
 
 logger = get_logger(__name__)
+
+
+def do_something(param: str) -> str:
+    """
+    Descripción de lo que hace la función.
+
+    Args:
+        param: Descripción del parámetro.
+
+    Returns:
+        Resultado formateado como string.
+    """
+    vault_path = get_vault_path()
+    if not vault_path:
+        return "Error: La ruta del vault no está configurada."
+
+    # ... implementación
+    logger.info(f"Ejecutando do_something con {param}")
+
+    return "Resultado exitoso"
+```
+
+### 2. Archivo de registro (`*.py`)
+
+Contiene **solo wrappers delgados** que delegan a la lógica:
+
+```python
+"""
+MCP tool registration for XXX functionality.
+"""
+
+from fastmcp import FastMCP
+
+from .xxx_logic import do_something
 
 
 def register_xxx_tools(mcp: FastMCP) -> None:
@@ -95,22 +150,78 @@ def register_xxx_tools(mcp: FastMCP) -> None:
         Returns:
             Descripción del resultado.
         """
-        vault_path = get_vault_path()
-        if not vault_path:
-            return "❌ Error: La ruta del vault no está configurada."
-
-        # ... implementación
-        logger.info(f"Ejecutando mi_herramienta con {param}")
-
-        return "✅ Resultado exitoso"
+        return do_something(param)
 ```
+
+### Beneficios de esta separación
+
+| Aspecto | Sin separación | Con separación |
+|---------|---------------|----------------|
+| Testabilidad | Requiere MCP mock | Import directo |
+| Complejidad | Alta (C901 > 10) | Baja (~1-2) |
+| Reutilización | Imposible | Fácil |
+| Mantenibilidad | Difícil | Simple |
 
 ### Pasos para añadir una tool:
 
-1. **Crear la función** en el archivo de tools correspondiente (`obsidian_mcp/tools/`)
-2. **Registrar** en `server.py` si es un nuevo módulo
-3. **Añadir tests** en `tests/`
-4. **Documentar** en `docs/tool-reference.md`
+1. **Crear la lógica** en `*_logic.py` (funciones puras, testeables)
+2. **Crear el wrapper** en `*.py` con el decorator `@mcp.tool()`
+3. **Registrar** en `server.py` si es un nuevo módulo
+4. **Añadir tests** en `tests/` (importando desde `*_logic.py`)
+5. **Documentar** en `docs/tool-reference.md`
+
+## Módulos Centralizados
+
+### Constantes (`constants.py`)
+
+Todas las constantes numéricas deben estar centralizadas:
+
+```python
+from obsidian_mcp.constants import (
+    SemanticDefaults,   # CHUNK_SIZE, VECTOR_K, DEFAULT_THRESHOLD...
+    SearchLimits,       # MAX_SEARCH_RESULTS, MAX_DISPLAY_FILES...
+    FolderSuggestion,   # SIMILAR_NOTES_LIMIT, HIGH_CONFIDENCE_THRESHOLD...
+)
+```
+
+**NO hagas esto** (magic numbers dispersos):
+```python
+# ❌ MAL
+if len(results) > 100:
+    results = results[:100]
+```
+
+**Haz esto**:
+```python
+# ✅ BIEN
+from ..constants import SearchLimits
+
+if len(results) > SearchLimits.MAX_SEARCH_RESULTS:
+    results = results[:SearchLimits.MAX_SEARCH_RESULTS]
+```
+
+### Mensajes (`messages.py`)
+
+Mensajes de error y éxito estandarizados:
+
+```python
+from obsidian_mcp.messages import ErrorMessages, SuccessMessages
+
+# Uso
+return ErrorMessages.VAULT_NOT_CONFIGURED
+return SuccessMessages.format_note_created(path)
+```
+
+### Configuración de exclusiones (`vault_config.py`)
+
+Carpetas y patrones excluidos:
+
+```python
+from obsidian_mcp.vault_config import (
+    DEFAULT_EXCLUDED_FOLDERS,  # [".git", ".obsidian", ...]
+    DEFAULT_EXCLUDED_PATTERNS, # ["*.tmp", "*.bak", ...]
+)
+```
 
 ## Comandos de Desarrollo
 
@@ -167,6 +278,54 @@ Variables de entorno soportadas:
 | `LOG_LEVEL` | No | Nivel de logging (default: INFO) |
 | `OBSIDIAN_TEMPLATES_FOLDER` | No | Carpeta de plantillas |
 | `OBSIDIAN_SYSTEM_FOLDER` | No | Carpeta del sistema |
+
+## Anti-patrones (Qué NO hacer)
+
+### ❌ Lógica dentro del decorator
+
+```python
+# MAL - No testeable, alta complejidad
+@mcp.tool()
+def mi_herramienta() -> str:
+    # 100 líneas de código aquí
+    ...
+```
+
+### ❌ Magic numbers dispersos
+
+```python
+# MAL - ¿Qué significa 100? ¿Por qué 0.7?
+if len(results) > 100:
+    ...
+if similarity < 0.7:
+    ...
+```
+
+### ❌ Strings de error duplicados
+
+```python
+# MAL - Mismo mensaje en 5 archivos distintos
+return "❌ Error: La ruta del vault no está configurada."
+```
+
+### ❌ Funciones de registro demasiado largas
+
+```python
+# MAL - Complejidad ciclomática > 10
+def register_xxx_tools(mcp):  # 500+ líneas
+    @mcp.tool()
+    def tool1(): ...  # 80 líneas
+    @mcp.tool()
+    def tool2(): ...  # 100 líneas
+    # ... más funciones anidadas
+```
+
+### Verificar complejidad
+
+```bash
+# Muestra funciones con complejidad > 10
+uv run ruff check . --select=C901
+```
 
 ## Commits
 

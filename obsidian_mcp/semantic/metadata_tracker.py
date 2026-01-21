@@ -23,9 +23,9 @@ class FileMetadataTracker:
             try:
                 with open(self.metadata_file, "r", encoding="utf-8") as f:
                     self.metadata = json.load(f)
-                logger.info(f"Loaded metadata for {len(self.metadata)} files")
+                logger.info("Loaded metadata", extra={"file_count": len(self.metadata)})
             except Exception as e:
-                logger.warning(f"Could not load metadata file: {e}")
+                logger.warning("Could not load metadata file", extra={"error": str(e)})
                 self.metadata = {}
         else:
             logger.info("No existing metadata file found, starting fresh")
@@ -39,9 +39,9 @@ class FileMetadataTracker:
 
             with open(self.metadata_file, "w", encoding="utf-8") as f:
                 json.dump(self.metadata, f, indent=2)
-            logger.info(f"Saved metadata for {len(self.metadata)} files")
+            logger.info("Saved metadata", extra={"file_count": len(self.metadata)})
         except Exception as e:
-            logger.error(f"Could not save metadata file: {e}")
+            logger.error("Could not save metadata file", extra={"error": str(e)})
 
     def get_current_files(self, obsidian_path: str) -> Dict[str, dict]:
         """
@@ -64,7 +64,10 @@ class FileMetadataTracker:
                             "last_indexed": datetime.now().isoformat(),
                         }
                     except Exception as e:
-                        logger.warning(f"Could not stat file {filepath}: {e}")
+                        logger.warning(
+                            "Could not stat file",
+                            extra={"filepath": filepath, "error": str(e)},
+                        )
 
         return current_files
 
@@ -95,8 +98,12 @@ class FileMetadataTracker:
                 modified_files.add(filepath)
 
         logger.info(
-            f"Changes detected: {len(new_files)} new, "
-            f"{len(modified_files)} modified, {len(deleted_files)} deleted"
+            "Changes detected",
+            extra={
+                "new": len(new_files),
+                "modified": len(modified_files),
+                "deleted": len(deleted_files),
+            },
         )
 
         return new_files, modified_files, deleted_files
@@ -132,6 +139,9 @@ class FileMetadataTracker:
 
         change_ratio = total_changes / total_files
 
-        logger.info(f"Change ratio: {change_ratio:.2%} (threshold: {threshold:.2%})")
+        logger.info(
+            "Change ratio calculated",
+            extra={"change_ratio": round(change_ratio, 4), "threshold": threshold},
+        )
 
         return change_ratio > threshold

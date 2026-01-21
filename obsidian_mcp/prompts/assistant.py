@@ -5,7 +5,7 @@ Prompts especializados para el asistente de Obsidian
 from fastmcp import FastMCP
 
 from ..config import get_vault_path
-from ..tools.agents import SkillInfo, get_cached_skills
+from ..tools.agents_logic import SkillInfo, get_cached_skills
 
 
 def register_assistant_prompts(mcp: FastMCP) -> None:

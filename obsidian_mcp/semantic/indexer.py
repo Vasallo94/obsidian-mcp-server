@@ -54,7 +54,7 @@ def parse_frontmatter(content: str) -> Dict[str, Any]:
                     processed[k] = str(v)
             return processed
     except Exception as e:
-        logger.warning(f"Error parsing frontmatter: {e}")
+        logger.warning("Error parsing frontmatter", extra={"error": str(e)})
 
     return {}
 
@@ -66,7 +66,7 @@ def get_embeddings(
 ) -> Embeddings:
     """Get configured embeddings model based on provider setting."""
     if provider == "ollama":
-        logger.info(f"Loading Ollama embeddings: {model}")
+        logger.info("Loading Ollama embeddings", extra={"model": model})
         return OllamaEmbeddings(model=model, base_url=ollama_base_url)
 
     # Fallback to HuggingFace
@@ -150,7 +150,9 @@ def load_documents_from_paths(filepaths: Set[str]) -> List[Document]:
             documents.append(doc)
 
         except Exception as e:
-            logger.warning(f"Could not load {filepath}: {e}")
+            logger.warning(
+                "Could not load file", extra={"filepath": filepath, "error": str(e)}
+            )
 
     return documents
 
@@ -203,7 +205,10 @@ def load_all_obsidian_documents(obsidian_path: str) -> List[Document]:
                             documents.append(doc)
 
                 except Exception as e:
-                    logger.error(f"Error loading file {filepath}: {e}")
+                    logger.error(
+                        "Error loading file",
+                        extra={"filepath": filepath, "error": str(e)},
+                    )
 
     return documents
 

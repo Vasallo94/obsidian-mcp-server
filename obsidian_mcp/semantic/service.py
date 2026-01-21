@@ -83,7 +83,7 @@ class SemanticService:
         if metadata_filter:
             if self._db is None:
                 return []
-            logger.info(f"Performing filtered search: {metadata_filter}")
+            logger.info("Performing filtered search", extra={"filter": metadata_filter})
             docs = self._db.similarity_search(text, k=10, filter=metadata_filter)
         else:
             docs = self._retriever.invoke(text)
@@ -186,13 +186,16 @@ class SemanticService:
                 )
 
             logger.info(
-                f"Suggested {len(suggestions)} folders: "
-                f"{[s['folder'] for s in suggestions]}"
+                "Suggested folders",
+                extra={
+                    "count": len(suggestions),
+                    "folders": [s["folder"] for s in suggestions],
+                },
             )
             return suggestions
 
         except Exception as e:
-            logger.error(f"Error suggesting folder: {e}")
+            logger.error("Error suggesting folder", extra={"error": str(e)})
             # Don't raise, just return empty to allow fallback
             return []
 
@@ -278,8 +281,12 @@ class SemanticService:
                 return []
 
             logger.info(
-                f"Analyzing connections: threshold={threshold}, "
-                f"mocs={excluir_mocs}, min_words={min_palabras}"
+                "Analyzing connections",
+                extra={
+                    "threshold": threshold,
+                    "excluir_mocs": excluir_mocs,
+                    "min_palabras": min_palabras,
+                },
             )
 
             try:
@@ -320,12 +327,13 @@ class SemanticService:
 
                     n_docs = len(valid_indices)
                     logger.info(
-                        f"DEBUG: Found {n_docs} valid notes out of {len(all_metadatas)}"
+                        "Found valid notes",
+                        extra={"valid": n_docs, "total": len(all_metadatas)},
                     )
                     if n_docs < 2:
                         return []
 
-                    logger.info(f"Computing similarity for {n_docs} valid notes...")
+                    logger.info("Computing similarity", extra={"docs_count": n_docs})
 
                     # 3. Create Matrix for valid docs
                     # shape: (n_docs, embedding_dim)
@@ -434,6 +442,6 @@ class SemanticService:
                     }
                 ]
         except Exception as e:
-            logger.error(f"Error in suggest_connections: {e}")
+            logger.error("Error in suggest_connections", extra={"error": str(e)})
             logger.error(traceback.format_exc())
             return []

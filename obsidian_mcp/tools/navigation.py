@@ -62,7 +62,8 @@ def register_navigation_tools(mcp: FastMCP) -> None:
         from .navigation_logic import list_notes
 
         try:
-            return list_notes(carpeta, incluir_subcarpetas)
+            result = list_notes(carpeta, incluir_subcarpetas)
+            return result.data if result.success else f"❌ {result.error}"
         except Exception as e:
             return f"❌ Error al listar notas: {e}"
 
@@ -77,9 +78,10 @@ def register_navigation_tools(mcp: FastMCP) -> None:
         from .navigation_logic import read_note
 
         try:
-            return read_note(nombre_archivo)
+            result = read_note(nombre_archivo)
+            return result.data if result.success else f"❌ {result.error}"
         except Exception as e:
-            return f"Error al leer nota: {e}"
+            return f"❌ Error al leer nota: {e}"
 
     @mcp.tool()
     def buscar_en_notas(
@@ -322,9 +324,10 @@ def register_navigation_tools(mcp: FastMCP) -> None:
         from .navigation_logic import search_notes_by_date
 
         try:
-            return search_notes_by_date(fecha_desde, fecha_hasta)
+            result = search_notes_by_date(fecha_desde, fecha_hasta)
+            return result.data if result.success else f"❌ {result.error}"
         except Exception as e:
-            return f"Error al buscar por fecha: {e}"
+            return f"❌ Error al buscar por fecha: {e}"
 
     @mcp.tool()
     def mover_nota(origen: str, destino: str, crear_carpetas: bool = True) -> str:
@@ -342,9 +345,10 @@ def register_navigation_tools(mcp: FastMCP) -> None:
         from .navigation_logic import move_note
 
         try:
-            return move_note(origen, destino, crear_carpetas)
+            result = move_note(origen, destino, crear_carpetas)
+            return f"✅ {result.data}" if result.success else f"❌ {result.error}"
         except Exception as e:
-            return f"Error al mover nota: {e}"
+            return f"❌ Error al mover nota: {e}"
 
     @mcp.tool()
     def concepto_aleatorio(carpeta: str = "") -> str:
@@ -358,6 +362,7 @@ def register_navigation_tools(mcp: FastMCP) -> None:
         from .navigation_logic import get_random_concept
 
         try:
-            return get_random_concept(carpeta)
+            result = get_random_concept(carpeta)
+            return result.data if result.success else f"❌ {result.error}"
         except Exception as e:
-            return f"Error: {e}"
+            return f"❌ Error: {e}"

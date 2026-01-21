@@ -102,7 +102,7 @@ def run_server(
         path: Path para transporte HTTP
     """
     try:
-        logger.info(f"🚀 Iniciando servidor MCP con transporte: {transport}")
+        logger.info("Starting MCP server", extra={"transport": transport})
 
         # Crear servidor
         mcp = create_server()
@@ -137,7 +137,7 @@ def run_server(
         logger.info("🛑 Servidor detenido por el usuario")
         sys.exit(0)
     except Exception as e:
-        logger.error(f"❌ Error fatal del servidor: {e}")
+        logger.error("Fatal server error", extra={"error": str(e)})
         import traceback
 
         traceback.print_exc(file=sys.stderr)

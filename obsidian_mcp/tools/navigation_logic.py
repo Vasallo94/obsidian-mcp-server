@@ -4,12 +4,15 @@ Core business logic for navigation tools.
 This module contains the actual implementation of navigation operations,
 separated from the MCP tool registration to improve testability and
 maintain single responsibility.
+
+All functions return Result[str] for consistent error handling.
 """
 
 from datetime import date, datetime
 from pathlib import Path
 
 from ..config import get_vault_path
+from ..result import Result
 from ..utils import (
     check_path_access,
     find_note_by_name,
@@ -58,7 +61,7 @@ def format_search_results(resultados: list, solo_titulos: bool) -> str:
     return resultado_str
 
 
-def list_notes(carpeta: str = "", incluir_subcarpetas: bool = True) -> str:
+def list_notes(carpeta: str = "", incluir_subcarpetas: bool = True) -> Result[str]:
     """List all notes in the vault or a specific folder.
 
     Args:
@@ -66,16 +69,16 @@ def list_notes(carpeta: str = "", incluir_subcarpetas: bool = True) -> str:
         incluir_subcarpetas: Whether to include subfolders in search
 
     Returns:
-        Formatted string with notes organized by folder
+        Result with formatted string of notes organized by folder
     """
     vault_path = get_vault_path()
     if not vault_path:
-        return "Error: La ruta del vault no esta configurada."
+        return Result.fail("La ruta del vault no esta configurada.")
 
     if carpeta:
         target_path = vault_path / carpeta
         if not target_path.exists():
-            return f"Error: La carpeta '{carpeta}' no existe en el vault"
+            return Result.fail(f"La carpeta '{carpeta}' no existe en el vault")
     else:
         target_path = vault_path
 
@@ -83,7 +86,7 @@ def list_notes(carpeta: str = "", incluir_subcarpetas: bool = True) -> str:
     notas = list(target_path.glob(pattern))
 
     if not notas:
-        return f"No se encontraron notas en '{carpeta or 'raiz'}'"
+        return Result.ok(f"No se encontraron notas en '{carpeta or 'raiz'}'")
 
     notas_por_carpeta: dict[str, list[dict]] = {}
     notas_filtradas = 0
@@ -117,26 +120,26 @@ def list_notes(carpeta: str = "", incluir_subcarpetas: bool = True) -> str:
             )
         resultado += "\n"
 
-    return resultado
+    return Result.ok(resultado)
 
 
-def read_note(nombre_archivo: str) -> str:
+def read_note(nombre_archivo: str) -> Result[str]:
     """Read the complete content of a specific note.
 
     Args:
         nombre_archivo: File name or path (e.g. "Diario/2024-01-01.md")
 
     Returns:
-        Formatted string with metadata and content, or error message
+        Result with formatted string containing metadata and content
     """
     nota_path = find_note_by_name(nombre_archivo)
 
     if not nota_path:
-        return f"Error: No se encontro la nota '{nombre_archivo}'"
+        return Result.fail(f"No se encontro la nota '{nombre_archivo}'")
 
     is_allowed, error = check_path_access(nota_path, operation="leer")
     if not is_allowed:
-        return error
+        return Result.fail(error)
 
     with open(nota_path, "r", encoding="utf-8") as f:
         contenido = f.read()
@@ -151,10 +154,10 @@ def read_note(nombre_archivo: str) -> str:
     resultado += f"{'=' * 50}\n\n"
     resultado += contenido
 
-    return resultado
+    return Result.ok(resultado)
 
 
-def search_notes_by_date(fecha_desde: str, fecha_hasta: str = "") -> str:
+def search_notes_by_date(fecha_desde: str, fecha_hasta: str = "") -> Result[str]:
     """Search for notes modified within a date range.
 
     Args:
@@ -162,22 +165,22 @@ def search_notes_by_date(fecha_desde: str, fecha_hasta: str = "") -> str:
         fecha_hasta: End date (YYYY-MM-DD, defaults to today)
 
     Returns:
-        Formatted string with matching notes
+        Result with formatted string of matching notes
     """
     vault_path = get_vault_path()
     if not vault_path:
-        return "Error: La ruta del vault no esta configurada."
+        return Result.fail("La ruta del vault no esta configurada.")
 
     try:
         fecha_inicio = datetime.strptime(fecha_desde, "%Y-%m-%d").date()
     except ValueError:
-        return "Error: Formato de fecha invalido. Usa YYYY-MM-DD (ej: 2024-01-15)"
+        return Result.fail("Formato de fecha invalido. Usa YYYY-MM-DD (ej: 2024-01-15)")
 
     if fecha_hasta:
         try:
             fecha_fin = datetime.strptime(fecha_hasta, "%Y-%m-%d").date()
         except ValueError:
-            return "Error: Formato de fecha invalido. Usa YYYY-MM-DD"
+            return Result.fail("Formato de fecha invalido. Usa YYYY-MM-DD")
     else:
         fecha_fin = date.today()
 
@@ -196,7 +199,9 @@ def search_notes_by_date(fecha_desde: str, fecha_hasta: str = "") -> str:
             notas_encontradas.append(metadata)
 
     if not notas_encontradas:
-        return f"No se encontraron notas modificadas entre {fecha_desde} y {fecha_fin}"
+        return Result.ok(
+            f"No se encontraron notas modificadas entre {fecha_desde} y {fecha_fin}"
+        )
 
     notas_encontradas.sort(key=lambda x: x["fecha"], reverse=True)
 
@@ -209,10 +214,10 @@ def search_notes_by_date(fecha_desde: str, fecha_hasta: str = "") -> str:
         resultado += f"{nota['name']} ({nota['size_kb']:.1f}KB)\n"
         resultado += f"   {nota['relative_path']} | {nota['fecha']}\n\n"
 
-    return resultado
+    return Result.ok(resultado)
 
 
-def move_note(origen: str, destino: str, crear_carpetas: bool = True) -> str:
+def move_note(origen: str, destino: str, crear_carpetas: bool = True) -> Result[str]:
     """Move or rename a note within the vault.
 
     Args:
@@ -221,19 +226,19 @@ def move_note(origen: str, destino: str, crear_carpetas: bool = True) -> str:
         crear_carpetas: Whether to create destination folders if needed
 
     Returns:
-        Success or error message
+        Result with success or error message
     """
     vault_path = get_vault_path()
     if not vault_path:
-        return "Error: Ruta del vault no configurada"
+        return Result.fail("Ruta del vault no configurada")
 
     is_valid, error = validate_path_within_vault(origen, vault_path)
     if not is_valid:
-        return f"Error de seguridad (origen): {error}"
+        return Result.fail(f"Error de seguridad (origen): {error}")
 
     is_valid, error = validate_path_within_vault(destino, vault_path)
     if not is_valid:
-        return f"Error de seguridad (destino): {error}"
+        return Result.fail(f"Error de seguridad (destino): {error}")
 
     config = get_vault_config(vault_path)
     private_folders = ["**/Private/", "**/Privado/*"]
@@ -241,12 +246,12 @@ def move_note(origen: str, destino: str, crear_carpetas: bool = True) -> str:
         private_folders = config.private_paths
 
     if is_path_in_restricted_folder(origen, private_folders, vault_path):
-        return (
+        return Result.fail(
             "ACCESO DENEGADO: No se permite mover archivos desde carpetas restringidas"
         )
 
     if is_path_in_restricted_folder(destino, private_folders, vault_path):
-        return (
+        return Result.fail(
             "ACCESO DENEGADO: No se permite mover archivos hacia carpetas restringidas"
         )
 
@@ -254,39 +259,39 @@ def move_note(origen: str, destino: str, crear_carpetas: bool = True) -> str:
     path_destino = vault_path / destino
 
     if not path_origen.exists():
-        return f"Error: El archivo origen no existe: {origen}"
+        return Result.fail(f"El archivo origen no existe: {origen}")
 
     if not path_origen.is_file():
-        return f"Error: El origen no es un archivo: {origen}"
+        return Result.fail(f"El origen no es un archivo: {origen}")
 
     if path_destino.exists():
-        return f"Error: El archivo destino ya existe: {destino}"
+        return Result.fail(f"El archivo destino ya existe: {destino}")
 
     if crear_carpetas:
         path_destino.parent.mkdir(parents=True, exist_ok=True)
     elif not path_destino.parent.exists():
-        return f"Error: La carpeta destino no existe: {path_destino.parent.name}"
+        return Result.fail(f"La carpeta destino no existe: {path_destino.parent.name}")
 
     path_origen.rename(path_destino)
 
-    return f"OK: Archivo movido/renombrado:\nDe: {origen}\nA:  {destino}"
+    return Result.ok(f"Archivo movido/renombrado:\nDe: {origen}\nA:  {destino}")
 
 
-def get_random_concept(carpeta: str = "") -> str:
+def get_random_concept(carpeta: str = "") -> Result[str]:
     """Extract a random concept from the vault as a flashcard.
 
     Args:
         carpeta: Specific folder to search (empty = entire vault)
 
     Returns:
-        Formatted flashcard with random note excerpt
+        Result with formatted flashcard containing random note excerpt
     """
     import random
     import re
 
     vault_path = get_vault_path()
     if not vault_path:
-        return "Error: La ruta del vault no esta configurada."
+        return Result.fail("La ruta del vault no esta configurada.")
 
     search_path = vault_path / carpeta if carpeta else vault_path
 
@@ -319,7 +324,7 @@ def get_random_concept(carpeta: str = "") -> str:
         notas_filtradas.append(nota)
 
     if not notas_filtradas:
-        return "No se encontraron notas validas para extraer conceptos."
+        return Result.fail("No se encontraron notas validas para extraer conceptos.")
 
     nota_elegida = random.choice(notas_filtradas)
     ruta_relativa = nota_elegida.relative_to(vault_path)
@@ -364,4 +369,4 @@ def get_random_concept(carpeta: str = "") -> str:
     resultado += f"\n---\n\n{fragmento}\n"
     resultado += f'\n---\n*Quieres profundizar? Usa `leer_nota("{ruta_relativa}")`*'
 
-    return resultado
+    return Result.ok(resultado)
