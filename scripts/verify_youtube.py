@@ -1,7 +1,7 @@
-from obsidian_mcp.tools.youtube import get_transcript_text
+from obsidian_mcp.tools.youtube_logic import get_transcript_text
 
 
-def test_transcript_fetch():
+def test_transcript_fetch() -> None:
     print("\nTesting transcript fetch (Auto Language)...")
     # "Me at the zoo" id: jNQXAC9IVRw. English audio.
     # Manual English subs might exist or auto-gen. Usually has manual "en" or auto.
@@ -16,14 +16,19 @@ def test_transcript_fetch():
     print(f"Fetching transcript for {url} [Auto Mode]...")
     result = get_transcript_text(url)
 
-    print("Result Snippet:", result[:300].replace("\n", " "))
+    if not result.success or not result.data:
+        print(f"FAILED: {result.error}")
+        return
 
-    if "Idioma:" in result:
+    text = result.data
+    print("Result Snippet:", text[:300].replace("\n", " "))
+
+    if "Idioma:" in text:
         print("MetaData Found.")
     else:
         print("FAILED: Metadata not found in response.")
 
-    if "elephants" in result or "trunks" in result:
+    if "elephants" in text or "trunks" in text:
         print("Content Check: PASSED (Found English content)")
     else:
         print(
@@ -37,7 +42,10 @@ def test_transcript_fetch():
     # Let's see if "es" exists for this video.
     print(f"\nFetching transcript for {url} [Language='es']...")
     result_es = get_transcript_text(url, language="es")
-    print("Result snippet (ES):", result_es[:300].replace("\n", " "))
+    if result_es.success and result_es.data:
+        print("Result snippet (ES):", result_es.data[:300].replace("\n", " "))
+    else:
+        print(f"ES fetch failed: {result_es.error}")
 
     # "Me at the zoo" typically doesn't have manual Spanish.
     # So my code might fail or return error.

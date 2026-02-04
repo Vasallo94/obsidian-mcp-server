@@ -28,5 +28,4 @@ def register_youtube_tools(mcp: FastMCP) -> None:
         """
         from .youtube_logic import get_transcript_text
 
-        result = get_transcript_text(url, language)
-        return result.data if result.success else f"❌ {result.error}"
+        return get_transcript_text(url, language).to_display()

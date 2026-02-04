@@ -108,3 +108,24 @@ class Result(Generic[T]):
         if self.success or not self.error:
             return ""
         return f"{prefix} {self.error}"
+
+    def to_display(
+        self, error_prefix: str = "❌", success_prefix: str = ""
+    ) -> str:
+        """Convert result to display string (data on success, error on failure).
+
+        This method is type-safe and always returns str, making it suitable
+        for MCP tool return values.
+
+        Args:
+            error_prefix: Prefix to add before error messages.
+            success_prefix: Prefix to add before success data (e.g., "✅").
+
+        Returns:
+            The data as string if successful, formatted error otherwise.
+        """
+        if self.success and self.data is not None:
+            if success_prefix:
+                return f"{success_prefix} {self.data}"
+            return str(self.data)
+        return f"{error_prefix} {self.error or 'Unknown error'}"

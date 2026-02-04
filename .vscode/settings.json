@@ -1,6 +1,6 @@
 {
     // Python configuration - Use uv-managed environment
-    "python.defaultInterpreterPath": "./.venv/bin/python",
+    "python.defaultInterpreterPath": "${workspaceFolder}/.venv/Scripts/python.exe",
     "python.terminal.activateEnvironment": true,
     "python.terminal.activateEnvInCurrentTerminal": true,
     
@@ -30,11 +30,12 @@
     "ruff.fixAll": true,
     "ruff.showSyntaxErrors": true,
     
-    // Type checking with Pyright
-    "python.analysis.typeCheckingMode": "strict",
+    // Type checking with Pyright (uses pyproject.toml config)
+    "python.analysis.typeCheckingMode": "standard",
     "python.analysis.autoImportCompletions": true,
-    "python.analysis.diagnosticMode": "workspace",
+    "python.analysis.diagnosticMode": "openFilesOnly",
     "python.analysis.stubPath": "./typings",
+    "python.analysis.exclude": [".venv", "tests", "scripts", "obsidian_mcp/semantic"],
     
     // Disable other Python formatters and linters
     "python.linting.enabled": false,

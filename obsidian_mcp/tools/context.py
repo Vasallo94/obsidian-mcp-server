@@ -30,7 +30,6 @@ def register_context_tools(mcp: FastMCP) -> None:
         from .context_logic import read_vault_context
 
         try:
-            result = read_vault_context()
-            return result.data if result.success else f"❌ {result.error}"
+            return read_vault_context().to_display()
         except Exception as e:
             return f"❌ Error al leer contexto: {e}"

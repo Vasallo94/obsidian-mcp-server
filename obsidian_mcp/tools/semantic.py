@@ -37,8 +37,7 @@ def register_semantic_tools(mcp: FastMCP) -> None:
             from .semantic_logic import ask_knowledge
 
             try:
-                result = ask_knowledge(pregunta, metadata_filter)
-                return result.data if result.success else f"❌ {result.error}"
+                return ask_knowledge(pregunta, metadata_filter).to_display()
             except Exception as e:
                 return f"❌ Error en búsqueda semántica: {e}"
 
@@ -54,8 +53,7 @@ def register_semantic_tools(mcp: FastMCP) -> None:
             from .semantic_logic import index_semantic_vault
 
             try:
-                result = index_semantic_vault(forzar)
-                return result.data if result.success else f"❌ {result.error}"
+                return index_semantic_vault(forzar).to_display()
             except Exception as e:
                 return f"❌ Error al actualizar el índice: {e}"
 
@@ -82,10 +80,9 @@ def register_semantic_tools(mcp: FastMCP) -> None:
             from .semantic_logic import find_suggested_connections
 
             try:
-                result = find_suggested_connections(
+                return find_suggested_connections(
                     threshold, limite, carpetas_incluir, excluir_mocs, min_palabras
-                )
-                return result.data if result.success else f"❌ {result.error}"
+                ).to_display()
             except Exception as e:
                 return f"❌ Error al buscar conexiones: {e}"
 

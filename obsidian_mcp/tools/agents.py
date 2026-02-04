@@ -26,16 +26,14 @@ def register_agent_tools(mcp: FastMCP) -> None:
         """Recurso que devuelve la lista de skills disponibles."""
         from .agents_logic import list_available_skills
 
-        result = list_available_skills()
-        return result.data if result.success else f"❌ {result.error}"
+        return list_available_skills().to_display()
 
     @mcp.tool()
     def listar_agentes() -> str:
         """Lista las skills (agentes) disponibles en el vault."""
         from .agents_logic import list_available_skills
 
-        result = list_available_skills()
-        return result.data if result.success else f"❌ {result.error}"
+        return list_available_skills().to_display()
 
     @mcp.tool()
     def obtener_instrucciones_agente(nombre: str) -> str:
@@ -47,8 +45,7 @@ def register_agent_tools(mcp: FastMCP) -> None:
         """
         from .agents_logic import get_agent_instructions
 
-        result = get_agent_instructions(nombre)
-        return result.data if result.success else f"❌ {result.error}"
+        return get_agent_instructions(nombre).to_display()
 
     @mcp.tool()
     def obtener_reglas_globales() -> str:
@@ -62,13 +59,11 @@ def register_agent_tools(mcp: FastMCP) -> None:
         """
         from .agents_logic import get_global_rules
 
-        result = get_global_rules()
-        return result.data if result.success else f"❌ {result.error}"
+        return get_global_rules().to_display()
 
     @mcp.tool()
     def refrescar_cache_skills() -> str:
         """Invalida y refresca el caché de skills (úsalo tras editar SKILL.md)."""
         from .agents_logic import refresh_skills_cache
 
-        result = refresh_skills_cache()
-        return result.data if result.success else f"❌ {result.error}"
+        return refresh_skills_cache().to_display()

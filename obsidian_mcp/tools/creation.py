@@ -27,9 +27,7 @@ def register_creation_tools(mcp: FastMCP) -> None:
         from .creation_logic import list_templates
 
         try:
-            result = list_templates()
-            # Si tiene éxito, el resultado ya es un mensaje formateado
-            return result.data if result.success else f"❌ {result.error}"
+            return list_templates().to_display()
         except Exception as e:
             return f"❌ Error al listar plantillas: {e}"
 
@@ -98,7 +96,7 @@ def register_creation_tools(mcp: FastMCP) -> None:
         from .creation_logic import create_note
 
         try:
-            result = create_note(
+            return create_note(
                 titulo,
                 contenido,
                 carpeta,
@@ -106,8 +104,7 @@ def register_creation_tools(mcp: FastMCP) -> None:
                 plantilla,
                 agente_creador,
                 descripcion,
-            )
-            return f"✅ {result.data}" if result.success else f"❌ {result.error}"
+            ).to_display(success_prefix="✅")
         except Exception as e:
             return f"❌ Error al crear nota: {e}"
 
@@ -129,8 +126,9 @@ def register_creation_tools(mcp: FastMCP) -> None:
         from .creation_logic import append_to_note
 
         try:
-            result = append_to_note(nombre_archivo, contenido, al_final)
-            return f"✅ {result.data}" if result.success else f"❌ {result.error}"
+            return append_to_note(nombre_archivo, contenido, al_final).to_display(
+                success_prefix="✅"
+            )
         except Exception as e:
             return f"❌ Error al agregar contenido: {e}"
 
@@ -149,8 +147,7 @@ def register_creation_tools(mcp: FastMCP) -> None:
         from .creation_logic import delete_note
 
         try:
-            result = delete_note(nombre_archivo, confirmar)
-            return f"✅ {result.data}" if result.success else f"❌ {result.error}"
+            return delete_note(nombre_archivo, confirmar).to_display(success_prefix="✅")
         except Exception as e:
             return f"❌ Error al eliminar nota: {e}"
 
@@ -177,8 +174,9 @@ def register_creation_tools(mcp: FastMCP) -> None:
         from .creation_logic import edit_note
 
         try:
-            result = edit_note(nombre_archivo, nuevo_contenido)
-            return f"✅ {result.data}" if result.success else f"❌ {result.error}"
+            return edit_note(nombre_archivo, nuevo_contenido).to_display(
+                success_prefix="✅"
+            )
         except Exception as e:
             return f"❌ Error al editar nota: {e}"
 
@@ -207,10 +205,8 @@ def register_creation_tools(mcp: FastMCP) -> None:
         from .creation_logic import search_and_replace_global
 
         try:
-            result = search_and_replace_global(
+            return search_and_replace_global(
                 buscar, reemplazar, carpeta, solo_preview, limite
-            )
-            # El resultado contiene el mensaje formateado (preview o éxito)
-            return result.data if result.success else f"❌ {result.error}"
+            ).to_display()
         except Exception as e:
             return f"❌ Error en búsqueda global: {e}"

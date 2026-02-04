@@ -27,8 +27,7 @@ def register_graph_tools(mcp: FastMCP) -> None:
         from .graph_logic import get_backlinks
 
         try:
-            result = get_backlinks(nombre_nota)
-            return result.data if result.success else f"❌ {result.error}"
+            return get_backlinks(nombre_nota).to_display()
         except Exception as e:
             return f"❌ Error al obtener backlinks: {e}"
 
@@ -46,8 +45,7 @@ def register_graph_tools(mcp: FastMCP) -> None:
         from .graph_logic import get_notes_by_tag
 
         try:
-            result = get_notes_by_tag(tag)
-            return result.data if result.success else f"❌ {result.error}"
+            return get_notes_by_tag(tag).to_display()
         except Exception as e:
             return f"❌ Error al buscar por tag: {e}"
 
@@ -66,8 +64,7 @@ def register_graph_tools(mcp: FastMCP) -> None:
         from .graph_logic import get_local_graph
 
         try:
-            result = get_local_graph(nombre_nota, profundidad)
-            return result.data if result.success else f"❌ {result.error}"
+            return get_local_graph(nombre_nota, profundidad).to_display()
         except Exception as e:
             return f"❌ Error al obtener grafo: {e}"
 
@@ -82,7 +79,6 @@ def register_graph_tools(mcp: FastMCP) -> None:
         from .graph_logic import find_orphan_notes
 
         try:
-            result = find_orphan_notes()
-            return result.data if result.success else f"❌ {result.error}"
+            return find_orphan_notes().to_display()
         except Exception as e:
             return f"❌ Error al buscar huérfanas: {e}"

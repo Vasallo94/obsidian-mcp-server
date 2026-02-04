@@ -86,3 +86,18 @@ addopts = "-v"
 module = ["chromadb", "langchain", "numpy"]
 ignore_missing_imports = true
 
+[tool.pyright]
+include = ["obsidian_mcp"]
+exclude = [".venv", "**/__pycache__", ".git", ".ruff_cache", ".pytest_cache", "tests", "scripts", "obsidian_mcp/semantic"]
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.11"
+typeCheckingMode = "standard"
+reportMissingImports = "warning"
+reportMissingTypeStubs = "none"
+reportUnusedFunction = "none"
+reportUnknownMemberType = "none"
+reportUnknownVariableType = "none"
+reportUnknownArgumentType = "none"
+reportUnknownParameterType = "none"
+

@@ -62,8 +62,7 @@ def register_navigation_tools(mcp: FastMCP) -> None:
         from .navigation_logic import list_notes
 
         try:
-            result = list_notes(carpeta, incluir_subcarpetas)
-            return result.data if result.success else f"❌ {result.error}"
+            return list_notes(carpeta, incluir_subcarpetas).to_display()
         except Exception as e:
             return f"❌ Error al listar notas: {e}"
 
@@ -78,8 +77,7 @@ def register_navigation_tools(mcp: FastMCP) -> None:
         from .navigation_logic import read_note
 
         try:
-            result = read_note(nombre_archivo)
-            return result.data if result.success else f"❌ {result.error}"
+            return read_note(nombre_archivo).to_display()
         except Exception as e:
             return f"❌ Error al leer nota: {e}"
 
@@ -324,8 +322,7 @@ def register_navigation_tools(mcp: FastMCP) -> None:
         from .navigation_logic import search_notes_by_date
 
         try:
-            result = search_notes_by_date(fecha_desde, fecha_hasta)
-            return result.data if result.success else f"❌ {result.error}"
+            return search_notes_by_date(fecha_desde, fecha_hasta).to_display()
         except Exception as e:
             return f"❌ Error al buscar por fecha: {e}"
 
@@ -345,8 +342,9 @@ def register_navigation_tools(mcp: FastMCP) -> None:
         from .navigation_logic import move_note
 
         try:
-            result = move_note(origen, destino, crear_carpetas)
-            return f"✅ {result.data}" if result.success else f"❌ {result.error}"
+            return move_note(origen, destino, crear_carpetas).to_display(
+                success_prefix="✅"
+            )
         except Exception as e:
             return f"❌ Error al mover nota: {e}"
 
@@ -362,7 +360,6 @@ def register_navigation_tools(mcp: FastMCP) -> None:
         from .navigation_logic import get_random_concept
 
         try:
-            result = get_random_concept(carpeta)
-            return result.data if result.success else f"❌ {result.error}"
+            return get_random_concept(carpeta).to_display()
         except Exception as e:
             return f"❌ Error: {e}"

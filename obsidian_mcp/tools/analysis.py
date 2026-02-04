@@ -22,8 +22,7 @@ def register_analysis_tools(mcp: FastMCP) -> None:
         from .analysis_logic import get_vault_stats
 
         try:
-            result = get_vault_stats()
-            return result.data if result.success else f"❌ {result.error}"
+            return get_vault_stats().to_display()
         except Exception as e:
             return f"❌ Error al generar estadísticas: {e}"
 
@@ -39,8 +38,7 @@ def register_analysis_tools(mcp: FastMCP) -> None:
         from .analysis_logic import get_canonical_tags
 
         try:
-            result = get_canonical_tags()
-            return result.data if result.success else f"❌ {result.error}"
+            return get_canonical_tags().to_display()
         except Exception as e:
             return f"❌ Error al obtener tags canónicas: {e}"
 
@@ -50,8 +48,7 @@ def register_analysis_tools(mcp: FastMCP) -> None:
         from .analysis_logic import analyze_tags
 
         try:
-            result = analyze_tags()
-            return result.data if result.success else f"❌ {result.error}"
+            return analyze_tags().to_display()
         except Exception as e:
             return f"❌ Error al analizar etiquetas: {e}"
 
@@ -67,8 +64,7 @@ def register_analysis_tools(mcp: FastMCP) -> None:
         from .analysis_logic import sync_tag_registry
 
         try:
-            result = sync_tag_registry(actualizar)
-            return result.data if result.success else f"❌ {result.error}"
+            return sync_tag_registry(actualizar).to_display()
         except Exception as e:
             return f"❌ Error en sincronización: {e}"
 
@@ -84,8 +80,7 @@ def register_analysis_tools(mcp: FastMCP) -> None:
         from .analysis_logic import list_all_tags
 
         try:
-            result = list_all_tags()
-            return result.data if result.success else f"❌ {result.error}"
+            return list_all_tags().to_display()
         except Exception as e:
             return f"❌ Error al obtener lista de etiquetas: {e}"
 
@@ -95,8 +90,7 @@ def register_analysis_tools(mcp: FastMCP) -> None:
         from .analysis_logic import analyze_links
 
         try:
-            result = analyze_links()
-            return result.data if result.success else f"❌ {result.error}"
+            return analyze_links().to_display()
         except Exception as e:
             return f"❌ Error al analizar enlaces: {e}"
 
@@ -111,7 +105,6 @@ def register_analysis_tools(mcp: FastMCP) -> None:
         from .analysis_logic import get_recent_activity
 
         try:
-            result = get_recent_activity(dias)
-            return result.data if result.success else f"❌ {result.error}"
+            return get_recent_activity(dias).to_display()
         except Exception as e:
             return f"❌ Error al generar resumen de actividad: {e}"
