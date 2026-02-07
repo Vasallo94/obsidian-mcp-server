@@ -798,3 +798,149 @@ def search_and_replace_global(
     resultado += f"- Reemplazos realizados: {total_reemplazos}\n"
     resultado += f"- `{buscar}` → `{reemplazar}`"
     return Result.ok(resultado)
+
+
+def quick_capture(texto: str, etiquetas: str = "") -> Result[str]:
+    """Capture an idea quickly to Inbox with minimal friction.
+
+    Args:
+        texto: The content to capture.
+        etiquetas: Optional comma-separated tags.
+
+    Returns:
+        Result with success message or error.
+    """
+    vault_path = get_vault_path()
+    if not vault_path:
+        return Result.fail("La ruta del vault no está configurada.")
+
+    # 1. Find Inbox folder by auto-detection
+    inbox_folder = None
+    inbox_candidates = ["00_Bandeja", "Inbox", "01_Inbox", "Bandeja", "inbox"]
+
+    for candidate in inbox_candidates:
+        candidate_path = vault_path / candidate
+        if candidate_path.exists() and candidate_path.is_dir():
+            inbox_folder = candidate
+            break
+
+    if not inbox_folder:
+        # Fallback: create in root
+        inbox_folder = ""
+
+    # 2. Generate title with timestamp
+    ahora = datetime.now()
+    titulo = ahora.strftime("Captura %Y-%m-%d %H:%M")
+
+    # 3. Try to use "Idea" template if exists
+    plantilla = ""
+    templates_folder = None
+    config = get_vault_config(vault_path)
+    if config and config.templates_folder:
+        templates_folder = config.templates_folder
+    else:
+        for item in vault_path.iterdir():
+            if item.is_dir() and any(
+                t in item.name.lower() for t in ["plantilla", "template"]
+            ):
+                templates_folder = item.name
+                break
+
+    if templates_folder:
+        idea_template = vault_path / templates_folder / "Idea.md"
+        if idea_template.exists():
+            plantilla = "Idea.md"
+
+    # 4. Create the note
+    return create_note(
+        titulo=titulo,
+        contenido=texto,
+        carpeta=inbox_folder,
+        etiquetas=etiquetas,
+        plantilla=plantilla,
+    )
+
+
+def append_to_section(
+    nombre_archivo: str,
+    seccion: str,
+    contenido: str,
+    crear_si_no_existe: bool = True,
+) -> Result[str]:
+    """Append content to a specific section of a note.
+
+    Args:
+        nombre_archivo: Name of the file to modify.
+        seccion: Section heading to find (e.g., "Recursos", "## Ideas").
+        contenido: Content to insert.
+        crear_si_no_existe: If True, create the section if not found.
+
+    Returns:
+        Result with success message or error.
+    """
+    vault_path = get_vault_path()
+    if not vault_path:
+        return Result.fail("La ruta del vault no está configurada.")
+
+    nota_path = find_note_by_name(nombre_archivo)
+    if not nota_path:
+        return Result.fail(f"No se encontró la nota '{nombre_archivo}'")
+
+    is_allowed, error = check_path_access(nota_path, vault_path, "modificar")
+    if not is_allowed:
+        return Result.fail(error)
+
+    with open(nota_path, "r", encoding="utf-8") as f:
+        contenido_actual = f.read()
+
+    # Normalize section name (remove leading # if present)
+    seccion_limpia = seccion.lstrip("#").strip()
+
+    # Find section heading at any level (##, ###, ####, etc.)
+    # Pattern matches: ## Section, ### Section, etc.
+    pattern = rf"^(#{{1,6}})\s+{re.escape(seccion_limpia)}\s*$"
+    match = re.search(pattern, contenido_actual, re.MULTILINE | re.IGNORECASE)
+
+    if match:
+        # Found the section
+        section_start = match.end()
+        section_level = len(match.group(1))  # Number of # characters
+
+        # Find the next heading of equal or higher level (fewer or equal #)
+        next_heading_pattern = rf"^#{{{1},{section_level}}}\s+\S"
+        remaining_content = contenido_actual[section_start:]
+        next_match = re.search(next_heading_pattern, remaining_content, re.MULTILINE)
+
+        if next_match:
+            # Insert before next heading
+            insert_pos = section_start + next_match.start()
+            # Ensure proper spacing
+            nuevo_contenido = (
+                contenido_actual[:insert_pos].rstrip()
+                + "\n\n"
+                + contenido
+                + "\n\n"
+                + contenido_actual[insert_pos:].lstrip()
+            )
+        else:
+            # No next heading, append at end of file
+            nuevo_contenido = contenido_actual.rstrip() + "\n\n" + contenido + "\n"
+
+    elif crear_si_no_existe:
+        # Section not found, create it at end
+        nuevo_contenido = (
+            contenido_actual.rstrip() + f"\n\n## {seccion_limpia}\n\n{contenido}\n"
+        )
+    else:
+        return Result.fail(
+            f"No se encontró la sección '{seccion}' en la nota. "
+            "Usa crear_si_no_existe=True para crearla."
+        )
+
+    with open(nota_path, "w", encoding="utf-8") as f:
+        f.write(nuevo_contenido)
+
+    ruta_relativa = nota_path.relative_to(vault_path)
+    return Result.ok(
+        f"Contenido añadido a sección '{seccion_limpia}' de {ruta_relativa}"
+    )

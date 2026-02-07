@@ -212,3 +212,56 @@ def register_creation_tools(mcp: FastMCP) -> None:
             ).to_display()
         except Exception as e:
             return f"❌ Error en búsqueda global: {e}"
+
+    @mcp.tool()
+    def captura_rapida(texto: str, etiquetas: str = "") -> str:
+        """
+        Captura rápida de una idea al Inbox sin fricción.
+
+        Crea una nota en la carpeta Inbox (00_Bandeja) con timestamp automático.
+        Ideal para "guardar esto rápido" sin pensar en ubicación o formato.
+
+        Args:
+            texto: El contenido a capturar.
+            etiquetas: Etiquetas opcionales separadas por comas.
+
+        Returns:
+            Confirmación con la ruta de la nota creada.
+        """
+        from .creation_logic import quick_capture
+
+        try:
+            return quick_capture(texto, etiquetas).to_display()
+        except Exception as e:
+            return f"❌ Error en captura rápida: {e}"
+
+    @mcp.tool()
+    def agregar_en_seccion(
+        nombre_archivo: str,
+        seccion: str,
+        contenido: str,
+        crear_si_no_existe: bool = True,
+    ) -> str:
+        """
+        Añade contenido debajo de una sección específica de una nota.
+
+        Busca el heading de la sección y añade el contenido justo antes
+        del siguiente heading del mismo nivel o superior.
+
+        Args:
+            nombre_archivo: Nombre de la nota a modificar.
+            seccion: Nombre de la sección (ej: "Recursos", "## Ideas").
+            contenido: Contenido a insertar.
+            crear_si_no_existe: Si True, crea la sección si no existe.
+
+        Returns:
+            Confirmación del contenido añadido.
+        """
+        from .creation_logic import append_to_section
+
+        try:
+            return append_to_section(
+                nombre_archivo, seccion, contenido, crear_si_no_existe
+            ).to_display()
+        except Exception as e:
+            return f"❌ Error al añadir a sección: {e}"
