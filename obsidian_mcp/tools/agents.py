@@ -67,3 +67,61 @@ def register_agent_tools(mcp: FastMCP) -> None:
         from .agents_logic import refresh_skills_cache
 
         return refresh_skills_cache().to_display()
+
+    @mcp.tool()
+    def generar_skill(
+        nombre: str,
+        descripcion: str,
+        instrucciones: str,
+        herramientas: str = "",
+        ubicacion_defecto: str = "",
+    ) -> str:
+        """
+        Genera una nueva skill con estructura consistente.
+
+        Crea automáticamente el archivo SKILL.md con:
+        - Frontmatter YAML correcto
+        - Referencia a REGLAS_GLOBALES
+        - Sección "REGLA DE ORO DE EDICIÓN"
+
+        Args:
+            nombre: Identificador de la skill (ej: "profesor-fisica").
+            descripcion: Descripción breve de lo que hace la skill.
+            instrucciones: Instrucciones principales en markdown.
+            herramientas: Herramientas separadas por comas (ej: "read, edit, web").
+            ubicacion_defecto: Carpeta por defecto para notas (ej: "02_Aprendizaje/").
+        """
+        from .agents_generator import generate_skill
+
+        return generate_skill(
+            nombre, descripcion, instrucciones, herramientas, ubicacion_defecto
+        ).to_display()
+
+    @mcp.tool()
+    def sugerir_skills_para_vault() -> str:
+        """
+        Analiza el vault y sugiere skills personalizadas.
+
+        Escanea patrones de uso: tags frecuentes, carpetas con más contenido,
+        tipos de notas. Devuelve sugerencias de skills basadas en tu vault.
+        """
+        from .agents_generator import suggest_skills_for_vault
+
+        return suggest_skills_for_vault().to_display()
+
+    @mcp.tool()
+    def sincronizar_skills(actualizar: bool = False) -> str:
+        """
+        Sincroniza y valida las skills existentes.
+
+        Detecta problemas como:
+        - Falta de referencia a REGLAS_GLOBALES
+        - Falta de sección "REGLA DE ORO DE EDICIÓN"
+        - Frontmatter incorrecto
+
+        Args:
+            actualizar: Si True, aplica correcciones. Si False, solo reporta.
+        """
+        from .agents_generator import sync_skills
+
+        return sync_skills(actualizar).to_display()
