@@ -109,9 +109,7 @@ class Result(Generic[T]):
             return ""
         return f"{prefix} {self.error}"
 
-    def to_display(
-        self, error_prefix: str = "❌", success_prefix: str = ""
-    ) -> str:
+    def to_display(self, error_prefix: str = "❌", success_prefix: str = "") -> str:
         """Convert result to display string (data on success, error on failure).
 
         This method is type-safe and always returns str, making it suitable

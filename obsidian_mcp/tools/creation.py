@@ -147,7 +147,9 @@ def register_creation_tools(mcp: FastMCP) -> None:
         from .creation_logic import delete_note
 
         try:
-            return delete_note(nombre_archivo, confirmar).to_display(success_prefix="✅")
+            return delete_note(nombre_archivo, confirmar).to_display(
+                success_prefix="✅"
+            )
         except Exception as e:
             return f"❌ Error al eliminar nota: {e}"
 

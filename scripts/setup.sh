@@ -34,7 +34,7 @@ if ! grep -q "OBSIDIAN_VAULT_PATH=" .env || grep -q "/ruta/a/tu/vault" .env; the
     echo "⚠️  Configura la ruta de tu vault en el archivo .env antes de continuar"
 else
     echo "✅ Configuración completada"
-    
+
     # Ejecutar tests básicos
     echo ""
     echo "🧪 Ejecutando tests de verificación..."

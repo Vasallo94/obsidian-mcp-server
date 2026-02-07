@@ -20,9 +20,7 @@ from ..result import Result
 from ..utils import (
     check_path_access,
     find_note_by_name,
-    is_path_in_restricted_folder,
     sanitize_filename,
-    validate_path_within_vault,
 )
 from ..vault_config import get_vault_config
 
@@ -288,19 +286,9 @@ def edit_note(nombre_archivo: str, nuevo_contenido: str) -> Result[str]:
     if not nota_path:
         return Result.fail(f"No se encontro la nota '{nombre_archivo}'")
 
-    is_valid, error = validate_path_within_vault(nota_path, vault_path)
-    if not is_valid:
-        return Result.fail(f"Error de seguridad: {error}")
-
-    config = get_vault_config(vault_path)
-    private_folders = ["**/Private/", "**/Privado/*"]
-    if config and config.private_paths:
-        private_folders = config.private_paths
-
-    if is_path_in_restricted_folder(nota_path, private_folders, vault_path):
-        return Result.fail(
-            "ACCESO DENEGADO: No se permite editar archivos en carpetas restringidas"
-        )
+    is_allowed, error = check_path_access(nota_path, vault_path, "editar")
+    if not is_allowed:
+        return Result.fail(error)
 
     contenido_procesado = _process_date_placeholders(nuevo_contenido)
 
@@ -520,21 +508,10 @@ def create_note(
     if not nota_path.suffix == ".md":
         nota_path = nota_path.with_suffix(".md")
 
-    # Security: Validate path is within vault (prevent path traversal)
-    is_valid, error = validate_path_within_vault(nota_path, vault_path)
-    if not is_valid:
-        return Result.fail(f"Error de seguridad: {error}")
-
-    # Security: Prevent creating notes in restricted folders
-    private_paths = []
-    if config and config.private_paths:
-        private_paths = config.private_paths
-    else:
-        private_paths = ["**/Privado/*", "**/Private/*"]
-    if is_path_in_restricted_folder(nota_path, private_paths, vault_path):
-        return Result.fail(
-            "ACCESO DENEGADO: No se permite crear notas en carpetas restringidas"
-        )
+    # Security: Validate path access (within vault + not forbidden)
+    is_allowed, error = check_path_access(nota_path, vault_path, "crear nota en")
+    if not is_allowed:
+        return Result.fail(error)
 
     # Verificar si ya existe
     if nota_path.exists():
@@ -757,16 +734,9 @@ def search_and_replace_global(
         if any(excl in md_file.parts for excl in excluded):
             continue
 
-        # Verificar acceso
-        is_valid, _ = validate_path_within_vault(md_file, vault_path)
-        if not is_valid:
-            continue
-
-        # Verificar si está en carpeta privada
-        private_paths = ["**/Privado/*", "**/Private/*"]
-        if config and config.private_paths:
-            private_paths = config.private_paths
-        if is_path_in_restricted_folder(md_file, private_paths, vault_path):
+        # Verificar acceso usando función centralizada
+        is_allowed, _ = check_path_access(md_file, vault_path, "buscar en")
+        if not is_allowed:
             continue
 
         try:

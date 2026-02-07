@@ -3,19 +3,19 @@
         // Python development
         "ms-python.python",
         "ms-python.debugpy",
-        
+
         // Ruff linter and formatter
         "charliermarsh.ruff",
-        
+
         // Additional Python tools
         "ms-python.pylint",
-        
+
         // TOML support for pyproject.toml
         "tamasfe.even-better-toml",
-        
+
         // Git integration
         "eamodio.gitlens",
-        
+
         // Code quality and productivity
         "ms-vscode.vscode-json",
         "redhat.vscode-yaml",

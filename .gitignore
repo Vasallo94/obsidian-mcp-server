@@ -79,7 +79,7 @@ pyrightconfig.json
 # Keep these files for team collaboration:
 # .vscode/settings.json - project Python/tool configuration
 # .vscode/tasks.json - build and test automation
-# .vscode/launch.json - debugging configuration  
+# .vscode/launch.json - debugging configuration
 # .vscode/extensions.json - recommended extensions for team
 
 .idea/

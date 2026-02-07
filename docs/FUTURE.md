@@ -23,7 +23,7 @@ Ideas for future development of obsidian-mcp-server.
 def generar_vault_config(confirmar: bool = False) -> str:
     """
     Escanea el vault y genera .agent/vault.yaml.
-    
+
     Args:
         confirmar: Si True, crea el archivo. Si False, solo muestra preview.
     """

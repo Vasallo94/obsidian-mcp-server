@@ -187,7 +187,7 @@ def process(data):
         return "Datos inválidos"
     if not data.has_permissions:
         return "Sin permisos"
-    
+
     return do_work(data)
 ```
 

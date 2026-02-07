@@ -1,3 +1,15 @@
+"""
+Tests for image caption extraction from the semantic indexer.
+
+These tests require the RAG dependencies to be installed.
+Skip the entire module if langchain_chroma is not available.
+"""
+
+import pytest
+
+# Skip entire module if RAG dependencies are not installed
+pytest.importorskip("langchain_chroma", reason="RAG dependencies not installed")
+
 from obsidian_mcp.semantic import indexer
 
 
@@ -39,7 +51,7 @@ class TestImageCaptionExtraction:
         content = """
         # Header
         ![[diagram.png|A complex diagram]]
-        
+
         Refers to [[Concept]].
         Another image ![[photo.jpg|A nice photo]] inline.
         """

@@ -11,7 +11,7 @@ graph TD
     A[FastMCP Server] --> B[Tools]
     A --> C[Resources]
     A --> D[Prompts]
-    
+
     subgraph Tools
         B1[Navigation]
         B2[Creation]
@@ -21,14 +21,14 @@ graph TD
         B6[Semantic/RAG]
         B7[YouTube]
     end
-    
+
     subgraph Core
         E[Config]
         H[Vault Config]
         F[Utils]
         G[Semantic Service]
     end
-    
+
     B --> Core
     C --> Core
     D --> Core

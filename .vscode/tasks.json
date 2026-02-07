@@ -159,7 +159,7 @@
             "dependsOrder": "sequence",
             "dependsOn": [
                 "ruff: Format Code",
-                "ruff: Check Code", 
+                "ruff: Check Code",
                 "pyright: Type Check",
                 "pytest: Run Tests"
             ],

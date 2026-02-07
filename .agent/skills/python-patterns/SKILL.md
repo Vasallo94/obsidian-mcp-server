@@ -56,10 +56,10 @@ def _helper_function(data: str) -> str:
 def public_function(param: str) -> str:
     """
     Función pública del módulo.
-    
+
     Args:
         param: Descripción del parámetro.
-        
+
     Returns:
         Descripción del retorno.
     """
@@ -105,7 +105,7 @@ TransportType = Literal["stdio", "http", "sse"]
 def operation(param: str) -> str:
     """
     Realiza operación.
-    
+
     Returns:
         Mensaje con emoji indicando resultado.
     """
@@ -113,17 +113,17 @@ def operation(param: str) -> str:
         # Validación temprana
         if not param:
             return "❌ Error: Parámetro requerido"
-        
+
         vault_path = get_vault_path()
         if not vault_path:
             return "❌ Error: La ruta del vault no está configurada."
-        
+
         # Lógica principal
         result = do_something(param)
-        
+
         # Éxito
         return f"✅ Operación completada: {result}"
-        
+
     except SpecificError as e:
         return f"❌ Error específico: {e}"
     except Exception as e:
@@ -136,7 +136,7 @@ def operation(param: str) -> str:
 def validate_something(value: str) -> Tuple[bool, str]:
     """
     Valida un valor.
-    
+
     Returns:
         Tupla (es_valido, mensaje_error).
     """
@@ -162,24 +162,24 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class MySettings(BaseSettings):
     """Configuración con validación automática."""
-    
+
     model_config = SettingsConfigDict(
         env_prefix="MY_APP_",
         env_file=".env",
         extra="ignore",
     )
-    
+
     required_field: str = Field(
         description="Campo requerido"
     )
-    
+
     optional_field: int = Field(
         default=10,
         ge=1,
         le=100,
         description="Campo opcional con límites"
     )
-    
+
     @field_validator("required_field", mode="before")
     @classmethod
     def validate_field(cls, v: str) -> str:
@@ -226,21 +226,21 @@ def reset_settings() -> None:
 def function_name(param1: str, param2: int = 10) -> Dict[str, Any]:
     """
     Descripción breve en una línea.
-    
+
     Descripción más detallada si es necesario. Puede
     ocupar múltiples líneas.
-    
+
     Args:
         param1: Descripción del primer parámetro.
         param2: Descripción del segundo parámetro.
             Continuación indentada si es largo.
-    
+
     Returns:
         Descripción del valor de retorno.
-        
+
     Raises:
         ValueError: Si param1 está vacío.
-        
+
     Example:
         >>> result = function_name("test")
         >>> print(result)

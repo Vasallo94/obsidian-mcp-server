@@ -3,7 +3,7 @@
     "python.defaultInterpreterPath": "${workspaceFolder}/.venv/Scripts/python.exe",
     "python.terminal.activateEnvironment": true,
     "python.terminal.activateEnvInCurrentTerminal": true,
-    
+
     // Testing configuration
     "python.testing.pytestArgs": [
         ".",
@@ -12,7 +12,7 @@
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
     "python.testing.autoTestDiscoverOnSaveEnabled": true,
-    
+
     // Linting and formatting with Ruff
     "[python]": {
         "editor.defaultFormatter": "charliermarsh.ruff",
@@ -23,20 +23,20 @@
             "source.organizeImports.ruff": "explicit"
         }
     },
-    
+
     // Ruff configuration
     "ruff.enable": true,
     "ruff.organizeImports": true,
     "ruff.fixAll": true,
     "ruff.showSyntaxErrors": true,
-    
+
     // Type checking with Pyright (uses pyproject.toml config)
     "python.analysis.typeCheckingMode": "standard",
     "python.analysis.autoImportCompletions": true,
     "python.analysis.diagnosticMode": "openFilesOnly",
     "python.analysis.stubPath": "./typings",
     "python.analysis.exclude": [".venv", "tests", "scripts", "obsidian_mcp/semantic"],
-    
+
     // Disable other Python formatters and linters
     "python.linting.enabled": false,
     "python.linting.flake8Enabled": false,
@@ -44,7 +44,7 @@
     "python.formatting.provider": "none",
     "python.formatting.blackPath": "",
     "python.formatting.autopep8Path": "",
-    
+
     // UV package manager integration
     "python.terminal.executeInFileDir": false,
     "python.defaultPackageManager": "uv",
@@ -57,21 +57,21 @@
     "terminal.integrated.env.windows": {
         "UV_PYTHON_PREFERENCE": "only-managed"
     },
-    
+
     // File associations
     "files.associations": {
         "*.py": "python",
         "pyproject.toml": "toml",
         "uv.lock": "toml"
     },
-    
+
     // Editor settings for Python
     "editor.rulers": [88],
     "editor.wordWrap": "off",
     "editor.tabSize": 4,
     "editor.insertSpaces": true,
     "editor.detectIndentation": false,
-    
+
     // File exclusions for better performance
     "files.exclude": {
         "**/__pycache__": true,
@@ -84,7 +84,7 @@
         ".coverage": true,
         "htmlcov": true
     },
-    
+
     // Search exclusions
     "search.exclude": {
         "**/__pycache__": true,
@@ -95,15 +95,15 @@
         ".mypy_cache": true,
         "uv.lock": true
     },
-    
+
     // Task automation
     "python.terminal.launchArgs": [],
     "task.autoDetect": "on",
     "task.quickOpen.history": 10,
-    
+
     // Git settings
     "git.ignoreLimitWarning": true,
-    
+
     // Markdown settings for documentation
     "[markdown]": {
         "editor.wordWrap": "on",
