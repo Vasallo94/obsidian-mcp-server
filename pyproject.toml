@@ -66,6 +66,7 @@ dev = [
     "matplotlib>=3.10.8",
     "numpy>=2.4.1",
     "pre-commit>=4.0.0",
+    "pylint>=3.0.0",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -102,3 +103,31 @@ reportUnknownMemberType = "none"
 reportUnknownVariableType = "none"
 reportUnknownArgumentType = "none"
 reportUnknownParameterType = "none"
+
+[tool.bandit]
+exclude_dirs = ["tests", ".venv"]
+
+[tool.pylint.MAIN]
+# Excluir módulo semantic: usa dependencias opcionales (RAG) que no están disponibles siempre
+ignore = ["semantic"]
+
+[tool.pylint."MESSAGES CONTROL"]
+# R0801 duplicate-code: se va a refactorizar por separado
+# C0301 line-too-long: lo gestiona ruff
+# W1203 logging-fstring-interpolation: se prefiere f-strings en este proyecto
+disable = [
+    "C0114",  # missing-module-docstring
+    "C0115",  # missing-class-docstring
+    "C0116",  # missing-function-docstring
+    "C0301",  # line-too-long (ruff)
+    "R0801",  # duplicate-code (pendiente refactor)
+    "W1203",  # logging-fstring-interpolation
+]
+
+[tool.pylint.DESIGN]
+max-args = 8
+max-locals = 20
+max-returns = 8
+max-branches = 15
+max-statements = 60
+max-nested-blocks = 7

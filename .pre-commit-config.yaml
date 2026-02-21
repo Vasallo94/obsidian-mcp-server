@@ -11,6 +11,8 @@ repos:
       - id: check-yaml
       - id: check-added-large-files
         args: ['--maxkb=1000']
+      - id: check-merge-conflict
+      - id: debug-statements
 
   # Ruff - Fast Python linter and formatter
   - repo: https://github.com/astral-sh/ruff-pre-commit
@@ -29,3 +31,22 @@ repos:
         language: system
         types: [python]
         pass_filenames: false
+
+  # Pylint - static code quality checker
+  - repo: local
+    hooks:
+      - id: pylint
+        name: pylint
+        entry: uv run pylint
+        language: system
+        types: [python]
+        args: ["--rcfile=pyproject.toml"]
+        pass_filenames: true
+
+  # Bandit - Python AST security analyzer
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.8.2
+    hooks:
+      - id: bandit
+        args: ["-c", "pyproject.toml"]
+        additional_dependencies: ["bandit[toml]"]

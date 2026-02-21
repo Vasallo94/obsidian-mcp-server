@@ -1,0 +1,23 @@
+version: 2
+updates:
+  # Mantener actualizadas las Github Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "ci(deps)"
+    labels:
+      - "dependencies"
+      - "github-actions"
+
+  # Mantener actualizadas las dependencias de Python (pyproject.toml / uv)
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "cho(deps)"
+    labels:
+      - "dependencies"
+      - "python"
