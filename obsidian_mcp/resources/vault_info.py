@@ -24,6 +24,6 @@ def register_vault_resources(mcp: FastMCP) -> None:
         try:
             info = get_vault_stats()
             return json.dumps(info, indent=2, ensure_ascii=False)
-        except Exception as e:
+        except OSError as e:
             error_info = {"error": str(e), "timestamp": datetime.now().isoformat()}
             return json.dumps(error_info, indent=2, ensure_ascii=False)

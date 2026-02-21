@@ -4,10 +4,13 @@ Vault Analytics Script
 Analyzes the Obsidian vault to extract creation statistics.
 """
 
+import logging
 import os
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 def get_file_birth_time(filepath: Path) -> datetime:
@@ -37,7 +40,8 @@ def analyze_vault(vault_path: str):
         try:
             birth = get_file_birth_time(note)
             note_times.append((note, birth))
-        except Exception:
+        except OSError as e:
+            logger.debug("Skipping '%s', can't read birth time: %s", note, e)
             continue
 
     # Sort by creation time

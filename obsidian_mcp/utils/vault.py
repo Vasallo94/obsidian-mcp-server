@@ -23,7 +23,7 @@ def _get_cache_ttl() -> int:
     """Get cache TTL from settings."""
     try:
         return get_vault_settings().cache_ttl_seconds
-    except Exception:
+    except AttributeError:
         return 300  # Default 5 minutes
 
 
@@ -34,7 +34,6 @@ def invalidate_note_cache(name: Optional[str] = None) -> None:
     Args:
         name: Optional specific note name to invalidate. If None, clears all.
     """
-    global _note_cache
     if name is None:
         _note_cache.clear()
     else:
@@ -273,10 +272,9 @@ def format_file_size(size_bytes: int) -> str:
     """
     if size_bytes < 1024:
         return f"{size_bytes}B"
-    elif size_bytes < 1024 * 1024:
+    if size_bytes < 1024 * 1024:
         return f"{size_bytes / 1024:.1f}KB"
-    else:
-        return f"{size_bytes / (1024 * 1024):.1f}MB"
+    return f"{size_bytes / (1024 * 1024):.1f}MB"
 
 
 def sanitize_filename(filename: str) -> str:

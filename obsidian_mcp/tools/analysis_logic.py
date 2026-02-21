@@ -13,7 +13,9 @@ from datetime import datetime, timedelta
 
 from ..config import get_vault_path
 from ..result import Result
-from ..utils import extract_internal_links, extract_tags_from_content
+from ..utils import extract_internal_links, extract_tags_from_content, get_logger
+
+logger = get_logger(__name__)
 
 # Pattern to detect hex color codes used as tags (e.g., #fff, #0f0f0f)
 HEX_COLOR_PATTERN = re.compile(r"^([0-9a-fA-F]{3}){1,2}$")
@@ -68,7 +70,8 @@ def get_vault_stats() -> Result[str]:
             fecha_str = fecha_mod.strftime("%Y-%m")
             por_fecha[fecha_str] = por_fecha.get(fecha_str, 0) + 1
 
-        except Exception:
+        except OSError as e:
+            logger.debug("No se pudo leer '%s': %s", archivo, e)
             continue
 
     # Format statistics
@@ -184,7 +187,8 @@ def analyze_tags() -> Result[str]:
                 for tag in etiquetas:
                     conteo_etiquetas[tag] = conteo_etiquetas.get(tag, 0) + 1
 
-        except Exception:
+        except OSError as e:
+            logger.debug("No se pudo leer '%s': %s", archivo, e)
             continue
 
     if not conteo_etiquetas:
@@ -278,7 +282,8 @@ def sync_tag_registry(actualizar: bool = False) -> Result[str]:
                 tags = extract_tags_from_content(f.read())
                 for t in tags:
                     conteo_real[t] = conteo_real.get(t, 0) + 1
-        except Exception:
+        except OSError as e:
+            logger.debug("No se pudo leer '%s': %s", archivo, e)
             continue
 
     # 2. Get tags from registry
@@ -364,7 +369,8 @@ def list_all_tags() -> Result[str]:
                 contenido = f.read()
                 tags = extract_tags_from_content(contenido)
                 etiquetas_set.update(tags)
-        except Exception:
+        except OSError as e:
+            logger.debug("No se pudo leer '%s': %s", archivo, e)
             continue
 
     if not etiquetas_set:
@@ -399,7 +405,8 @@ def analyze_links() -> Result[str]:
                 for enlace in enlaces:
                     todos_los_enlaces[enlace] = todos_los_enlaces.get(enlace, 0) + 1
 
-        except Exception:
+        except OSError as e:
+            logger.debug("No se pudo leer '%s': %s", archivo, e)
             continue
 
     if not todos_los_enlaces:

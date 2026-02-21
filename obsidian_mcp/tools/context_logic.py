@@ -9,8 +9,10 @@ from typing import Dict
 
 from ..config import get_vault_path
 from ..result import Result
-from ..utils import extract_tags_from_content
+from ..utils import extract_tags_from_content, get_logger
 from ..vault_config import get_vault_config
+
+logger = get_logger(__name__)
 
 
 def read_vault_context() -> Result[str]:
@@ -98,7 +100,8 @@ def read_vault_context() -> Result[str]:
                     for tag in tags:
                         conteo_etiquetas[tag] = conteo_etiquetas.get(tag, 0) + 1
                 count += 1
-            except Exception:
+            except OSError as e:
+                logger.debug("No se pudo leer '%s': %s", archivo, e)
                 continue
 
         top_tags = sorted(conteo_etiquetas.items(), key=lambda x: x[1], reverse=True)[
@@ -162,5 +165,5 @@ def read_vault_context() -> Result[str]:
 
         return Result.ok(reporte)
 
-    except Exception as e:
+    except OSError as e:
         return Result.fail(f"Error al leer contexto: {e}")

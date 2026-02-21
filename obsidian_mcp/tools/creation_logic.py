@@ -8,6 +8,9 @@ maintain single responsibility.
 All functions return Result[str] for consistent error handling.
 """
 
+# pylint: disable=too-many-lines
+
+import json
 import re
 from datetime import datetime
 from pathlib import Path
@@ -20,9 +23,12 @@ from ..result import Result
 from ..utils import (
     check_path_access,
     find_note_by_name,
+    get_logger,
     sanitize_filename,
 )
 from ..vault_config import get_vault_config
+
+logger = get_logger(__name__)
 
 
 def _process_date_placeholders(content: str, date_obj: datetime | None = None) -> str:
@@ -36,7 +42,7 @@ def _process_date_placeholders(content: str, date_obj: datetime | None = None) -
     if date_obj is None:
         date_obj = datetime.now()
 
-    FORMAT_MAP = [
+    format_map = [
         ("YYYY", "%Y"),
         ("YY", "%y"),
         ("MMMM", "%B"),
@@ -52,7 +58,7 @@ def _process_date_placeholders(content: str, date_obj: datetime | None = None) -
         ("ss", "%S"),
     ]
 
-    MESES_ES = {
+    meses_es = {
         "January": "Enero",
         "February": "Febrero",
         "March": "Marzo",
@@ -77,7 +83,7 @@ def _process_date_placeholders(content: str, date_obj: datetime | None = None) -
         "Nov": "Nov",
         "Dec": "Dic",
     }
-    DIAS_ES = {
+    dias_es = {
         "Monday": "Lunes",
         "Tuesday": "Martes",
         "Wednesday": "Miércoles",
@@ -96,13 +102,13 @@ def _process_date_placeholders(content: str, date_obj: datetime | None = None) -
 
     def convert_format(moment_format: str) -> str:
         result = moment_format
-        for moment, strftime in FORMAT_MAP:
+        for moment, strftime in format_map:
             result = result.replace(moment, strftime)
         try:
             formatted = date_obj.strftime(result)
-            for en, es in MESES_ES.items():
+            for en, es in meses_es.items():
                 formatted = formatted.replace(en, es)
-            for en, es in DIAS_ES.items():
+            for en, es in dias_es.items():
                 formatted = formatted.replace(en, es)
             return formatted
         except ValueError:
@@ -327,9 +333,11 @@ def suggest_folder_location(titulo: str, contenido: str, etiquetas: str = "") ->
     """Helper to suggest location based on semantics and keywords."""
 
     # 1. Try Semantic Suggestion (multi-candidate)
+    # Import inside try to gracefully degrade when RAG optional deps are missing.
     try:
-        # Import local para evitar dependencias circulares si hay alguna
-        from ..semantic.service import SemanticService
+        from ..semantic.service import (
+            SemanticService,  # pylint: disable=import-outside-toplevel # noqa: PLC0415
+        )
 
         vault_path = get_vault_path()
         if vault_path:
@@ -380,8 +388,8 @@ def suggest_folder_location(titulo: str, contenido: str, etiquetas: str = "") ->
 
                 return "\n".join(lines)
 
-    except Exception:
-        pass  # Silent fallback to heuristic
+    except (ImportError, OSError) as e:
+        logger.debug("Semantic suggestion unavailable, using heuristic: %s", e)
 
     texto = (titulo + " " + contenido + " " + etiquetas).lower()
 
@@ -451,8 +459,8 @@ def suggest_folder_location(titulo: str, contenido: str, etiquetas: str = "") ->
                     t in item.name.lower() for t in ["inbox", "bandeja", "entrada"]
                 ):
                     return f"📂 Sugerencia: `{item.name}` (Categoría general)"
-    except Exception:
-        pass
+    except OSError as e:
+        logger.debug("Error al buscar carpeta inbox en vault: %s", e)
 
     return "📂 Sugerencia: Ubicación a confirmar con el usuario"
 
@@ -759,7 +767,8 @@ def search_and_replace_global(
                 if archivos_procesados >= limite:
                     break
 
-        except Exception:
+        except OSError as e:
+            logger.debug("No se pudo leer '%s' para busqueda: %s", md_file, e)
             continue
 
     if not archivos_afectados:
@@ -790,7 +799,8 @@ def search_and_replace_global(
                 f.write(nuevo_contenido)
             archivos_modificados += 1
             total_reemplazos += arch["ocurrencias"]
-        except Exception:
+        except OSError as e:
+            logger.warning("No se pudo escribir reemplazo en '%s': %s", arch["path"], e)
             continue
 
     resultado = "✅ **Reemplazo completado**\n"
@@ -944,3 +954,174 @@ def append_to_section(
     return Result.ok(
         f"Contenido añadido a sección '{seccion_limpia}' de {ruta_relativa}"
     )
+
+
+def get_frontmatter_logic(nombre_archivo: str) -> Result[str]:
+    """Retrieve only the frontmatter of a note as JSON.
+
+    Args:
+        nombre_archivo: Name of the file.
+
+    Returns:
+        Result containing the frontmatter as a JSON string.
+    """
+    vault_path = get_vault_path()
+    if not vault_path:
+        return Result.fail("La ruta del vault no está configurada.")
+
+    nota_path = find_note_by_name(nombre_archivo)
+    if not nota_path:
+        return Result.fail(f"No se encontró la nota '{nombre_archivo}'")
+
+    is_allowed, error = check_path_access(nota_path, vault_path, "leer")
+    if not is_allowed:
+        return Result.fail(error)
+
+    try:
+        with open(nota_path, "r", encoding="utf-8") as f:
+            contenido = f.read()
+
+        metadata, _ = _extract_frontmatter_from_content(contenido)
+        return Result.ok(json.dumps(metadata, indent=2, ensure_ascii=False))
+    except OSError as e:
+        return Result.fail(f"Error al leer frontmatter: {e}")
+
+
+def update_frontmatter_logic(
+    nombre_archivo: str,
+    frontmatter_updates: str,
+    merge: bool = True,
+) -> Result[str]:
+    """Update the frontmatter of a note without altering the body.
+
+    Args:
+        nombre_archivo: Name of the file.
+        frontmatter_updates: JSON string containing the dictionary of updates.
+        merge: If True, merges with existing frontmatter. If False, replaces it.
+
+    Returns:
+        Result with success message.
+    """
+    vault_path = get_vault_path()
+    if not vault_path:
+        return Result.fail("La ruta del vault no está configurada.")
+
+    nota_path = find_note_by_name(nombre_archivo)
+    if not nota_path:
+        return Result.fail(f"No se encontró la nota '{nombre_archivo}'")
+
+    is_allowed, error = check_path_access(nota_path, vault_path, "modificar")
+    if not is_allowed:
+        return Result.fail(error)
+
+    try:
+        updates_dict = json.loads(frontmatter_updates)
+    except json.JSONDecodeError:
+        return Result.fail("frontmatter_updates debe ser un JSON string válido.")
+
+    try:
+        with open(nota_path, "r", encoding="utf-8") as f:
+            contenido = f.read()
+
+        metadata, cuerpo = _extract_frontmatter_from_content(contenido)
+
+        if merge:
+            metadata.update(updates_dict)
+        else:
+            metadata = updates_dict
+
+        yaml_content = yaml.dump(
+            metadata,
+            default_flow_style=False,
+            allow_unicode=True,
+            sort_keys=False,
+        )
+
+        nuevo_contenido = f"---\n{yaml_content}---\n{cuerpo}"
+
+        with open(nota_path, "w", encoding="utf-8") as f:
+            f.write(nuevo_contenido)
+
+        ruta_rel = nota_path.relative_to(vault_path)
+        return Result.ok(f"Frontmatter actualizado exitosamente en {ruta_rel}")
+    except OSError as e:
+        return Result.fail(f"Error al actualizar frontmatter: {e}")
+
+
+def manage_tags_logic(
+    nombre_archivo: str,
+    operation: str,
+    tags: str,
+) -> Result[str]:
+    """Add, remove, or list tags in a note's frontmatter.
+
+    Args:
+        nombre_archivo: Name of the file.
+        operation: 'add', 'remove', or 'list'.
+        tags: Comma-separated tags to add/remove (empty for list).
+
+    Returns:
+        Result with success message or tag list.
+    """
+    vault_path = get_vault_path()
+    if not vault_path:
+        return Result.fail("La ruta del vault no está configurada.")
+
+    nota_path = find_note_by_name(nombre_archivo)
+    if not nota_path:
+        return Result.fail(f"No se encontró la nota '{nombre_archivo}'")
+
+    is_allowed, error = check_path_access(nota_path, vault_path, "modificar")
+    if not is_allowed:
+        return Result.fail(error)
+
+    try:
+        with open(nota_path, "r", encoding="utf-8") as f:
+            contenido = f.read()
+
+        metadata, cuerpo = _extract_frontmatter_from_content(contenido)
+        existing_tags = metadata.get("tags", [])
+
+        # Normalize existing tags to a list of strings
+        if isinstance(existing_tags, str):
+            tags_list = [t.strip() for t in existing_tags.split(",") if t.strip()]
+        elif isinstance(existing_tags, list):
+            tags_list = [str(t).strip() for t in existing_tags if str(t).strip()]
+        else:
+            tags_list = []
+
+        if operation == "list":
+            tags_str = ", ".join(tags_list) if tags_list else "(sin etiquetas)"
+            return Result.ok(f"Etiquetas en {nombre_archivo}: {tags_str}")
+
+        input_tags = [t.strip() for t in tags.split(",") if t.strip()]
+
+        if operation == "add":
+            for t in input_tags:
+                if t not in tags_list:
+                    tags_list.append(t)
+        elif operation == "remove":
+            tags_list = [t for t in tags_list if t not in input_tags]
+        else:
+            return Result.fail("Operación no válida. Usa 'add', 'remove', o 'list'.")
+
+        metadata["tags"] = tags_list
+
+        yaml_content = yaml.dump(
+            metadata,
+            default_flow_style=False,
+            allow_unicode=True,
+            sort_keys=False,
+        )
+
+        nuevo_contenido = f"---\n{yaml_content}---\n{cuerpo}"
+
+        with open(nota_path, "w", encoding="utf-8") as f:
+            f.write(nuevo_contenido)
+
+        ruta_rel = nota_path.relative_to(vault_path)
+        return Result.ok(
+            f"Etiquetas ({operation}) actualizadas exitosamente en {ruta_rel}"
+        )
+    except OSError as e:
+        return Result.fail(f"Error al gestionar etiquetas: {e}")

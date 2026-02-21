@@ -8,6 +8,7 @@ maintain single responsibility.
 All functions return Result[str] for consistent error handling.
 """
 
+import json
 from datetime import date, datetime
 from pathlib import Path
 
@@ -286,8 +287,8 @@ def get_random_concept(carpeta: str = "") -> Result[str]:
     Returns:
         Result with formatted flashcard containing random note excerpt
     """
-    import random
     import re
+    import secrets
 
     vault_path = get_vault_path()
     if not vault_path:
@@ -326,7 +327,7 @@ def get_random_concept(carpeta: str = "") -> Result[str]:
     if not notas_filtradas:
         return Result.fail("No se encontraron notas validas para extraer conceptos.")
 
-    nota_elegida = random.choice(notas_filtradas)
+    nota_elegida = secrets.choice(notas_filtradas)
     ruta_relativa = nota_elegida.relative_to(vault_path)
 
     with open(nota_elegida, "r", encoding="utf-8") as f:
@@ -352,7 +353,7 @@ def get_random_concept(carpeta: str = "") -> Result[str]:
             parrafos.append(linea_strip)
 
     if parrafos:
-        fragmento = random.choice(parrafos)
+        fragmento = secrets.choice(parrafos)
         if len(fragmento) > 300:
             fragmento = fragmento[:300] + "..."
     else:
@@ -370,3 +371,112 @@ def get_random_concept(carpeta: str = "") -> Result[str]:
     resultado += f'\n---\n*Quieres profundizar? Usa `leer_nota("{ruta_relativa}")`*'
 
     return Result.ok(resultado)
+
+
+def read_multiple_notes_logic(rutas: list[str]) -> Result[str]:
+    """Read multiple notes in a batch to save LLM roundtrips.
+
+    Args:
+        rutas: List of file names or paths.
+
+    Returns:
+        JSON string with successful reads and errors.
+    """
+    vault_path = get_vault_path()
+    if not vault_path:
+        return Result.fail("La ruta del vault no está configurada.")
+
+    from typing import Any
+
+    resultados: dict[str, list[dict[str, Any]]] = {"ok": [], "err": []}
+
+    for ruta in rutas:
+        nota_path = find_note_by_name(ruta)
+        if not nota_path:
+            resultados["err"].append({"path": ruta, "error": "No se encontró"})
+            continue
+
+        is_allowed, error = check_path_access(nota_path, operation="leer")
+        if not is_allowed:
+            resultados["err"].append({"path": ruta, "error": error})
+            continue
+
+        try:
+            with open(nota_path, "r", encoding="utf-8") as f:
+                contenido = f.read()
+
+            from .creation_logic import _extract_frontmatter_from_content
+
+            metadata, cuerpo = _extract_frontmatter_from_content(contenido)
+
+            # Para minimizar tokens, devolvemos el body raw
+            resultados["ok"].append(
+                {
+                    "path": str(nota_path.relative_to(vault_path)),
+                    "frontmatter": metadata,
+                    "content": cuerpo,
+                }
+            )
+        except Exception as e:
+            resultados["err"].append({"path": ruta, "error": str(e)})
+
+    # Limit total characters to avoid context overflow if asked for too many large notes
+    json_str = json.dumps(resultados, ensure_ascii=False)
+    if len(json_str) > 100000:
+        return Result.fail(
+            "La respuesta es demasiado grande. Pide menos notas a la vez."
+        )
+
+    return Result.ok(json_str)
+
+
+def get_notes_info_logic(rutas: list[str]) -> Result[str]:
+    """Get metadata for multiple notes without reading full content.
+
+    Args:
+        rutas: List of file names or paths.
+
+    Returns:
+        JSON string containing array of metadata objects.
+    """
+    vault_path = get_vault_path()
+    if not vault_path:
+        return Result.fail("La ruta del vault no está configurada.")
+
+    from typing import Any
+
+    infos: list[dict[str, Any]] = []
+
+    for ruta in rutas:
+        nota_path = find_note_by_name(ruta)
+        if not nota_path:
+            infos.append({"path": ruta, "error": "No encontrado"})
+            continue
+
+        is_allowed, error = check_path_access(nota_path, operation="leer")
+        if not is_allowed:
+            infos.append({"path": ruta, "error": error})
+            continue
+
+        try:
+            metadata = get_note_metadata(nota_path)
+
+            # Read just the beginning to check for frontmatter
+            has_frontmatter = False
+            with open(nota_path, "r", encoding="utf-8") as f:
+                first_lines = f.read(10)
+                if first_lines.startswith("---"):
+                    has_frontmatter = True
+
+            infos.append(
+                {
+                    "path": str(nota_path.relative_to(vault_path)),
+                    "size_kb": metadata.get("size_kb", 0),
+                    "modified": metadata.get("modified", ""),
+                    "has_frontmatter": has_frontmatter,
+                }
+            )
+        except Exception as e:
+            infos.append({"path": ruta, "error": str(e)})
+
+    return Result.ok(json.dumps(infos, ensure_ascii=False))

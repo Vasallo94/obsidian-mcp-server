@@ -53,7 +53,7 @@ def parse_skill_file(skill_path: Path) -> Result[SkillInfo]:
     """
     try:
         content = skill_path.read_text(encoding="utf-8")
-    except Exception as e:
+    except OSError as e:
         return Result.fail(f"Error leyendo archivo: {e}")
 
     match = FRONTMATTER_PATTERN.match(content)
@@ -168,7 +168,7 @@ def list_available_skills() -> Result[str]:
 
         return Result.ok("\n".join(output_parts))
 
-    except Exception as e:
+    except (OSError, ValueError) as e:
         return Result.fail(f"Error: {e}")
 
 
@@ -204,7 +204,7 @@ def get_agent_instructions(nombre: str) -> Result[str]:
 
         return Result.ok(f"{header}\n---\n\n{skill_info.body}")
 
-    except Exception as e:
+    except (OSError, ValueError) as e:
         return Result.fail(f"Error: {e}")
 
 
@@ -234,7 +234,7 @@ def get_global_rules() -> Result[str]:
 
         return Result.ok(f"📜 **Reglas Globales** {location}\n\n{contenido}")
 
-    except Exception as e:
+    except OSError as e:
         return Result.fail(f"Error: {e}")
 
 

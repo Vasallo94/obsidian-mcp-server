@@ -9,6 +9,7 @@ from typing import Optional
 from urllib.parse import parse_qs, urlparse
 
 from youtube_transcript_api import YouTubeTranscriptApi
+from youtube_transcript_api._errors import NoTranscriptFound
 from youtube_transcript_api.formatters import TextFormatter
 
 from ..result import Result
@@ -81,9 +82,9 @@ def get_transcript_text(url: str, language: Optional[str] = None) -> Result[str]
             # If language specified, try to find it
             try:
                 target_transcript = transcript_list.find_transcript([language])
-            except Exception:
-                # If fails, could try translation logic here (omitted for now)
-                pass
+            except NoTranscriptFound:
+                # Fallback: will try other languages below
+                target_transcript = None
         else:
             # Auto logic: Prioritize manual, then generated
             # 1. Search for manuals (is_generated=False)
@@ -123,5 +124,5 @@ def get_transcript_text(url: str, language: Optional[str] = None) -> Result[str]
             f"ℹ️ {metadata}:\n\n{text_formatted}"
         )
 
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-exception-caught
         return Result.fail(f"Error al obtener transcripción para {video_id}: {e}")

@@ -6,25 +6,24 @@ proper validation of restricted folder access.
 """
 
 import fnmatch
+import logging
 from pathlib import Path
 from typing import List, Optional, Tuple
 
 from ..config import get_vault_path
 
+logger = logging.getLogger(__name__)
+
 # Cache for forbidden patterns
-_forbidden_patterns: Optional[List[str]] = None
+_forbidden_patterns: Optional[List[str]] = None  # pylint: disable=invalid-name
 
 
 class PathSecurityError(Exception):
     """Raised when a path security violation is detected."""
 
-    pass
-
 
 class AccessDeniedError(Exception):
     """Raised when access to a forbidden path is attempted."""
-
-    pass
 
 
 def load_forbidden_patterns(force_reload: bool = False) -> List[str]:
@@ -37,7 +36,7 @@ def load_forbidden_patterns(force_reload: bool = False) -> List[str]:
     Returns:
         List of glob patterns for forbidden paths.
     """
-    global _forbidden_patterns
+    global _forbidden_patterns  # pylint: disable=global-statement
 
     if _forbidden_patterns is not None and not force_reload:
         return _forbidden_patterns
@@ -63,12 +62,15 @@ def load_forbidden_patterns(force_reload: bool = False) -> List[str]:
                         if line and not line.startswith("#"):
                             patterns.append(line)
                 break  # Use first found file
-            except Exception:
+            except OSError as e:
+                logger.debug("No se pudo leer '%s': %s", location, e)
                 continue
 
     # Add private folders from vault config as fallback patterns
-    # Import here to avoid circular import
-    from ..vault_config import get_vault_config
+    # Import here to avoid circular import with vault_config module.
+    from ..vault_config import (
+        get_vault_config,  # pylint: disable=import-outside-toplevel # noqa: PLC0415
+    )
 
     vault_path = get_vault_path()
     if vault_path:
@@ -150,7 +152,7 @@ def is_path_forbidden(
 
         return False, ""
 
-    except Exception as e:
+    except (ValueError, AttributeError) as e:
         return True, f"Error checking path: {e}"  # Fail safe
 
 
@@ -229,7 +231,7 @@ def validate_path_within_vault(
 
         return True, ""
 
-    except Exception as e:
+    except (ValueError, OSError) as e:
         return False, f"Path validation error: {e}"
 
 
@@ -273,7 +275,7 @@ def is_path_in_restricted_folder(
 
         return False
 
-    except Exception:
+    except (ValueError, OSError):
         return True  # Fail safe - deny on error
 
 
@@ -310,5 +312,5 @@ def get_safe_relative_path(
 
         return str(path.resolve().relative_to(vault_path.resolve()))
 
-    except Exception:
+    except (ValueError, OSError):
         return None

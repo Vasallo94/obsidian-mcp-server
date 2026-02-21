@@ -12,6 +12,15 @@ from ..utils import (
     get_logger,
     is_path_forbidden,
 )
+from .navigation_logic import (
+    get_notes_info_logic,
+    get_random_concept,
+    list_notes,
+    move_note,
+    read_multiple_notes_logic,
+    read_note,
+    search_notes_by_date,
+)
 
 logger = get_logger(__name__)
 
@@ -59,11 +68,9 @@ def register_navigation_tools(mcp: FastMCP) -> None:
             carpeta: Carpeta específica a explorar (vacío = raíz del vault)
             incluir_subcarpetas: Si incluir subcarpetas en la búsqueda
         """
-        from .navigation_logic import list_notes
-
         try:
             return list_notes(carpeta, incluir_subcarpetas).to_display()
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             return f"❌ Error al listar notas: {e}"
 
     @mcp.tool()
@@ -74,11 +81,9 @@ def register_navigation_tools(mcp: FastMCP) -> None:
         Args:
             nombre_archivo: Nombre del archivo (ej: "Diario/2024-01-01.md")
         """
-        from .navigation_logic import read_note
-
         try:
             return read_note(nombre_archivo).to_display()
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             return f"❌ Error al leer nota: {e}"
 
     @mcp.tool()
@@ -96,8 +101,12 @@ def register_navigation_tools(mcp: FastMCP) -> None:
             carpeta: Carpeta específica donde buscar (vacío = todo el vault)
             solo_titulos: Si buscar solo en los títulos de las notas
         """
-        import shutil
-        import subprocess
+        import shutil  # pylint: disable=import-outside-toplevel
+
+        # subprocess is required to call the ripgrep binary (rg).
+        # Arguments are always passed as a list (never shell=True),
+        # preventing injection.
+        import subprocess  # pylint: disable=import-outside-toplevel # nosec B404
 
         try:
             vault_path = get_vault_path()
@@ -147,7 +156,7 @@ def register_navigation_tools(mcp: FastMCP) -> None:
                         str(search_path),
                     ]
 
-                    result = subprocess.run(
+                    result = subprocess.run(  # pylint: disable=subprocess-run-check # nosec B603
                         cmd,
                         capture_output=True,
                         check=False,  # No lanzar error si no encuentra nada (retcode 1)
@@ -171,15 +180,17 @@ def register_navigation_tools(mcp: FastMCP) -> None:
                                         t.lower() in contenido for t in terminos[1:]
                                     ):
                                         archivos_coincidentes.add(cand)
-                                except Exception:
-                                    pass
+                                except OSError as e:
+                                    logger.debug(
+                                        "No se pudo leer candidato '%s': %s", cand, e
+                                    )
                         else:
                             # Solo había un término, todos son válidos
                             for cand in candidatos:
                                 archivos_coincidentes.add(cand)
 
-                except Exception as e:
-                    logger.warning(f"Error en fase RG, cayendo a Python puro: {e}")
+                except OSError as e:
+                    logger.warning("Error en fase RG, cayendo a Python puro: %s", e)
                     rg_path = None  # Forzar fallback
 
             # --- ESTRATEGIA 2: PYTHON PURO (Fallback o Títulos) ---
@@ -231,7 +242,10 @@ def register_navigation_tools(mcp: FastMCP) -> None:
                             if all(t.lower() in contenido for t in terminos):
                                 archivos_coincidentes.add(str(archivo_item))
 
-                        except Exception:
+                        except OSError as e:
+                            logger.debug(
+                                "No se pudo leer fichero '%s': %s", archivo_item, e
+                            )
                             continue
 
             # --- PROCESAR RESULTADOS DE CONTENIDO ---
@@ -294,8 +308,8 @@ def register_navigation_tools(mcp: FastMCP) -> None:
                                 ):
                                     break
 
-                except Exception as e:
-                    logger.error(f"Error procesando archivo {archivo_str}: {e}")
+                except OSError as e:
+                    logger.error("Error procesando archivo %s: %s", archivo_str, e)
                     continue
 
             if not resultados:
@@ -307,7 +321,8 @@ def register_navigation_tools(mcp: FastMCP) -> None:
                 resultados, solo_titulos=False
             )
 
-        except Exception as e:
+        except OSError as e:
+            logger.error("Error inesperado en busqueda: %s", e)
             return f"❌ Error en búsqueda: {e}"
 
     @mcp.tool()
@@ -319,11 +334,9 @@ def register_navigation_tools(mcp: FastMCP) -> None:
             fecha_desde: Fecha de inicio (YYYY-MM-DD)
             fecha_hasta: Fecha de fin (YYYY-MM-DD, opcional, por defecto hoy)
         """
-        from .navigation_logic import search_notes_by_date
-
         try:
             return search_notes_by_date(fecha_desde, fecha_hasta).to_display()
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             return f"❌ Error al buscar por fecha: {e}"
 
     @mcp.tool()
@@ -339,13 +352,11 @@ def register_navigation_tools(mcp: FastMCP) -> None:
         Returns:
             Mensaje de exito o error.
         """
-        from .navigation_logic import move_note
-
         try:
             return move_note(origen, destino, crear_carpetas).to_display(
                 success_prefix="✅"
             )
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             return f"❌ Error al mover nota: {e}"
 
     @mcp.tool()
@@ -357,9 +368,41 @@ def register_navigation_tools(mcp: FastMCP) -> None:
         Args:
             carpeta: Carpeta especifica donde buscar (vacio = todo el vault)
         """
-        from .navigation_logic import get_random_concept
-
         try:
             return get_random_concept(carpeta).to_display()
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             return f"❌ Error: {e}"
+
+    @mcp.tool()
+    def leer_multiples_notas(rutas: list[str]) -> str:
+        """
+        Lee el contenido (y frontmatter) de múltiples notas a la vez.
+        Útil para ahorrar roundtrips cuando se necesita cargar contexto de varias notas.
+
+        Args:
+            rutas: Lista de nombres de archivos o rutas (ej: ["Nota1.md", "Nota2.md"]).
+
+        Returns:
+            JSON string con los resultados de lectura exitosos o errores.
+        """
+        try:
+            return read_multiple_notes_logic(rutas).to_display()
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            return f"❌ Error al leer múltiples notas: {e}"
+
+    @mcp.tool()
+    def obtener_info_notas(rutas: list[str]) -> str:
+        """
+        Obtiene un desglose rápido de metadatos (tamaño, fecha, frontmatter)
+        de múltiples archivos sin cargar todo su contenido.
+
+        Args:
+            rutas: Lista de nombres de archivos o rutas.
+
+        Returns:
+            JSON string con un array de objetos de metadatos.
+        """
+        try:
+            return get_notes_info_logic(rutas).to_display()
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            return f"❌ Error al obtener info de notas: {e}"

@@ -7,6 +7,21 @@ facilitando la gestión de contenido del vault desde un cliente MCP.
 
 from fastmcp import FastMCP
 
+from .creation_logic import (
+    append_to_note,
+    append_to_section,
+    create_note,
+    delete_note,
+    edit_note,
+    get_frontmatter_logic,
+    list_templates,
+    manage_tags_logic,
+    quick_capture,
+    search_and_replace_global,
+    suggest_folder_location,
+    update_frontmatter_logic,
+)
+
 
 def register_creation_tools(mcp: FastMCP) -> None:
     """
@@ -24,11 +39,9 @@ def register_creation_tools(mcp: FastMCP) -> None:
         Returns:
             Lista de nombres de plantillas disponibles.
         """
-        from .creation_logic import list_templates
-
         try:
             return list_templates().to_display()
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             return f"❌ Error al listar plantillas: {e}"
 
     @mcp.tool()
@@ -55,11 +68,9 @@ def register_creation_tools(mcp: FastMCP) -> None:
         Returns:
             Lista de carpetas sugeridas con confianza, o fallback a reglas.
         """
-        from .creation_logic import suggest_folder_location
-
         try:
             return suggest_folder_location(titulo, contenido, etiquetas)
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             return f"❌ Error al sugerir ubicación: {e}"
 
     @mcp.tool()
@@ -93,8 +104,6 @@ def register_creation_tools(mcp: FastMCP) -> None:
             descripcion: Descripción breve de la nota (para placeholder
                 {{description}}).
         """
-        from .creation_logic import create_note
-
         try:
             return create_note(
                 titulo,
@@ -105,7 +114,7 @@ def register_creation_tools(mcp: FastMCP) -> None:
                 agente_creador,
                 descripcion,
             ).to_display(success_prefix="✅")
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             return f"❌ Error al crear nota: {e}"
 
     @mcp.tool()
@@ -123,13 +132,11 @@ def register_creation_tools(mcp: FastMCP) -> None:
         Returns:
             Un mensaje indicando el resultado de la operación.
         """
-        from .creation_logic import append_to_note
-
         try:
             return append_to_note(nombre_archivo, contenido, al_final).to_display(
                 success_prefix="✅"
             )
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             return f"❌ Error al agregar contenido: {e}"
 
     @mcp.tool()
@@ -144,13 +151,11 @@ def register_creation_tools(mcp: FastMCP) -> None:
         Returns:
             Un mensaje indicando el resultado de la operación.
         """
-        from .creation_logic import delete_note
-
         try:
             return delete_note(nombre_archivo, confirmar).to_display(
                 success_prefix="✅"
             )
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             return f"❌ Error al eliminar nota: {e}"
 
     @mcp.tool()
@@ -173,13 +178,11 @@ def register_creation_tools(mcp: FastMCP) -> None:
         Returns:
             Mensaje de confirmación o error
         """
-        from .creation_logic import edit_note
-
         try:
             return edit_note(nombre_archivo, nuevo_contenido).to_display(
                 success_prefix="✅"
             )
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             return f"❌ Error al editar nota: {e}"
 
     @mcp.tool()
@@ -204,13 +207,11 @@ def register_creation_tools(mcp: FastMCP) -> None:
         Returns:
             Resumen de archivos afectados y cambios realizados.
         """
-        from .creation_logic import search_and_replace_global
-
         try:
             return search_and_replace_global(
                 buscar, reemplazar, carpeta, solo_preview, limite
             ).to_display()
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             return f"❌ Error en búsqueda global: {e}"
 
     @mcp.tool()
@@ -228,11 +229,9 @@ def register_creation_tools(mcp: FastMCP) -> None:
         Returns:
             Confirmación con la ruta de la nota creada.
         """
-        from .creation_logic import quick_capture
-
         try:
             return quick_capture(texto, etiquetas).to_display()
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             return f"❌ Error en captura rápida: {e}"
 
     @mcp.tool()
@@ -257,11 +256,75 @@ def register_creation_tools(mcp: FastMCP) -> None:
         Returns:
             Confirmación del contenido añadido.
         """
-        from .creation_logic import append_to_section
-
         try:
             return append_to_section(
                 nombre_archivo, seccion, contenido, crear_si_no_existe
             ).to_display()
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             return f"❌ Error al añadir a sección: {e}"
+
+    @mcp.tool()
+    def obtener_frontmatter(nombre_archivo: str) -> str:
+        """
+        Retrieves only the frontmatter of a note as a JSON string.
+        Útil para inspeccionar metadatos rápidamente sin leer todo el contenido.
+
+        Args:
+            nombre_archivo: Nombre de la nota a leer.
+
+        Returns:
+            JSON string con el contenido del frontmatter.
+        """
+        try:
+            return get_frontmatter_logic(nombre_archivo).to_display()
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            return f"❌ Error al obtener frontmatter: {e}"
+
+    @mcp.tool()
+    def actualizar_frontmatter(
+        nombre_archivo: str,
+        frontmatter_updates: str,
+        merge: bool = True,
+    ) -> str:
+        """
+        Updates the frontmatter of a note without altering the body formatting.
+
+        Args:
+            nombre_archivo: Nombre de la nota a modificar.
+            frontmatter_updates: JSON string con un diccionario de actualizaciones.
+            merge: Si True, fusiona con el frontmatter existente.
+                   Si False, lo reemplaza por completo.
+
+        Returns:
+            Mensaje de confirmación.
+        """
+        try:
+            return update_frontmatter_logic(
+                nombre_archivo, frontmatter_updates, merge
+            ).to_display(success_prefix="✅")
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            return f"❌ Error al actualizar frontmatter: {e}"
+
+    @mcp.tool()
+    def gestionar_etiquetas(
+        nombre_archivo: str,
+        operacion: str,
+        etiquetas: str = "",
+    ) -> str:
+        """
+        Añade, elimina o lista etiquetas del frontmatter de una nota de forma segura.
+
+        Args:
+            nombre_archivo: Nombre de la nota a modificar.
+            operacion: 'add' (añadir), 'remove' (eliminar), o 'list' (listar).
+            etiquetas: Etiquetas separadas por comas (para 'add' o 'remove').
+
+        Returns:
+            Mensaje confirmando los cambios o la lista de etiquetas de la nota.
+        """
+        try:
+            return manage_tags_logic(nombre_archivo, operacion, etiquetas).to_display(
+                success_prefix="✅"
+            )
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            return f"❌ Error al gestionar etiquetas: {e}"

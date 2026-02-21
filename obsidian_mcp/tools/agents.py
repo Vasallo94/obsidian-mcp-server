@@ -15,6 +15,14 @@ from __future__ import annotations
 
 from fastmcp import FastMCP
 
+from .agents_generator import generate_skill, suggest_skills_for_vault, sync_skills
+from .agents_logic import (
+    get_agent_instructions,
+    get_global_rules,
+    list_available_skills,
+    refresh_skills_cache,
+)
+
 
 def register_agent_tools(mcp: FastMCP) -> None:
     """
@@ -24,15 +32,11 @@ def register_agent_tools(mcp: FastMCP) -> None:
     @mcp.resource("skills://list")
     def resource_listar_skills() -> str:
         """Recurso que devuelve la lista de skills disponibles."""
-        from .agents_logic import list_available_skills
-
         return list_available_skills().to_display()
 
     @mcp.tool()
     def listar_agentes() -> str:
         """Lista las skills (agentes) disponibles en el vault."""
-        from .agents_logic import list_available_skills
-
         return list_available_skills().to_display()
 
     @mcp.tool()
@@ -43,8 +47,6 @@ def register_agent_tools(mcp: FastMCP) -> None:
         Args:
             nombre: El nombre de la carpeta de la skill (ej: 'escritor').
         """
-        from .agents_logic import get_agent_instructions
-
         return get_agent_instructions(nombre).to_display()
 
     @mcp.tool()
@@ -57,15 +59,11 @@ def register_agent_tools(mcp: FastMCP) -> None:
         o modificación en el vault.
         Contienen restricciones críticas (ej: NO emojis, formatos permitidos).
         """
-        from .agents_logic import get_global_rules
-
         return get_global_rules().to_display()
 
     @mcp.tool()
     def refrescar_cache_skills() -> str:
         """Invalida y refresca el caché de skills (úsalo tras editar SKILL.md)."""
-        from .agents_logic import refresh_skills_cache
-
         return refresh_skills_cache().to_display()
 
     @mcp.tool()
@@ -91,8 +89,6 @@ def register_agent_tools(mcp: FastMCP) -> None:
             herramientas: Herramientas separadas por comas (ej: "read, edit, web").
             ubicacion_defecto: Carpeta por defecto para notas (ej: "02_Aprendizaje/").
         """
-        from .agents_generator import generate_skill
-
         return generate_skill(
             nombre, descripcion, instrucciones, herramientas, ubicacion_defecto
         ).to_display()
@@ -105,8 +101,6 @@ def register_agent_tools(mcp: FastMCP) -> None:
         Escanea patrones de uso: tags frecuentes, carpetas con más contenido,
         tipos de notas. Devuelve sugerencias de skills basadas en tu vault.
         """
-        from .agents_generator import suggest_skills_for_vault
-
         return suggest_skills_for_vault().to_display()
 
     @mcp.tool()
@@ -122,6 +116,4 @@ def register_agent_tools(mcp: FastMCP) -> None:
         Args:
             actualizar: Si True, aplica correcciones. Si False, solo reporta.
         """
-        from .agents_generator import sync_skills
-
         return sync_skills(actualizar).to_display()

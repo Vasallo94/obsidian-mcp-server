@@ -9,17 +9,17 @@ import sys
 from typing import Optional
 
 # Flag to track if logging has been configured
-_configured = False
+_LOGGING_CONFIGURED = False
 
 
 def _get_log_level() -> int:
     """Get log level from configuration (lazy import to avoid circular deps)."""
     try:
-        from ..config import get_app_settings
+        from ..config import get_app_settings  # pylint: disable=import-outside-toplevel
 
         settings = get_app_settings()
         return getattr(logging, settings.log_level.upper(), logging.INFO)
-    except Exception:
+    except (AttributeError, ImportError):
         return logging.INFO
 
 
@@ -30,8 +30,8 @@ def configure_logging(level: Optional[int] = None) -> None:
     Args:
         level: Optional log level override. If None, uses config setting.
     """
-    global _configured
-    if _configured:
+    global _LOGGING_CONFIGURED  # pylint: disable=global-statement
+    if _LOGGING_CONFIGURED:
         return
 
     if level is None:
@@ -50,7 +50,7 @@ def configure_logging(level: Optional[int] = None) -> None:
         root_logger.addHandler(handler)
 
     root_logger.propagate = False
-    _configured = True
+    _LOGGING_CONFIGURED = True
 
 
 def setup_logging(

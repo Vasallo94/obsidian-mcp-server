@@ -7,6 +7,13 @@ encontrar backlinks, buscar por tags y analizar la estructura del grafo.
 
 from fastmcp import FastMCP
 
+from .graph_logic import (
+    find_orphan_notes,
+    get_backlinks,
+    get_local_graph,
+    get_notes_by_tag,
+)
+
 
 def register_graph_tools(mcp: FastMCP) -> None:
     """
@@ -24,11 +31,9 @@ def register_graph_tools(mcp: FastMCP) -> None:
         Returns:
             Lista de notas que contienen enlaces a esta nota
         """
-        from .graph_logic import get_backlinks
-
         try:
             return get_backlinks(nombre_nota).to_display()
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             return f"❌ Error al obtener backlinks: {e}"
 
     @mcp.tool()
@@ -42,11 +47,9 @@ def register_graph_tools(mcp: FastMCP) -> None:
         Returns:
             Lista de notas que contienen la etiqueta
         """
-        from .graph_logic import get_notes_by_tag
-
         try:
             return get_notes_by_tag(tag).to_display()
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             return f"❌ Error al buscar por tag: {e}"
 
     @mcp.tool()
@@ -61,11 +64,9 @@ def register_graph_tools(mcp: FastMCP) -> None:
         Returns:
             Visualización del grafo local de la nota
         """
-        from .graph_logic import get_local_graph
-
         try:
             return get_local_graph(nombre_nota, profundidad).to_display()
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             return f"❌ Error al obtener grafo: {e}"
 
     @mcp.tool()
@@ -76,9 +77,7 @@ def register_graph_tools(mcp: FastMCP) -> None:
         Returns:
             Lista de notas que no están conectadas al grafo del vault
         """
-        from .graph_logic import find_orphan_notes
-
         try:
             return find_orphan_notes().to_display()
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             return f"❌ Error al buscar huérfanas: {e}"

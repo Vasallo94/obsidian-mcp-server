@@ -39,7 +39,7 @@ class McpIgnore:
                 patterns.append(".mcpignore")
 
                 self.spec = pathspec.PathSpec.from_lines("gitwildmatch", patterns)
-            except Exception as e:
+            except OSError as e:
                 print(f"Error al cargar .mcpignore: {e}")
         else:
             # Default ignores
@@ -73,5 +73,5 @@ class McpIgnore:
                 rel_path = path
 
             return self.spec.match_file(str(rel_path))
-        except Exception:
+        except (ValueError, TypeError):
             return False

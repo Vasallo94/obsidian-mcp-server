@@ -7,6 +7,8 @@ del vault para tomar mejores decisiones sobre dónde guardar notas y qué etique
 
 from fastmcp import FastMCP
 
+from .context_logic import read_vault_context
+
 
 def register_context_tools(mcp: FastMCP) -> None:
     """
@@ -27,9 +29,7 @@ def register_context_tools(mcp: FastMCP) -> None:
 
         Devuelve un resumen de carpetas, plantillas y etiquetas comunes.
         """
-        from .context_logic import read_vault_context
-
         try:
             return read_vault_context().to_display()
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             return f"❌ Error al leer contexto: {e}"

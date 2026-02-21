@@ -9,7 +9,9 @@ from typing import Dict, List
 
 from ..config import get_vault_path
 from ..result import Result
-from ..utils import extract_internal_links, extract_tags_from_content
+from ..utils import extract_internal_links, extract_tags_from_content, get_logger
+
+logger = get_logger(__name__)
 
 
 def get_backlinks(nombre_nota: str) -> Result[str]:
@@ -54,7 +56,8 @@ def get_backlinks(nombre_nota: str) -> Result[str]:
                             }
                         )
                         break
-            except Exception:
+            except OSError as e:
+                logger.debug("No se pudo leer '%s': %s", archivo, e)
                 continue
 
         if not backlinks:
@@ -68,7 +71,7 @@ def get_backlinks(nombre_nota: str) -> Result[str]:
 
         return Result.ok(resultado)
 
-    except Exception as e:
+    except OSError as e:
         return Result.fail(f"Error al obtener backlinks: {e}")
 
 
@@ -103,7 +106,8 @@ def get_notes_by_tag(tag: str) -> Result[str]:
                             "ruta": str(ruta_rel),
                         }
                     )
-            except Exception:
+            except OSError as e:
+                logger.debug("No se pudo leer '%s': %s", archivo, e)
                 continue
 
         if not notas_con_tag:
@@ -130,7 +134,7 @@ def get_notes_by_tag(tag: str) -> Result[str]:
 
         return Result.ok(resultado)
 
-    except Exception as e:
+    except OSError as e:
         return Result.fail(f"Error al buscar por tag: {e}")
 
 
@@ -146,6 +150,12 @@ def get_local_graph(nombre_nota: str, profundidad: int = 1) -> Result[str]:
         Result with graph visualization.
     """
     try:
+        if profundidad > 1:
+            logger.warning(
+                "get_local_graph currently only fully supports profundidad=1. "
+                "Returning direct connections."
+            )
+
         vault_path = get_vault_path()
         if not vault_path:
             return Result.fail("La ruta del vault no está configurada.")
@@ -184,7 +194,8 @@ def get_local_graph(nombre_nota: str, profundidad: int = 1) -> Result[str]:
                     if enlace_limpio == nombre_limpio:
                         backlinks.append(archivo.stem)
                         break
-            except Exception:
+            except OSError as e:
+                logger.debug("No se pudo leer '%s': %s", archivo, e)
                 continue
 
         resultado = f"🕸️ **Grafo Local de '{nombre_nota}'**\n\n"
@@ -212,8 +223,8 @@ def get_local_graph(nombre_nota: str, profundidad: int = 1) -> Result[str]:
 
         return Result.ok(resultado)
 
-    except Exception as e:
-        return Result.fail(f"Error al obtener grafo: {e}")
+    except OSError as e:
+        return Result.fail(f"Error al obtener grafo local: {e}")
 
 
 def find_orphan_notes() -> Result[str]:
@@ -239,7 +250,8 @@ def find_orphan_notes() -> Result[str]:
                 enlaces_limpios = [e.split("|")[0].strip() for e in enlaces]
                 enlaces_salientes_por_nota[archivo.stem] = enlaces_limpios
                 todos_los_enlaces.update(enlaces_limpios)
-            except Exception:
+            except OSError as e:
+                logger.debug("No se pudo leer '%s': %s", archivo, e)
                 continue
 
         notas_huerfanas = []
@@ -274,5 +286,5 @@ def find_orphan_notes() -> Result[str]:
 
         return Result.ok(resultado)
 
-    except Exception as e:
-        return Result.fail(f"Error al buscar huérfanas: {e}")
+    except OSError as e:
+        return Result.fail(f"Error al encontrar notas huerfanas: {e}")

@@ -187,7 +187,7 @@ def suggest_skills_for_vault() -> Result[str]:
                         ]
                         for tag in yaml_tags:
                             tag_counts[tag] = tag_counts.get(tag, 0) + 1
-        except Exception:
+        except Exception:  # nosec B112
             continue
 
     # Analyze patterns and suggest skills

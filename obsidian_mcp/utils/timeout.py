@@ -10,11 +10,14 @@ import threading
 from typing import Any, Generator
 
 
-class TimeoutError(Exception):
+class OperationTimeoutError(Exception):
     """Raised when an operation times out."""
 
-    pass
 
+# Backward-compatible alias (do not use TimeoutError directly as it shadows the builtin)
+TimeLimitExceeded = OperationTimeoutError
+# Legacy alias used by semantic/service.py
+TimeoutError = OperationTimeoutError  # pylint: disable=redefined-builtin
 
 if sys.platform != "win32":
     import signal
@@ -27,7 +30,7 @@ if sys.platform != "win32":
         """
 
         def signal_handler(signum: int, frame: Any) -> None:
-            raise TimeoutError(f"Operation timed out after {seconds} seconds")
+            raise OperationTimeoutError(f"Operation timed out after {seconds} seconds")
 
         # Register the signal function handler
         original_handler = signal.signal(signal.SIGALRM, signal_handler)
@@ -63,6 +66,8 @@ else:
         try:
             yield
             if timed_out:
-                raise TimeoutError(f"Operation timed out after {seconds} seconds")
+                raise OperationTimeoutError(
+                    f"Operation timed out after {seconds} seconds"
+                )
         finally:
             timer.cancel()
