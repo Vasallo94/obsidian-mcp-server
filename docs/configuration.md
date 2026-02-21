@@ -1,205 +1,209 @@
-# ⚙️ Guía de Configuración
+# Configuration Guide
 
-Para que el servidor MCP funcione correctamente, es necesario configurar el entorno y conocer la estructura de carpetas especiales que el servidor espera encontrar en tu vault.
+For the MCP server to function correctly, you need to configure the environment and understand the structure of the special folders the server expects to find in your vault.
 
-## Variables de Entorno (.env)
+## Environment Variables (.env)
 
-El archivo `.env` en la raíz del proyecto es fundamental:
+The `.env` file at the root of the project is essential:
 
-| Variable | Requerido | Descripción |
+| Variable | Required | Description |
 | :--- | :---: | :--- |
-| `OBSIDIAN_VAULT_PATH` | Sí | Ruta **absoluta** a la carpeta raíz de tu vault de Obsidian. |
-| `LOG_LEVEL` | No | Nivel de detalle de los logs (`INFO`, `DEBUG`, `ERROR`). Por defecto `INFO`. |
+| `OBSIDIAN_VAULT_PATH` | Yes | **Absolute** path to the root folder of your Obsidian vault. |
+| `LOG_LEVEL` | No | Log detail level (`INFO`, `DEBUG`, `ERROR`). Defaults to `INFO`. |
 
-Ejemplo de `.env`:
+Example `.env`:
 ```ini
-OBSIDIAN_VAULT_PATH="/Users/enrique/Documentos/MiCerebroDigital"
+OBSIDIAN_VAULT_PATH="/Users/enrique/Documents/MyDigitalBrain"
 LOG_LEVEL="DEBUG"
 ```
 
+## Security and Exclusions
 
-## Seguridad y Exclusiones
-
-Por diseño, el servidor ignora carpetas de sistema y ocultas para evitar fugas de información o corrupción de metadatos de Obsidian:
+By design, the server ignores system and hidden folders to prevent information leaks or corruption of Obsidian metadata:
 - `.obsidian`
 - `.git`
 - `.trash`
-- Otros directorios configurados automáticamente.
+- Other automatically configured directories.
 
-Para proteger carpetas adicionales, usa el archivo `.forbidden_paths` en la raíz del servidor o la configuración de `private_paths` en `vault.yaml`.
+To protect additional folders, use the `.forbidden_paths` file at the root of the server or the `private_paths` configuration in `vault.yaml`.
 
-## 🧠 Arquitectura Vault-Agnostic
+## Vault-Agnostic Architecture
 
-El servidor está diseñado para ser **independiente del vault**. No impone ninguna estructura de carpetas obligatoria y utiliza una lógica de auto-detección inteligente.
+The server is designed to be **vault-independent**. It does not impose any mandatory folder structure and uses an intelligent auto-detection logic.
 
-### 1. Auto-detección
-El servidor intenta encontrar carpetas clave automáticamente:
-- **Plantillas**: Busca cualquier carpeta que contenga "plantilla" o "template" en su nombre (ej: `ZZ_Plantillas`, `Templates`, `06_Plantillas`).
+### 1. Auto-detection
+The server automatically tries to find key folders:
+- **Templates**: It searches for any folder containing "template" or "plantilla" in its name (e.g., `ZZ_Templates`, `Templates`, `06_Templates`).
 
-### 2. Configuración Opcional (`vault.yaml`)
-Si tienes una estructura no estándar o quieres un control más granular, puedes crear un archivo `.agent/vault.yaml` en la raíz de tu vault:
+### 2. Optional Configuration (`vault.yaml`)
+If you have a non-standard structure or want more granular control, you can create a `.agent/vault.yaml` file at the root of your vault:
 
 ```yaml
 # .agent/vault.yaml
 version: "1.0"
 
-# Opcional: Especifica la carpeta de plantillas si la auto-detección falla
-templates_folder: "MiCarpetaEspecialDePlantillas"
+# Optional: Specify the templates folder if auto-detection fails
+templates_folder: "MySpecialTemplatesFolder"
 
-# Opcional: Rutas adicionales a proteger del acceso del agente
+# Optional: Additional paths to protect from agent access
 private_paths:
-  - "**/Privado/*"
+  - "**/Private/*"
   - "**/secrets.md"
 ```
 
-Para una guía detallada sobre cómo configurar la carpeta `.agent/`, consulta la [Guía de Configuración del Agente](agent-folder-setup.md).
+For a detailed guide on how to configure the `.agent/` folder, refer to the [Agent Folder Setup Guide](agent-folder-setup.md).
 
 > [!WARNING]
-> Nunca apuntes `OBSIDIAN_VAULT_PATH` a una carpeta que contenga información privada sensible fuera de Obsidian, ya que el agente podría leerla si tiene permisos de lectura.
+> Never point `OBSIDIAN_VAULT_PATH` to a folder that contains sensitive private information outside of Obsidian, as the agent could read it if it has read permissions.
 
-## 🔌 Integración con Clientes MCP
+## MCP Clients Integration
 
-El servidor puede configurarse para múltiples clientes MCP. A continuación se muestran las configuraciones para los más comunes.
+The server can be configured for multiple MCP clients. Below are the configurations for the most common ones.
 
 ### Claude Code (CLI)
 
 ```bash
-# Añadir a nivel de usuario (disponible en todos los proyectos)
+# Add at the user level (available in all projects)
 claude mcp add-json --scope user obsidian '{
   "command": "uv",
-  "args": ["run", "--directory", "/ruta/a/obsidian-mcp-server", "obsidian-mcp-server"],
+  "args": ["run", "--directory", "/path/to/obsidian-mcp-server", "obsidian-mcp-server"],
   "env": {
-    "OBSIDIAN_VAULT_PATH": "/ruta/a/tu/vault"
+    "OBSIDIAN_VAULT_PATH": "/path/to/your/vault"
   }
 }'
 ```
 
 ### Claude Desktop
 
-Archivo: `%APPDATA%\Claude\claude_desktop_config.json` (Windows) o `~/.config/claude/claude_desktop_config.json` (Linux/Mac)
+File: `%APPDATA%\Claude\claude_desktop_config.json` (Windows) or `~/.config/claude/claude_desktop_config.json` (Linux/Mac)
 
 ```json
 {
   "mcpServers": {
     "obsidian": {
       "command": "uv",
-      "args": ["run", "--directory", "/ruta/a/obsidian-mcp-server", "obsidian-mcp-server"],
+      "args": ["run", "--directory", "/path/to/obsidian-mcp-server", "obsidian-mcp-server"],
       "env": {
-        "OBSIDIAN_VAULT_PATH": "/ruta/a/tu/vault"
+        "OBSIDIAN_VAULT_PATH": "/path/to/your/vault"
       }
     }
   }
 }
 ```
 
-### VSCode (Extensión Claude / GitHub Copilot)
+### VSCode (Claude Extension / GitHub Copilot)
 
-Archivo: `~/.vscode/mcp.json`
+File: `~/.vscode/mcp.json`
 
 ```json
 {
   "servers": {
     "obsidian": {
       "command": "uv",
-      "args": ["run", "--directory", "/ruta/a/obsidian-mcp-server", "obsidian-mcp-server"],
+      "args": ["run", "--directory", "/path/to/obsidian-mcp-server", "obsidian-mcp-server"],
       "env": {
-        "OBSIDIAN_VAULT_PATH": "/ruta/a/tu/vault"
+        "OBSIDIAN_VAULT_PATH": "/path/to/your/vault"
       }
     }
   }
 }
 ```
 
+### Cursor / Cline
+
+You can add it as a new MCP server in their settings panel by specifying:
+- **Type**: `command`
+- **Command**: `uv run --directory /path/to/obsidian-mcp-server obsidian-mcp-server`
+- Ensure the `OBSIDIAN_VAULT_PATH` environment variable is available.
+
 ### Gemini CLI
 
-Archivo: `~/.gemini/settings.json`
+File: `~/.gemini/settings.json`
 
 ```json
 {
   "mcpServers": {
     "obsidian": {
       "command": "uv",
-      "args": ["run", "--directory", "/ruta/a/obsidian-mcp-server", "obsidian-mcp-server"],
+      "args": ["run", "--directory", "/path/to/obsidian-mcp-server", "obsidian-mcp-server"],
       "env": {
-        "OBSIDIAN_VAULT_PATH": "/ruta/a/tu/vault"
+        "OBSIDIAN_VAULT_PATH": "/path/to/your/vault"
       }
     }
   }
 }
 ```
 
-### Nota para Windows
+### Windows Note
 
-En Windows, si usas `npx` o scripts que requieren shell, usa el prefijo `cmd /c`:
+On Windows, if you use `npx` or scripts that require a shell, use the `cmd /c` prefix:
 
 ```json
 {
   "command": "cmd",
-  "args": ["/c", "uv", "run", "--directory", "C:/ruta/al/servidor", "obsidian-mcp-server"]
+  "args": ["/c", "uv", "run", "--directory", "C:/path/to/server", "obsidian-mcp-server"]
 }
 ```
 
-## 🤖 Skills y Reglas Globales (en tu Vault)
+## Skills and Global Rules (in your Vault)
 
-El servidor MCP puede leer **skills** (personalidades/roles de IA) y **reglas globales** directamente desde tu vault de Obsidian. Estos archivos **no están en el repositorio del MCP**, sino en tu vault personal.
+The MCP server can read **skills** (AI personalities/roles) and **global rules** directly from your Obsidian vault. These files **are not in the MCP repository**, but in your personal vault.
 
-### Estructura esperada en tu Vault
+### Expected Structure in your Vault
 
-```
-Tu_Vault/
+```text
+Your_Vault/
 ├── .agent/
-│   ├── REGLAS_GLOBALES.md      # Instrucciones generales para el asistente
+│   ├── REGLAS_GLOBALES.md      # General instructions for the assistant
 │   └── skills/
-│       ├── escritor/
-│       │   └── SKILL.md        # Definición de la skill "escritor"
-│       ├── investigador/
+│       ├── writer/
+│       │   └── SKILL.md        # Definition of the "writer" skill
+│       ├── researcher/
 │       │   └── SKILL.md
-│       └── revisor/
+│       └── reviewer/
 │           └── SKILL.md
 ```
 
-### Formato de SKILL.md
+### SKILL.md Format
 
-Cada skill se define con un archivo `SKILL.md` que contiene frontmatter YAML y el prompt:
+Each skill is defined with a `SKILL.md` file containing YAML frontmatter and the prompt:
 
 ```markdown
 ---
-name: Escritor Técnico
-description: Especialista en documentación clara y concisa
+name: Technical Writer
+description: Specialist in clear and concise documentation
 tools:
   - crear_nota
   - editar_nota
   - buscar_en_notas
 ---
 
-# Instrucciones
+# Instructions
 
-Eres un escritor técnico especializado en...
+You are a technical writer specializing in...
 
-## Estilo
-- Usa voz activa
-- Evita jerga innecesaria
+## Style
+- Use active voice
+- Avoid unnecessary jargon
 ...
 ```
 
-### Campos del frontmatter
+### Frontmatter Fields
 
-| Campo | Requerido | Descripción |
+| Field | Required | Description |
 | :--- | :---: | :--- |
-| `name` | Sí | Nombre legible de la skill |
-| `description` | Sí | Descripción breve del rol |
-| `tools` | No | Lista de herramientas MCP que esta skill puede usar |
+| `name` | Yes | Readable name of the skill |
+| `description` | Yes | Brief description of the role |
+| `tools` | No | List of MCP tools this skill can use |
 
 ### REGLAS_GLOBALES.md
 
-Este archivo contiene instrucciones que aplican a **todas** las interacciones con el asistente, independientemente de la skill activa. Por ejemplo:
+This file contains instructions that apply to **all** interactions with the assistant, regardless of the active skill. For example:
 
 ```markdown
-# Reglas Globales del Vault
+# Vault Global Rules
 
-- Siempre usa español
-- Prefiere etiquetas existentes antes de crear nuevas
-- No modifiques notas en 00_Sistema sin confirmación
+- Always reply in English
+- Prefer existing tags before creating new ones
+- Do not modify notes in 00_System without confirmation
 ```
-
-> **Nota**: El servidor también busca en `.github/copilot-instructions.md` como ubicación legacy.

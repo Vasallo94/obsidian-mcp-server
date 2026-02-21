@@ -1,102 +1,102 @@
-# 🧠 Búsqueda Semántica (RAG)
+# Semantic Search (RAG)
 
-El servidor Obsidian MCP incluye capacidades de **Generación Aumentada por Recuperación (RAG)**, permitiendo que la IA consulte tu vault utilizando lenguaje natural y comprendiendo el contexto más allá de simples palabras clave.
+The Obsidian MCP server includes **Retrieval-Augmented Generation (RAG)** capabilities, allowing the AI to query your vault using natural language and understanding context beyond simple keywords.
 
-## ¿Cómo funciona?
+## How does it work?
 
-El sistema utiliza una base de datos vectorial para representar tus notas como "vectores" en un espacio multidimensional. Cuando haces una pregunta, el servidor busca las notas cuyos vectores son más cercanos al vector de tu consulta.
+The system uses a vector database to represent your notes as "vectors" in a multidimensional space. When you ask a question, the server searches for the notes whose vectors are closest to your query's vector.
 
-### Componentes Técnicos
-- **Embeddings**: Utiliza modelos de lenguaje para convertir texto en representaciones numéricas.
-- **Vector Store**: `ChromaDB` se utiliza para almacenar y buscar estos vectores de forma eficiente.
-- **Orquestación**: `LangChain` gestiona el flujo de datos entre las notas y el modelo de embeddings.
+### Technical Components
+- **Embeddings**: Uses language models to convert text into numerical representations.
+- **Vector Store**: `ChromaDB` is used to store and search these vectors efficiently.
+- **Orchestration**: `LangChain` manages the data flow between the notes and the embeddings model.
 
-## Instalación de Dependencias
+## Dependency Installation
 
-Esta funcionalidad es opcional y requiere librerías adicionales que pueden aumentar el tamaño de la instalación:
+This functionality is optional and requires additional libraries that can increase the installation size:
 
 ```bash
 pip install "obsidian-mcp-server[rag]"
 ```
 
-## Herramientas Semánticas
+## Semantic Tools
 
 ### 1. `preguntar_al_conocimiento`
-Es la herramienta principal para consultas de tipo "humano".
-- **Ejemplo**: "¿Qué he escrito sobre inteligencia artificial en los últimos meses?"
-- **Filtros**: Puedes restringir la búsqueda por metadatos (ej: solo notas de tipo "poesía").
+This is the main tool for "human-like" queries.
+- **Example**: "What have I written about artificial intelligence in the last few months?"
+- **Filters**: You can restrict the search by metadata (e.g., only notes of type "poetry").
 
 ### 2. `indexar_vault_semantico`
-Las notas nuevas no aparecen automáticamente en la búsqueda semántica. Debes ejecutar esta herramienta periódicamente para actualizar el índice.
-- **Incremental**: Solo procesa notas nuevas o modificadas.
-- **Forzada**: Reconstruye todo el índice desde cero (útil si cambias de modelo de embeddings).
+New notes do not automatically appear in the semantic search. You must run this tool periodically to update the index.
+- **Incremental**: Only processes new or modified notes.
+- **Forced**: Rebuilds the entire index from scratch (useful if you change the embeddings model).
 
 ### 3. `encontrar_conexiones_sugeridas`
-Analiza la similitud semántica entre todas tus notas.
-- Si dos notas hablan de temas muy parecidos pero no tienen un enlace `[[Nota]]` entre ellas, el servidor las marcará como una conexión sugerida.
-- Es ideal para el mantenimiento y el crecimiento orgánico de tu Zettelkasten.
+Analyzes the semantic similarity between all your notes.
+- If two notes discuss very similar topics but do not have a `[[Note]]` link between them, the server will flag them as a suggested connection.
+- It is ideal for maintaining and organically growing your Zettelkasten.
 
-### 4. `sugerir_ubicacion` (Recomendación de Carpetas)
+### 4. `sugerir_ubicacion` (Folder Recommendation)
 
-Esta herramienta utiliza **búsqueda semántica** para sugerir la carpeta más adecuada donde ubicar una nueva nota, basándose en notas similares ya existentes en tu vault.
+This tool uses **semantic search** to suggest the most appropriate folder for a new note, based on similar notes already existing in your vault.
 
-#### ¿Cómo funciona?
+#### How does it work?
 
-1. **Búsqueda vectorial**: Combina el título, etiquetas y contenido de la nueva nota para crear una consulta.
-2. **Recuperación RAG**: Busca las notas más similares en el índice vectorial (ChromaDB).
-3. **Sistema de votación**: Las carpetas de las notas similares "votan" por la ubicación sugerida.
-4. **Ranking con confianza**: Devuelve múltiples candidatos ordenados por número de votos y porcentaje de confianza.
+1. **Vector search**: Combines the title, tags, and content of the new note to create a query.
+2. **RAG Retrieval**: Searches for the most similar notes in the vector index (ChromaDB).
+3. **Voting system**: The folders of the similar notes "vote" for the suggested location.
+4. **Ranking with confidence**: Returns multiple candidates sorted by number of votes and confidence percentage.
 
-#### Ejemplo de uso
+#### Usage Example
 
-Cuando le pides a la IA que cree una nota sobre "Configuración SSH para NAS", el sistema:
+When you ask the AI to create a note about "SSH Configuration for NAS", the system:
 
+```text
+Suggested folders based on similar content:
+
+1. `Technology/Infrastructure`
+   Confidence: 80% (4 votes)
+   Similar notes: NAS, Docker Setup, Local Networks
+
+2. `Technology/Guides`
+   Confidence: 20% (1 vote)
+   Similar notes: VPN Guide
+
+The option 1 has high confidence (80%). You can suggest it to the user.
 ```
-📂 Sugerencias basadas en contenido similar:
 
-1. `Tecnología/Infraestructura`
-   Confianza: ████████░░ 80% (4 votos)
-   Notas similares: NAS, Docker Setup, Redes Locales
+#### Interpreting Results
 
-2. `Tecnología/Guías`
-   Confianza: ██░░░░░░░░ 20% (1 voto)
-   Notas similares: Guía VPN
-
-💡 La opción 1 tiene alta confianza (80%). Puedes sugerirla al usuario.
-```
-
-#### Interpretación de resultados
-
-| Confianza | Recomendación |
+| Confidence | Recommendation |
 |-----------|---------------|
-| ≥60% | Alta confianza. La IA puede sugerir directamente esta carpeta. |
-| 40-59% | Confianza moderada. Mostrar opciones al usuario para que decida. |
-| <40% | Baja confianza. Preguntar al usuario dónde prefiere ubicar la nota. |
+| >=60% | High confidence. The AI can suggest this folder directly. |
+| 40-59% | Moderate confidence. Show options to the user to decide. |
+| <40% | Low confidence. Ask the user where they prefer to place the note. |
 
-#### Fallback automático
+#### Automatic Fallback
 
-Si el índice semántico no está disponible o no encuentra coincidencias, la herramienta utiliza automáticamente un **sistema de reglas por palabras clave** como respaldo, garantizando siempre una sugerencia útil.
+If the semantic index is unavailable or finds no matches, the tool automatically uses a **keyword-based rule system** as a backup, ensuring a useful suggestion is always provided.
 
-## Almacenamiento de Datos
-El índice vectorial se guarda localmente en una carpeta dentro de tu vault (normalmente `.obsidianrag/` o similar), lo que garantiza que tu conocimiento nunca salga de tu control.
+## Data Storage
+The vector index is saved locally in a folder inside your vault (usually `.obsidianrag/` or similar), ensuring that your knowledge never leaves your control.
 
-### 5. Indexación Semántica de Imágenes
+### 5. Semantic Indexing for Images
 
-El sistema tiene la capacidad de "leer" las imágenes de tu vault a través de sus descripciones.
+The system has the ability to "read" the images in your vault through their descriptions.
 
-#### El Problema
-Los modelos de lenguaje de texto (como el que usa este RAG) no pueden ver los píxeles de una imagen `grafico.png`. Si buscas "gráfico de ventas", la IA no sabrá que esa imagen contiene un gráfico de ventas a menos que el nombre del archivo sea muy explícito.
+#### The Problem
+Text language models (like the one used by this RAG) cannot see the pixels of an `image.png`. If you search for "sales chart", the AI won't know that image contains a sales chart unless the file name is highly explicit.
 
-#### La Solución MCP
-El indexador escanea todas tus notas buscando imágenes con **pie de foto (caption)**.
-- Formato Obsidian: `![[imagen.png|Este es un gráfico de ventas]]`
-- Formato Markdown: `![Este es un gráfico de ventas](imagen.png)`
+#### The MCP Solution
+The indexer scans all your notes looking for images with **captions**.
+- Obsidian format: `![[image.png|This is a sales chart]]`
+- Markdown format: `![This is a sales chart](image.png)`
 
-Cuando encuentra una, toma esa descripción e **inyecta el texto en el índice vectorial** asociado a la nota, bajo una sección oculta llamada "Image Context".
+When it finds one, it takes that description and **injects the text into the vector index** associated with the note, under a hidden section called "Image Context".
 
-#### Resultado
-Puedes preguntar: *"¿Tienes algún gráfico sobre ventas?"*
-El sistema encontrará la nota porque semánticamente "sabe" que contiene esa imagen, aunque el texto principal de la nota nunca mencione la palabra "gráfico".
+#### Result
+You can ask: *"Do you have any charts about sales?"*
+The system will find the note because it semantically "knows" it contains that image, even if the main text of the note never mentions the word "chart".
 
 > [!TIP]
-> Para que esto funcione, es **OBLIGATORIO** poner descripciones a las imágenes relevantes. Una imagen sin descripción es invisible para el buscador semántico.
+> For this to work, it is **MANDATORY** to add descriptions to relevant images. An image without a description is invisible to the semantic search engine.

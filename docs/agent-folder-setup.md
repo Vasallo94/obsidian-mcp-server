@@ -4,15 +4,15 @@ This guide explains how to configure the `.agent/` folder in your Obsidian vault
 
 ## Directory Structure
 
-```
+```text
 your-vault/
 ├── .agent/
 │   ├── vault.yaml        # (Optional) Minimal operational settings
 │   ├── REGLAS_GLOBALES.md # Agent behavior & global rules
 │   └── skills/           # Specialized agent capabilities
-│       ├── escritor/
+│       ├── writer/
 │       │   └── SKILL.md
-│       └── investigador/
+│       └── researcher/
 │           └── SKILL.md
 └── ... your notes
 ```
@@ -25,12 +25,11 @@ Minimal operational settings. Only required if auto-detection doesn't work.
 # .agent/vault.yaml
 version: "1.0"
 
-# Where templates are stored (auto-detected if contains "plantilla" or "template")
-templates_folder: "06_Plantillas"
+# Where templates are stored (auto-detected if contains "template" or "plantilla")
+templates_folder: "06_Templates"
 
 # Paths to protect from agent access
 private_paths:
-  - "**/Privado/*"
   - "**/Private/*"
   - "**/secrets.md"
 ```
@@ -46,23 +45,22 @@ Defines agent behavior. Read by `obtener_reglas_globales()`.
 
 ```markdown
 ---
-name: reglas-globales-agentes
+name: global-agent-rules
 description: Mandatory protocol for all agents
 ---
 
 # Global Rules
 
 ## Critical Rules
-- No emojis in titles
 - Read notes before editing
 - Confirm with user before creating
 
 ## Folder Conventions
 | Content Type | Location |
 |--------------|----------|
-| Daily notes  | 01_Diario/ |
-| Learning     | 02_Aprendizaje/ |
-| Projects     | 03_Proyectos/ |
+| Daily notes  | 01_Daily/ |
+| Learning     | 02_Learning/ |
+| Projects     | 03_Projects/ |
 ```
 
 ## Skills
@@ -71,7 +69,7 @@ Each skill is a folder with `SKILL.md`. Loaded by `listar_agentes()` and `obtene
 
 ```markdown
 ---
-name: escritor
+name: writer
 description: Writing and editing assistance
 tools: ['read', 'edit', 'search']
 ---

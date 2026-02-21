@@ -1,10 +1,10 @@
-# 🏛️ Arquitectura del Proyecto
+# Project Architecture
 
-El servidor **Obsidian MCP** está diseñado bajo una arquitectura modular y extensible, utilizando el framework `FastMCP` para facilitar la creación de herramientas, recursos y prompts.
+The **Obsidian MCP server** is designed with a modular and extensible architecture, utilizing the `FastMCP` framework to simplify compiling tools, resources, and prompts.
 
-## Estructura de Capas
+## Layer Structure
 
-El proyecto se organiza en las siguientes capas lógicas:
+The project is organized into the following logical layers:
 
 ```mermaid
 graph TD
@@ -34,37 +34,37 @@ graph TD
     D --> Core
 ```
 
-### 1. Servidor (`server.py`)
-Es el punto de entrada principal. Se encarga de:
-- Validar la configuración del vault.
-- Instanciar `FastMCP`.
-- Orquestar el registro de todos los módulos de herramientas, recursos y prompts.
+### 1. Server (`server.py`)
+This is the main entry point. It handles:
+- Validating your vault's path and configuration.
+- Instantiating the `FastMCP` server.
+- Orchestrating the registration of all tool modules, resources, and prompts.
 
-### 2. Módulos de Herramientas (`obsidian_mcp/tools/`)
-Cada dominio funcional tiene su propio archivo, lo que facilita el mantenimiento:
-- **`navigation.py`**: Operaciones básicas de lectura y búsqueda.
-- **`creation.py`**: Lógica de escritura, plantillas y gestión de archivos.
-- **`analysis.py`**: Auditoría de metadatos y etiquetas.
-- **`graph.py`**: Navegación por las conexiones entre notas.
-- **`agents.py`**: Lee las skills (personalidades/roles) desde `{vault}/.agent/skills/` y las reglas globales desde `{vault}/.agent/REGLAS_GLOBALES.md`. Estos archivos están en el vault del usuario, no en el repositorio del MCP.
-- **`semantic.py`**: Integración con el motor de búsqueda vectorial.
-- **`youtube.py`**: Utilidad externa para transcripciones.
+### 2. Tool Modules (`obsidian_mcp/tools/`)
+Each functional domain is grouped logically into its own file, ensuring easy maintenance and scalability:
+- **`navigation.py`**: Basic file reading, advanced codebase searching (ripgrep), and directory exploration.
+- **`creation.py`**: Writing notes, handling dynamic templates, section appendices, and content creation bounds.
+- **`analysis.py`**: Vault metadata auditing, taxonomy checking, and tag synchronization.
+- **`graph.py`**: Traversing note connections (backlinks, orphans, graph relationships).
+- **`agents.py`**: Reading custom skills (roles) from `{vault}/.agent/skills/` and global rules from `{vault}/.agent/REGLAS_GLOBALES.md` (these settings live seamlessly inside the vault, not the MCP server repo).
+- **`semantic.py`**: Connecting with the vector search engine.
+- **`youtube.py`**: External utility for fast fetching of video transcripts.
 
-### 3. Servicio Semántico (`obsidian_mcp/semantic/`)
-Este es un componente opcional (requiere dependencias extras) que gestiona:
-- **Indexación**: Conversión de notas en embeddings y almacenamiento en `ChromaDB`.
-- **RAG**: Pipeline de recuperación de información basado en similitud de coseno.
-- **Metadatos**: Tracking de cambios para actualizaciones parciales del índice.
+### 3. Semantic Service (`obsidian_mcp/semantic/`)
+This is an optional component (requires the `[rag]` extra dependencies) that manages:
+- **Indexing**: Converting existing text notes into vectors and storing them via `ChromaDB`.
+- **RAG (Retrieval-Augmented Generation)**: Returning context from the vault based on query cosine similarity.
+- **Metadata Management**: Differential tracking to allow partial index updates when notes change over time.
 
-### 4. Utilidades y Configuración (`obsidian_mcp/utils/` y archivos de config)
-- **`config.py`**: Gestión centralizada de variables de entorno mediante `python-dotenv`.
-- **`vault_config.py`**: Lógica de auto-detección de la estructura del vault y carga opcional de `.agent/vault.yaml`.
-- **`utils/`**: Funciones compartidas para manejo de strings, extracción de etiquetas y búsqueda de archivos.
+### 4. Utilities & Config (`obsidian_mcp/utils/` and config files)
+- **`config.py`**: Centralized management of `.env` environment variables using `python-dotenv`.
+- **`vault_config.py`**: Auto-detection logic for vault structure mapping and optional `.agent/vault.yaml` overrides.
+- **`utils/`**: Safe file extraction and manipulation helpers, logging configurations, string handlers, formatting, and secure sub-process interactions.
 
-## Flujo de una Petición MCP
+## MCP Request Lifecycle
 
-1. El cliente (ej: Claude Desktop) envía una solicitud de herramienta.
-2. `FastMCP` intercepta la llamada y la dirige a la función registrada.
-3. El servidor valida que el acceso al vault sea seguro (dentro de los límites configurados).
-4. La herramienta interactúa con el sistema de archivos o el servicio semántico.
-5. Se devuelve una respuesta formateada al cliente.
+1. The client (e.g., Claude Desktop, Cursor) issues a tool request with payload parameters.
+2. `FastMCP` intercepts the call, routing it to the registered handling function.
+3. The server validates that access to the specified paths in the vault is secure (preventing directory traversal outside the configured environment/ignoring `.forbidden_paths`).
+4. The tool interacts directly with the local file system or an active semantic service instance.
+5. An appropriately logged, JSON/Markdown formatted response is returned to the client logic unit.
