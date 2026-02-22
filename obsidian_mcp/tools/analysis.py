@@ -7,6 +7,16 @@ facilitando la gestión y organización desde un cliente MCP.
 
 from fastmcp import FastMCP
 
+from .analysis_logic import (
+    analyze_links,
+    analyze_tags,
+    get_canonical_tags,
+    get_recent_activity,
+    get_vault_stats,
+    list_all_tags,
+    sync_tag_registry,
+)
+
 
 def register_analysis_tools(mcp: FastMCP) -> None:
     """
@@ -19,12 +29,10 @@ def register_analysis_tools(mcp: FastMCP) -> None:
     @mcp.tool()
     def estadisticas_vault() -> str:
         """Genera estadísticas completas del vault de Obsidian"""
-        from .analysis_logic import get_vault_stats
-
         try:
             return get_vault_stats().to_display()
-        except Exception as e:
-            return f"❌ Error al generar estadísticas: {e}"
+        except (OSError, ValueError) as e:
+            return f"Error al generar estadísticas: {e}"
 
     @mcp.tool()
     def obtener_tags_canonicas() -> str:
@@ -35,22 +43,18 @@ def register_analysis_tools(mcp: FastMCP) -> None:
         Returns:
             Lista de tags categorizadas según el registro oficial.
         """
-        from .analysis_logic import get_canonical_tags
-
         try:
             return get_canonical_tags().to_display()
-        except Exception as e:
-            return f"❌ Error al obtener tags canónicas: {e}"
+        except (OSError, ValueError) as e:
+            return f"Error al obtener tags canónicas: {e}"
 
     @mcp.tool()
     def analizar_etiquetas() -> str:
         """Analiza el uso de etiquetas en el vault."""
-        from .analysis_logic import analyze_tags
-
         try:
             return analyze_tags().to_display()
-        except Exception as e:
-            return f"❌ Error al analizar etiquetas: {e}"
+        except (OSError, ValueError) as e:
+            return f"Error al analizar etiquetas: {e}"
 
     @mcp.tool()
     def sincronizar_registro_tags(actualizar: bool = False) -> str:
@@ -61,12 +65,10 @@ def register_analysis_tools(mcp: FastMCP) -> None:
             actualizar: Si es True, intenta actualizar la tabla de
                        estadísticas en el archivo de registro.
         """
-        from .analysis_logic import sync_tag_registry
-
         try:
             return sync_tag_registry(actualizar).to_display()
-        except Exception as e:
-            return f"❌ Error en sincronización: {e}"
+        except (OSError, ValueError) as e:
+            return f"Error en sincronización: {e}"
 
     @mcp.tool()
     def obtener_lista_etiquetas() -> str:
@@ -77,22 +79,18 @@ def register_analysis_tools(mcp: FastMCP) -> None:
         Returns:
             Lista de etiquetas formateada como string.
         """
-        from .analysis_logic import list_all_tags
-
         try:
             return list_all_tags().to_display()
-        except Exception as e:
-            return f"❌ Error al obtener lista de etiquetas: {e}"
+        except (OSError, ValueError) as e:
+            return f"Error al obtener lista de etiquetas: {e}"
 
     @mcp.tool()
     def analizar_enlaces() -> str:
         """Analiza los enlaces internos en el vault"""
-        from .analysis_logic import analyze_links
-
         try:
             return analyze_links().to_display()
-        except Exception as e:
-            return f"❌ Error al analizar enlaces: {e}"
+        except (OSError, ValueError) as e:
+            return f"Error al analizar enlaces: {e}"
 
     @mcp.tool()
     def resumen_actividad_reciente(dias: int = 7) -> str:
@@ -102,9 +100,7 @@ def register_analysis_tools(mcp: FastMCP) -> None:
         Args:
             dias: Número de días hacia atrás para analizar (por defecto 7)
         """
-        from .analysis_logic import get_recent_activity
-
         try:
             return get_recent_activity(dias).to_display()
-        except Exception as e:
-            return f"❌ Error al generar resumen de actividad: {e}"
+        except (OSError, ValueError) as e:
+            return f"Error al generar resumen de actividad: {e}"

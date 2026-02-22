@@ -5,6 +5,7 @@ This module contains the logic for exploring connections between notes,
 finding backlinks, searching tags, and analyzing graph structure.
 """
 
+from pathlib import Path
 from typing import Dict, List
 
 from ..config import get_vault_path
@@ -138,6 +139,42 @@ def get_notes_by_tag(tag: str) -> Result[str]:
         return Result.fail(f"Error al buscar por tag: {e}")
 
 
+def _find_backlinks(vault_path: Path, nombre_limpio: str) -> list[str]:
+    """Scan vault for notes that link to the given note name."""
+    backlinks = []
+    for archivo in vault_path.rglob("*.md"):
+        if archivo.stem == nombre_limpio:
+            continue
+        try:
+            with open(archivo, "r", encoding="utf-8") as f:
+                cont = f.read()
+            enlaces = extract_internal_links(cont)
+            for enlace in enlaces:
+                if enlace.split("|")[0].strip() == nombre_limpio:
+                    backlinks.append(archivo.stem)
+                    break
+        except OSError as e:
+            logger.debug("No se pudo leer '%s': %s", archivo, e)
+    return backlinks
+
+
+def _format_link_section(
+    title: str,
+    items: list[str],
+    arrow: str,
+    limit: int = 15,
+) -> str:
+    """Format a list of links into a display section."""
+    result = f"{title} ({len(items)}):\n"
+    if not items:
+        return result + "   (ninguno)\n"
+    for item in sorted(items)[:limit]:
+        result += f"   {arrow} [[{item}]]\n"
+    if len(items) > limit:
+        result += f"   ... y {len(items) - limit} más\n"
+    return result
+
+
 def get_local_graph(nombre_nota: str, profundidad: int = 1) -> Result[str]:
     """
     Get local graph for a note: outgoing and incoming links.
@@ -176,47 +213,21 @@ def get_local_graph(nombre_nota: str, profundidad: int = 1) -> Result[str]:
         with open(nota_path, "r", encoding="utf-8") as f:
             contenido = f.read()
 
-        enlaces_salientes = extract_internal_links(contenido)
-        enlaces_salientes = [e.split("|")[0].strip() for e in enlaces_salientes]
-        enlaces_salientes = list(set(enlaces_salientes))
+        raw_links = extract_internal_links(contenido)
+        enlaces_salientes = list({e.split("|")[0].strip() for e in raw_links})
 
         # Get backlinks
-        backlinks = []
-        for archivo in vault_path.rglob("*.md"):
-            if archivo.stem == nombre_limpio:
-                continue
-            try:
-                with open(archivo, "r", encoding="utf-8") as f:
-                    cont = f.read()
-                enlaces = extract_internal_links(cont)
-                for enlace in enlaces:
-                    enlace_limpio = enlace.split("|")[0].strip()
-                    if enlace_limpio == nombre_limpio:
-                        backlinks.append(archivo.stem)
-                        break
-            except OSError as e:
-                logger.debug("No se pudo leer '%s': %s", archivo, e)
-                continue
+        backlinks = _find_backlinks(vault_path, nombre_limpio)
 
+        # Format result
         resultado = f"🕸️ **Grafo Local de '{nombre_nota}'**\n\n"
-
-        resultado += f"📤 **Enlaces salientes** ({len(enlaces_salientes)}):\n"
-        if enlaces_salientes:
-            for enlace in sorted(enlaces_salientes)[:15]:
-                resultado += f"   → [[{enlace}]]\n"
-            if len(enlaces_salientes) > 15:
-                resultado += f"   ... y {len(enlaces_salientes) - 15} más\n"
-        else:
-            resultado += "   (ninguno)\n"
-
-        resultado += f"\n📥 **Backlinks** ({len(backlinks)}):\n"
-        if backlinks:
-            for bl in sorted(backlinks)[:15]:
-                resultado += f"   ← [[{bl}]]\n"
-            if len(backlinks) > 15:
-                resultado += f"   ... y {len(backlinks) - 15} más\n"
-        else:
-            resultado += "   (ninguno)\n"
+        resultado += _format_link_section(
+            "📤 **Enlaces salientes**",
+            enlaces_salientes,
+            "→",
+        )
+        resultado += "\n"
+        resultado += _format_link_section("📥 **Backlinks**", backlinks, "←")
 
         total = len(enlaces_salientes) + len(backlinks)
         resultado += f"\n📊 **Conectividad total**: {total} conexiones"

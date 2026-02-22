@@ -90,7 +90,7 @@ def _load_vault_config_cached(vault_path_str: str) -> Optional[VaultConfig]:
 
         return VaultConfig(**data)
 
-    except Exception:
+    except (OSError, ValueError, yaml.YAMLError):
         return None
 
 

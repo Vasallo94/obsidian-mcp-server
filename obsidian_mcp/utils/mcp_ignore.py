@@ -47,6 +47,10 @@ class McpIgnore:
                 "gitwildmatch", [".git/", ".DS_Store", ".mcpignore"]
             )
 
+    def reload(self) -> None:
+        """Reload the .mcpignore file from disk."""
+        self._load_ignore_file()
+
     def is_ignored(self, path: Path) -> bool:
         """
         Verifica si un path debe ser ignorado.

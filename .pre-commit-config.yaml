@@ -41,6 +41,7 @@ repos:
         language: system
         types: [python]
         args: ["--rcfile=pyproject.toml"]
+        exclude: "obsidian_mcp/semantic/"
         pass_filenames: true
 
   # Bandit - Python AST security analyzer

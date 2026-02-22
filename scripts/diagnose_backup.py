@@ -63,24 +63,9 @@ def diagnose_setup():
         print("❌ ERROR: Sin permisos de lectura en el vault")
         return False
 
-    # Verificar dependencias
-    try:
-        import fastmcp  # noqa: F401
-
-        print("✅ FastMCP instalado")
-    except ImportError:
-        print("❌ ERROR: FastMCP no instalado")
-        print("💡 Instala con: pip install fastmcp")
-        return False
-
-    try:
-        import dotenv  # noqa: F401
-
-        print("✅ python-dotenv instalado")
-    except ImportError:
-        print("❌ ERROR: python-dotenv no instalado")
-        print("💡 Instala con: pip install python-dotenv")
-        return False
+    # Dependencies already imported at module level
+    print("✅ FastMCP installed")
+    print("✅ python-dotenv installed")
 
     print("\n🎉 ¡Configuración válida! El servidor debería funcionar correctamente.")
     print("\n🚀 Para ejecutar el servidor:")
@@ -94,5 +79,5 @@ def diagnose_setup():
 
 
 if __name__ == "__main__":
-    success = diagnose_setup()
-    sys.exit(0 if success else 1)
+    IS_OK = diagnose_setup()
+    sys.exit(0 if IS_OK else 1)

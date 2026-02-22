@@ -77,6 +77,7 @@ def register_creation_tools(mcp: FastMCP) -> None:
     def crear_nota(
         titulo: str,
         contenido: str,
+        *,
         carpeta: str = "",
         etiquetas: str = "",
         plantilla: str = "",

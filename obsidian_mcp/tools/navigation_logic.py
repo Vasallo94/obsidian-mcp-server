@@ -9,8 +9,11 @@ All functions return Result[str] for consistent error handling.
 """
 
 import json
+import re
+import secrets
 from datetime import date, datetime
 from pathlib import Path
+from typing import Any
 
 from ..config import get_vault_path
 from ..result import Result
@@ -24,8 +27,12 @@ from ..utils import (
     validate_path_within_vault,
 )
 from ..vault_config import get_vault_config
+from .creation_logic import _extract_frontmatter_from_content
 
 logger = get_logger(__name__)
+
+# Line prefixes that mark non-content lines in Markdown
+_NON_CONTENT_PREFIXES = frozenset(("#", "-", "*", ">", "---", "[["))
 
 
 def format_search_results(resultados: list, solo_titulos: bool) -> str:
@@ -218,6 +225,38 @@ def search_notes_by_date(fecha_desde: str, fecha_hasta: str = "") -> Result[str]
     return Result.ok(resultado)
 
 
+def _validate_move_paths(
+    origen: str,
+    destino: str,
+    vault_path: Path,
+) -> tuple[bool, str]:
+    """Validate origin and destination paths for a move operation.
+
+    Returns:
+        (is_valid, error_message) — error_message is empty on success.
+    """
+    for label, path_str in [("origen", origen), ("destino", destino)]:
+        is_valid, error = validate_path_within_vault(path_str, vault_path)
+        if not is_valid:
+            return False, f"Error de seguridad ({label}): {error}"
+
+    config = get_vault_config(vault_path)
+    private_folders = ["**/Private/", "**/Privado/*"]
+    if config and config.private_paths:
+        private_folders = config.private_paths
+
+    if is_path_in_restricted_folder(origen, private_folders, vault_path):
+        return False, (
+            "ACCESO DENEGADO: No se permite mover archivos desde carpetas restringidas"
+        )
+    if is_path_in_restricted_folder(destino, private_folders, vault_path):
+        return False, (
+            "ACCESO DENEGADO: No se permite mover archivos hacia carpetas restringidas"
+        )
+
+    return True, ""
+
+
 def move_note(origen: str, destino: str, crear_carpetas: bool = True) -> Result[str]:
     """Move or rename a note within the vault.
 
@@ -233,28 +272,9 @@ def move_note(origen: str, destino: str, crear_carpetas: bool = True) -> Result[
     if not vault_path:
         return Result.fail("Ruta del vault no configurada")
 
-    is_valid, error = validate_path_within_vault(origen, vault_path)
+    is_valid, error = _validate_move_paths(origen, destino, vault_path)
     if not is_valid:
-        return Result.fail(f"Error de seguridad (origen): {error}")
-
-    is_valid, error = validate_path_within_vault(destino, vault_path)
-    if not is_valid:
-        return Result.fail(f"Error de seguridad (destino): {error}")
-
-    config = get_vault_config(vault_path)
-    private_folders = ["**/Private/", "**/Privado/*"]
-    if config and config.private_paths:
-        private_folders = config.private_paths
-
-    if is_path_in_restricted_folder(origen, private_folders, vault_path):
-        return Result.fail(
-            "ACCESO DENEGADO: No se permite mover archivos desde carpetas restringidas"
-        )
-
-    if is_path_in_restricted_folder(destino, private_folders, vault_path):
-        return Result.fail(
-            "ACCESO DENEGADO: No se permite mover archivos hacia carpetas restringidas"
-        )
+        return Result.fail(error)
 
     path_origen = vault_path / origen
     path_destino = vault_path / destino
@@ -278,6 +298,33 @@ def move_note(origen: str, destino: str, crear_carpetas: bool = True) -> Result[
     return Result.ok(f"Archivo movido/renombrado:\nDe: {origen}\nA:  {destino}")
 
 
+def _is_content_paragraph(line: str) -> bool:
+    """Check if a stripped line is a content paragraph (not markup/headers)."""
+    if not line or len(line) <= 50:
+        return False
+    return not any(line.startswith(prefix) for prefix in _NON_CONTENT_PREFIXES)
+
+
+def _filter_valid_notes(
+    notas: list[Path],
+    vault_path: Path,
+    excl_folders: list[str],
+) -> list[Path]:
+    """Filter notes excluding forbidden paths, excluded folders, and tiny files."""
+    result = []
+    for nota in notas:
+        ruta_str = str(nota.relative_to(vault_path))
+        if any(excl in ruta_str for excl in excl_folders):
+            continue
+        if nota.stat().st_size < 200:
+            continue
+        is_forbidden, _ = is_path_forbidden(nota, vault_path)
+        if is_forbidden:
+            continue
+        result.append(nota)
+    return result
+
+
 def get_random_concept(carpeta: str = "") -> Result[str]:
     """Extract a random concept from the vault as a flashcard.
 
@@ -287,15 +334,11 @@ def get_random_concept(carpeta: str = "") -> Result[str]:
     Returns:
         Result with formatted flashcard containing random note excerpt
     """
-    import re
-    import secrets
-
     vault_path = get_vault_path()
     if not vault_path:
         return Result.fail("La ruta del vault no esta configurada.")
 
     search_path = vault_path / carpeta if carpeta else vault_path
-
     notas = list(search_path.rglob("*.md"))
 
     config = get_vault_config(vault_path)
@@ -311,18 +354,7 @@ def get_random_concept(carpeta: str = "") -> Result[str]:
                 break
 
     excl_folders = [templates_folder, "System", "Sistema", ".agent", ".github"]
-
-    notas_filtradas = []
-    for nota in notas:
-        ruta_str = str(nota.relative_to(vault_path))
-        if any(excl in ruta_str for excl in excl_folders):
-            continue
-        if nota.stat().st_size < 200:
-            continue
-        is_forbidden, _ = is_path_forbidden(nota, vault_path)
-        if is_forbidden:
-            continue
-        notas_filtradas.append(nota)
+    notas_filtradas = _filter_valid_notes(notas, vault_path, excl_folders)
 
     if not notas_filtradas:
         return Result.fail("No se encontraron notas validas para extraer conceptos.")
@@ -336,21 +368,12 @@ def get_random_concept(carpeta: str = "") -> Result[str]:
     titulo_match = re.search(r"^#\s+(.+)$", contenido, re.MULTILINE)
     titulo = titulo_match.group(1) if titulo_match else nota_elegida.stem
 
-    lineas = contenido.split("\n")
-    parrafos = []
-    for linea in lineas:
-        linea_strip = linea.strip()
-        if (
-            linea_strip
-            and not linea_strip.startswith("#")
-            and not linea_strip.startswith("-")
-            and not linea_strip.startswith("*")
-            and not linea_strip.startswith(">")
-            and not linea_strip.startswith("---")
-            and not linea_strip.startswith("[[")
-            and len(linea_strip) > 50
-        ):
-            parrafos.append(linea_strip)
+    # Extract content paragraphs
+    parrafos = [
+        linea.strip()
+        for linea in contenido.split("\n")
+        if _is_content_paragraph(linea.strip())
+    ]
 
     if parrafos:
         fragmento = secrets.choice(parrafos)
@@ -382,11 +405,10 @@ def read_multiple_notes_logic(rutas: list[str]) -> Result[str]:
     Returns:
         JSON string with successful reads and errors.
     """
+
     vault_path = get_vault_path()
     if not vault_path:
         return Result.fail("La ruta del vault no está configurada.")
-
-    from typing import Any
 
     resultados: dict[str, list[dict[str, Any]]] = {"ok": [], "err": []}
 
@@ -405,11 +427,8 @@ def read_multiple_notes_logic(rutas: list[str]) -> Result[str]:
             with open(nota_path, "r", encoding="utf-8") as f:
                 contenido = f.read()
 
-            from .creation_logic import _extract_frontmatter_from_content
-
             metadata, cuerpo = _extract_frontmatter_from_content(contenido)
 
-            # Para minimizar tokens, devolvemos el body raw
             resultados["ok"].append(
                 {
                     "path": str(nota_path.relative_to(vault_path)),
@@ -417,10 +436,9 @@ def read_multiple_notes_logic(rutas: list[str]) -> Result[str]:
                     "content": cuerpo,
                 }
             )
-        except Exception as e:
+        except (OSError, ValueError, KeyError) as e:
             resultados["err"].append({"path": ruta, "error": str(e)})
 
-    # Limit total characters to avoid context overflow if asked for too many large notes
     json_str = json.dumps(resultados, ensure_ascii=False)
     if len(json_str) > 100000:
         return Result.fail(
@@ -443,8 +461,6 @@ def get_notes_info_logic(rutas: list[str]) -> Result[str]:
     if not vault_path:
         return Result.fail("La ruta del vault no está configurada.")
 
-    from typing import Any
-
     infos: list[dict[str, Any]] = []
 
     for ruta in rutas:
@@ -461,7 +477,6 @@ def get_notes_info_logic(rutas: list[str]) -> Result[str]:
         try:
             metadata = get_note_metadata(nota_path)
 
-            # Read just the beginning to check for frontmatter
             has_frontmatter = False
             with open(nota_path, "r", encoding="utf-8") as f:
                 first_lines = f.read(10)
@@ -476,7 +491,7 @@ def get_notes_info_logic(rutas: list[str]) -> Result[str]:
                     "has_frontmatter": has_frontmatter,
                 }
             )
-        except Exception as e:
+        except (OSError, ValueError) as e:
             infos.append({"path": ruta, "error": str(e)})
 
     return Result.ok(json.dumps(infos, ensure_ascii=False))

@@ -24,7 +24,7 @@ class FileMetadataTracker:
                 with open(self.metadata_file, "r", encoding="utf-8") as f:
                     self.metadata = json.load(f)
                 logger.info("Loaded metadata", extra={"file_count": len(self.metadata)})
-            except Exception as e:
+            except (OSError, json.JSONDecodeError) as e:
                 logger.warning("Could not load metadata file", extra={"error": str(e)})
                 self.metadata = {}
         else:
@@ -40,7 +40,7 @@ class FileMetadataTracker:
             with open(self.metadata_file, "w", encoding="utf-8") as f:
                 json.dump(self.metadata, f, indent=2)
             logger.info("Saved metadata", extra={"file_count": len(self.metadata)})
-        except Exception as e:
+        except OSError as e:
             logger.error("Could not save metadata file", extra={"error": str(e)})
 
     def get_current_files(self, obsidian_path: str) -> Dict[str, dict]:
@@ -63,7 +63,7 @@ class FileMetadataTracker:
                             "size": stat.st_size,
                             "last_indexed": datetime.now().isoformat(),
                         }
-                    except Exception as e:
+                    except OSError as e:
                         logger.warning(
                             "Could not stat file",
                             extra={"filepath": filepath, "error": str(e)},
