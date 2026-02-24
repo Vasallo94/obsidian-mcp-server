@@ -17,7 +17,7 @@ updates:
     schedule:
       interval: "weekly"
     commit-message:
-      prefix: "cho(deps)"
+      prefix: "chore(deps)"
     labels:
       - "dependencies"
       - "python"
