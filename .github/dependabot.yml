@@ -12,6 +12,8 @@ updates:
       - "github-actions"
 
   # Mantener actualizadas las dependencias de Python (pyproject.toml / uv)
+  # NOTE: "pip" is the only valid ecosystem for Python in Dependabot.
+  # It reads pyproject.toml and uv.lock correctly — there is no "uv" ecosystem.
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
@@ -20,4 +22,4 @@ updates:
       prefix: "chore(deps)"
     labels:
       - "dependencies"
-      - "python"
+      - "python:uv"
