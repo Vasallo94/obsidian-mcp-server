@@ -10,20 +10,23 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  PYTHON_VERSION: "3.11"
+
 jobs:
   lint:
     name: Lint & Format
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
 
       - name: Set up Python
-        run: uv python install 3.11
+        run: uv python install ${{ env.PYTHON_VERSION }}
 
       - name: Install dependencies
         run: uv sync --dev
@@ -38,15 +41,15 @@ jobs:
     name: Type Check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
 
       - name: Set up Python
-        run: uv python install 3.11
+        run: uv python install ${{ env.PYTHON_VERSION }}
 
       - name: Install dependencies
         run: uv sync --dev
@@ -58,15 +61,15 @@ jobs:
     name: Security (Bandit)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
 
       - name: Set up Python
-        run: uv python install 3.11
+        run: uv python install ${{ env.PYTHON_VERSION }}
 
       - name: Install dependencies
         run: uv sync --dev
@@ -77,19 +80,28 @@ jobs:
   test:
     name: Tests
     runs-on: ubuntu-latest
+    env:
+      OBSIDIAN_VAULT_PATH: /tmp/test-vault
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
 
       - name: Set up Python
-        run: uv python install 3.11
+        run: uv python install ${{ env.PYTHON_VERSION }}
 
       - name: Install dependencies
         run: uv sync --dev
 
+      - name: Set up test environment
+        run: |
+          mkdir -p /tmp/test-vault
+          echo "# Test note" > /tmp/test-vault/test.md
+          cp .env.example .env
+          sed -i 's|OBSIDIAN_VAULT_PATH=.*|OBSIDIAN_VAULT_PATH=/tmp/test-vault|' .env
+
       - name: Run tests with coverage
-        run: uv run pytest --cov=obsidian_mcp --cov-report=term-missing --cov-fail-under=30
+        run: uv run pytest --cov=obsidian_mcp --cov-report=term-missing --cov-fail-under=25

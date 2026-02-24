@@ -67,6 +67,7 @@ dev = [
     "numpy>=2.4.1",
     "pre-commit>=4.0.0",
     "pylint>=3.0.0",
+    "bandit[toml]>=1.8.0",
 ]
 
 [tool.hatch.build.targets.wheel]
