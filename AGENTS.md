@@ -1,101 +1,107 @@
 # AGENTS.md
 
-This file provides guidance to WARP (warp.dev) when working with code in this repository.
+Context file for AI coding agents working on this repository.
 
 ## Essential Commands
 
-### Development Workflow
 ```bash
-# Install dependencies (uses uv, NEVER pip)
-make install
-# Alternative: uv sync
+# Install dependencies (ALWAYS uv, NEVER pip)
+make install          # uv sync
 
-# Run the MCP server locally
-make dev
-# Alternative: uv run obsidian-mcp-server
+# Run MCP server locally
+make dev              # uv run obsidian-mcp-server
 
-# Run all tests
-make test
-# Alternative: uv run pytest tests/
+# Testing
+make test             # uv run pytest tests/
+make coverage         # uv run pytest --cov=obsidian_mcp --cov-report=term-missing tests/
 
-# Run linting (Ruff + Pyright)
-make lint
-# Alternative: uv run ruff check . && uv run pyright .
+# Linting & formatting
+make lint             # uv run ruff check . && uv run pyright .
+make format           # uv run ruff check --fix . && uv run ruff format .
 
-# Auto-format code
-make format
-# Alternative: uv run ruff check --fix . && uv run ruff format .
+# Pre-commit hooks (ruff, pyright, pylint, bandit + general checks)
+make hooks            # uv run pre-commit install
+make check            # uv run pre-commit run --all-files
 
-# Run verification scripts
-make verify
-# Alternative: uv run python scripts/verify_agents.py && uv run python scripts/verify_youtube.py
+# Verification scripts
+make verify           # uv run python scripts/verify_agents.py && scripts/verify_youtube.py
 ```
 
-### Package Management - CRITICAL
-- **ONLY use `uv`**, NEVER `pip`
+### Package Management — CRITICAL
+
+- **ONLY use `uv`**, NEVER `pip` or `uv pip install`
 - Add dependencies: `uv add package`
 - Add dev dependencies: `uv add --dev package`
+- Add optional RAG deps: `uv sync --extra rag`
 - Run tools: `uv run tool`
-- Upgrade: `uv add --dev package --upgrade-package package`
-- **FORBIDDEN**: `uv pip install`, `@latest` syntax
+- **FORBIDDEN**: `pip install`, `uv pip install`, `@latest` syntax
 
 ### Testing
+
 - Framework: `pytest` with `anyio` for async tests (NOT asyncio)
-- Run single test: `uv run pytest tests/test_basic.py::TestClassName::test_name -v`
-- Run with coverage: `uv run pytest tests/ --cov=obsidian_mcp`
+- Single test: `uv run pytest tests/test_basic.py::TestClassName::test_name -v`
+- Coverage: `uv run pytest tests/ --cov=obsidian_mcp`
+- CI minimum coverage: **25%**
 - All async tests must use `anyio` fixtures, not `asyncio`
 
-## High-Level Architecture
+## Architecture
 
 ### Core Concept
-This is an **MCP (Model Context Protocol) server** built with FastMCP that exposes Obsidian vault operations as tools, resources, and prompts. The server acts as a bridge between AI assistants (Claude Desktop, Cursor, etc.) and a user's Obsidian knowledge base.
 
-### Key Architectural Principles
+MCP (Model Context Protocol) server built with **FastMCP** that exposes Obsidian vault operations as tools, resources, and prompts. Acts as a bridge between AI assistants (Claude Desktop, Cursor, Claude Code, Cline, etc.) and a user's Obsidian knowledge base.
 
-1. **Vault-Agnostic Design**: The server auto-detects vault structure rather than assuming specific folder names. Configuration lives in the user's vault at `.agent/vault.yaml`, not in this repo.
+### Key Principles
 
-2. **Skills System**: AI personas/roles are loaded dynamically from the **user's vault** at `{vault}/.agent/skills/`, NOT from this repository. Each skill has a `SKILL.md` file with YAML frontmatter defining its capabilities.
-
-3. **Separation of Concerns**:
-   - Tools (`tools/*.py`): MCP tool registration and parameter validation
-   - Logic (`tools/*_logic.py`): Core business logic, testable independently
-   - Utils (`utils/*.py`): Shared utilities for file operations, logging, security
-
-4. **Security Model**: Path validation via `.forbidden_paths` and vault config to prevent access to sensitive folders. All file operations go through security checks in `utils/security.py`.
-
-5. **Optional RAG**: Semantic search is an optional feature requiring extra dependencies (`pip install "obsidian-mcp-server[rag]"`). ChromaDB-based vector indexing lives in `semantic/`.
+1. **Vault-Agnostic**: Auto-detects vault structure. User config lives in `{vault}/.agent/vault.yaml`, not here.
+2. **Skills System**: AI personas loaded from the **user's vault** at `{vault}/.agent/skills/`. Each skill has `SKILL.md` with YAML frontmatter.
+3. **Separation of Concerns**: Tool registration (`tools/*.py`) → Business logic (`tools/*_logic.py`) → Utilities (`utils/*.py`).
+4. **Security Model**: Path validation via `.forbidden_paths` and vault config. All file ops go through `utils/security.py`.
+5. **Optional RAG**: Semantic search requires extra deps (`uv sync --extra rag`). ChromaDB-based vector indexing in `semantic/`.
 
 ### Module Organization
 
 ```
 obsidian_mcp/
-├── server.py              # FastMCP instance creation and module registration
-├── config.py              # Pydantic Settings (env vars: OBSIDIAN_VAULT_PATH, LOG_LEVEL)
+├── server.py              # FastMCP instance, module registration, transport config
+├── config.py              # Pydantic Settings (env: OBSIDIAN_VAULT_PATH, LOG_LEVEL, etc.)
 ├── vault_config.py        # Loads optional .agent/vault.yaml from user's vault
-├── tools/                 # MCP Tools (30+ tools organized by domain)
-│   ├── navigation.py      # Read notes, list files, search
-│   ├── creation.py        # Create/edit/delete notes, template usage
-│   ├── analysis.py        # Vault stats, tag management, quality checks
-│   ├── graph.py           # Backlinks, orphan detection, connection analysis
-│   ├── agents.py          # Skills loader (reads from user's vault/.agent/skills/)
-│   ├── semantic.py        # RAG/vector search integration
+├── constants.py           # Centralized magic numbers (SemanticDefaults, SearchLimits, etc.)
+├── messages.py            # User-facing message templates
+├── result.py              # Generic Result[T] type for consistent return values
+├── tools/                 # MCP Tools organized by domain
+│   ├── navigation.py      # Read, list, search notes
+│   ├── navigation_logic.py
+│   ├── creation.py        # Create, edit, delete, template usage
+│   ├── creation_logic.py
+│   ├── analysis.py        # Vault stats, tag sync, quality checks
+│   ├── analysis_logic.py
+│   ├── graph.py           # Backlinks, orphans, connection analysis
+│   ├── graph_logic.py
+│   ├── agents.py          # Skills loader (from user vault/.agent/skills/)
+│   ├── agents_logic.py
+│   ├── agents_generator.py # Skill generation, suggestion, and sync tools
 │   ├── context.py         # Vault structure and metadata
-│   └── youtube.py         # Transcript extraction for knowledge ingestion
+│   ├── context_logic.py
+│   ├── semantic.py        # RAG/vector search integration
+│   ├── semantic_logic.py
+│   ├── youtube.py         # Transcript extraction
+│   └── youtube_logic.py
 ├── semantic/              # Optional RAG module (ChromaDB + sentence-transformers)
 │   ├── indexer.py         # Embedding generation
 │   ├── retriever.py       # Similarity search
 │   └── service.py         # High-level RAG API
-├── utils/                 # Shared utilities
-│   ├── logging.py         # Centralized logging (stderr only, stdout is MCP protocol)
-│   ├── security.py        # Path validation and access control
-│   └── vault.py           # Vault file operations
+├── utils/
+│   ├── logging.py         # Centralized logging (stderr only, stdout = MCP protocol)
+│   ├── security.py        # Path validation, access control, directory traversal prevention
+│   ├── vault.py           # Vault file operations
+│   ├── mcp_ignore.py      # .mcpignore file handling
+│   └── timeout.py         # Timeout utilities for long operations
 ├── resources/             # MCP Resources (read-only data endpoints)
 ├── prompts/               # MCP Prompts (system prompts for AI)
 └── models/                # Pydantic models for data validation
 ```
 
 ### Tool Registration Pattern
-Every tool module follows this pattern:
 
 ```python
 from fastmcp import FastMCP
@@ -106,97 +112,111 @@ def register_xxx_tools(mcp: FastMCP) -> None:
     def my_tool(param: str) -> str:
         """Docstring becomes tool description in MCP."""
         vault_path = get_vault_path()
-        # Parameter validation
-        # Call logic function (testable)
-        return result
+        result = my_tool_logic(param, vault_path)
+        return result.to_display()
+```
+
+### Result Pattern
+
+All `*_logic.py` functions return `Result[T]` (from `result.py`):
+
+```python
+from obsidian_mcp.result import Result
+
+def my_logic(param: str) -> Result[str]:
+    if error_condition:
+        return Result.fail("Error description")
+    return Result.ok("Success data")
+
+# In tool: result.to_display() for MCP output
+# In tests: result.success, result.data, result.error
 ```
 
 ### Configuration Hierarchy
+
 1. **Environment Variables** (`.env`):
    - `OBSIDIAN_VAULT_PATH`: Absolute path to vault (required)
    - `LOG_LEVEL`: DEBUG|INFO|WARNING|ERROR (default: INFO)
-   - Performance settings: `SEARCH_TIMEOUT_SECONDS`, `MAX_SEARCH_RESULTS`, etc.
+   - `OBSIDIAN_SEARCH_TIMEOUT_SECONDS`, `OBSIDIAN_MAX_SEARCH_RESULTS`, `OBSIDIAN_CACHE_TTL_SECONDS`
 
 2. **Vault Config** (`{vault}/.agent/vault.yaml`):
-   - `templates_folder`: Where templates live (auto-detected if not specified)
-   - `excluded_folders`: Folders to skip in semantic search
-   - `excluded_patterns`: Regex patterns for files to exclude
-   - `private_paths`: Glob patterns for restricted paths
+   - `templates_folder`, `excluded_folders`, `excluded_patterns`, `private_paths`
 
-3. **Skills & Rules** (in user's vault, NOT this repo):
-   - Skills: `{vault}/.agent/skills/{skill_name}/SKILL.md`
+3. **Constants** (`constants.py`):
+   - `SemanticDefaults`, `SearchLimits`, `FolderSuggestion`, `FileConstants`
+
+4. **Skills & Rules** (in user's vault, NOT this repo):
+   - Skills: `{vault}/.agent/skills/{name}/SKILL.md`
    - Global rules: `{vault}/.agent/REGLAS_GLOBALES.md`
 
-## Code Quality Standards
+## Quality & CI
 
-### Type Hints & Documentation
-- Type hints are **required** for all functions
-- Public APIs must have docstrings (private helpers may skip them)
-- Use Pydantic models for complex data structures
-- Line length: 88 characters maximum (enforced by Ruff)
+### Pre-commit Hooks
+
+Installed via `make hooks`. Runs on every commit:
+- `trailing-whitespace`, `end-of-file-fixer`, `check-yaml`, `check-added-large-files`, `check-merge-conflict`, `debug-statements`
+- **Ruff** lint + format
+- **Pyright** type checking
+- **Pylint** code quality (excludes `semantic/`)
+- **Bandit** security analysis
+
+### CI Pipeline (GitHub Actions)
+
+4 parallel jobs on push/PR to `main`:
+
+| Job | What it checks |
+|---|---|
+| **Lint & Format** | `ruff check .` + `ruff format --check .` |
+| **Type Check** | `pyright` |
+| **Security** | `bandit -c pyproject.toml -r obsidian_mcp/` |
+| **Tests** | `pytest --cov --cov-fail-under=25` |
 
 ### Code Style
-- PEP 8 naming: `snake_case` for functions/variables, `PascalCase` for classes, `UPPER_SNAKE_CASE` for constants
-- Use f-strings for formatting, not `.format()` or `%`
-- Prefer early returns over nested conditionals
-- Use descriptive names (prefix handlers with "handle_")
-- Keep functions small and focused
 
-### Testing Requirements
-- New features require tests
-- Bug fixes require regression tests
-- Use `anyio` for async tests, NOT `asyncio`
-- Test edge cases and error conditions
-- Tests should be isolated (use fixtures for vault setup)
+- Type hints **required** for all functions
+- Public APIs must have docstrings
+- Line length: 88 chars (Ruff enforced)
+- PEP 8 naming: `snake_case` functions, `PascalCase` classes, `UPPER_SNAKE_CASE` constants
+- Use f-strings, early returns, descriptive names
+- Pylint config in `pyproject.toml`: max 8 args, 20 locals, 15 branches, 60 statements
 
 ### Logging
-- All logs go to `stderr` (stdout is reserved for MCP protocol JSON)
-- Use: `from ..utils import get_logger; logger = get_logger(__name__)`
-- Never use `print()` - it breaks MCP communication
 
-### Linting & Formatting
-- Ruff handles both linting and formatting
-- Type checking via Pyright (Mypy also installed but Pyright is primary)
-- Run before committing: `make format && make lint`
-- CI will fail on:
-  - Line length violations
-  - Unused imports
-  - Type errors
-  - Missing docstrings on public APIs
+- All logs → `stderr` (stdout is MCP protocol JSON)
+- Use: `from ..utils import get_logger; logger = get_logger(__name__)`
+- **Never** use `print()` — it breaks MCP communication
+
+## Dev Environment
+
+### `.agent/` in This Repo
+
+This repo has its own `.agent/` directory with **development-specific** guidance (separate from the user's vault `.agent/`):
+
+- **Skills** (`.agent/skills/`): `code-quality`, `docs-updater`, `git-workflow`, `mcp-developer`, `python-patterns`, `refactoring`, `test-runner`
+- **Workflows** (`.agent/workflows/`): `debug-tests`, `dev-server`, `new-tool`, `quality-check`, `quick-push`
+
+Read these before performing related tasks. Workflows can be invoked via `/slash-command` syntax.
+
+### Docs
+
+Detailed documentation in `docs/`:
+- `architecture.md`, `tool-reference.md`, `configuration.md`, `agent-folder-setup.md`, `semantic-search.md`, `FUTURE.md`
 
 ## Git Workflow
 
-### Commits
-- Use conventional commit format: `type(scope): description`
-- For bug fixes from user reports: `git commit --trailer "Reported-by:<name>"`
-- For GitHub issues: `git commit --trailer "Github-Issue:#<number>"`
-- **NEVER mention co-authors, AI tools, or Copilot in commits**
-
-### Pull Requests
-- Focus PR description on **what** changed and **why**, not implementation details
-- Always add `ArthurClune` as reviewer
-- **NEVER mention co-authors, AI tools, or Copilot in PR descriptions**
-
-## Development Philosophy
-
-- **Simplicity over cleverness**: Write straightforward code
-- **Readability first**: Code is read more than written
-- **Less code = less debt**: Minimize footprint
-- **Build iteratively**: Start minimal, verify it works, then add complexity
-- **Test frequently**: Run tests with realistic inputs
-- **Functional when clear**: Prefer functional/stateless approaches when they improve clarity
-- **Push details to edges**: Keep core logic clean, implementation details at boundaries
+- Conventional commits: `type(scope): description`
+- Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `ci`, `build`
+- For bug fixes: `git commit --trailer "Reported-by:<name>"`
+- For issues: `git commit --trailer "Github-Issue:#<number>"`
+- **NEVER mention co-authors, AI tools, or Copilot in commits or PRs**
 
 ## Common Gotchas
 
-1. **Skills are NOT in this repo**: They're in the user's vault at `.agent/skills/`. Don't create skills here.
-
-2. **stdout is sacred**: Only MCP protocol JSON goes to stdout. All other output (logs, debug info) must go to stderr.
-
-3. **Path validation is critical**: Always validate paths through `utils/security.py` to prevent directory traversal attacks.
-
-4. **RAG is optional**: Code must handle missing `langchain` dependencies gracefully. Check imports and skip RAG features if not available.
-
-5. **vault_config.yaml vs .env**: Operational settings (folder names, exclusions) come from vault config. Server-level settings (vault path, log level) come from .env.
-
-6. **Type narrowing**: Pyright is strict about Optional types. Always check for None before using values from Optional types.
+1. **Skills are in the user's vault**, not this repo. The `.agent/skills/` here are for **development guidance**, not runtime skills.
+2. **stdout is sacred**: Only MCP protocol JSON goes to stdout. Everything else → stderr.
+3. **Path validation is critical**: Always validate through `utils/security.py` to prevent directory traversal.
+4. **RAG is optional**: Handle missing `langchain` deps gracefully. Check imports and skip RAG if unavailable.
+5. **`vault_config.yaml` vs `.env`**: Vault-specific settings (folders, exclusions) from vault config. Server settings (path, log level) from `.env`.
+6. **Type narrowing**: Pyright is strict about `Optional`. Always check for `None` before using Optional values.
+7. **Pylint pre-commit**: May block commits on pre-existing warnings. Use `--no-verify` only if warnings are not from your changes.
+8. **Duplicate `torch`**: `pyproject.toml` has a duplicated `torch` entry in `[project.optional-dependencies].rag` — known issue, harmless.
