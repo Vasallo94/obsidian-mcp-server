@@ -32,8 +32,6 @@ The server exposes a wide variety of tools categorized by function:
 - **Security**: Strict protection of sensitive folders via `.forbidden_paths` and vault privacy configurations.
 - **Customizable Skills**: Define specific AI roles directly within your vault (`.agent/skills/`) for specialized tasks.
 
----
-
 ## Quick Setup
 
 ### Prerequisites

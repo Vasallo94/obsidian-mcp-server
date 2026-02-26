@@ -35,6 +35,13 @@ logger = get_logger(__name__)
 _NON_CONTENT_PREFIXES = frozenset(("#", "-", "*", ">", "---", "[["))
 
 
+def _json_serial(obj: Any) -> str:
+    """JSON serializer for objects not handled by default json module."""
+    if isinstance(obj, (date, datetime)):
+        return obj.isoformat()
+    raise TypeError(f"Type {type(obj)} not serializable")
+
+
 def format_search_results(resultados: list, solo_titulos: bool) -> str:
     """Format search results for display.
 
@@ -439,7 +446,7 @@ def read_multiple_notes_logic(rutas: list[str]) -> Result[str]:
         except (OSError, ValueError, KeyError) as e:
             resultados["err"].append({"path": ruta, "error": str(e)})
 
-    json_str = json.dumps(resultados, ensure_ascii=False)
+    json_str = json.dumps(resultados, ensure_ascii=False, default=_json_serial)
     if len(json_str) > 100000:
         return Result.fail(
             "La respuesta es demasiado grande. Pide menos notas a la vez."

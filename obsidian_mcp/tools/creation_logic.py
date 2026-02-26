@@ -12,7 +12,7 @@ All functions return Result[str] for consistent error handling.
 
 import json
 import re
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -27,6 +27,14 @@ from ..utils import (
     sanitize_filename,
 )
 from ..vault_config import get_vault_config
+
+
+def _json_serial(obj: Any) -> str:
+    """JSON serializer for objects not handled by default json module."""
+    if isinstance(obj, (date, datetime)):
+        return obj.isoformat()
+    raise TypeError(f"Type {type(obj)} not serializable")
+
 
 logger = get_logger(__name__)
 
@@ -982,7 +990,9 @@ def get_frontmatter_logic(nombre_archivo: str) -> Result[str]:
             contenido = f.read()
 
         metadata, _ = _extract_frontmatter_from_content(contenido)
-        return Result.ok(json.dumps(metadata, indent=2, ensure_ascii=False))
+        return Result.ok(
+            json.dumps(metadata, indent=2, ensure_ascii=False, default=_json_serial)
+        )
     except OSError as e:
         return Result.fail(f"Error al leer frontmatter: {e}")
 
