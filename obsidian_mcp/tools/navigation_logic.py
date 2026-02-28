@@ -360,7 +360,7 @@ def get_random_concept(carpeta: str = "") -> Result[str]:
                 templates_folder = item.name
                 break
 
-    excl_folders = [templates_folder, "System", "Sistema", ".agent", ".github"]
+    excl_folders = [templates_folder, "System", "Sistema", ".agents", ".github"]
     notas_filtradas = _filter_valid_notes(notas, vault_path, excl_folders)
 
     if not notas_filtradas:

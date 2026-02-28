@@ -554,7 +554,7 @@ def create_note(
         if not templates_folder:
             return Result.fail(
                 "No se detectó carpeta de plantillas.\n\n"
-                "💡 Crea `.agent/vault.yaml` con:\n"
+                "💡 Crea `.agents/vault.yaml` con:\n"
                 "```yaml\n"
                 'templates_folder: "TuCarpetaDePlantillas"\n'
                 "```"
@@ -679,7 +679,7 @@ def list_templates() -> Result[str]:
     if not templates_folder:
         return Result.fail(
             "No se detectó carpeta de plantillas en el vault.\n\n"
-            "💡 **Solución**: Crea `.agent/vault.yaml` con:\n"
+            "💡 **Solución**: Crea `.agents/vault.yaml` con:\n"
             "```yaml\n"
             'templates_folder: "NombreDeTuCarpetaDePlantillas"\n'
             "```"

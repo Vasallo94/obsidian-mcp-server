@@ -2,13 +2,13 @@
 Herramientas para la integración de Habilidades (Skills).
 
 Estas herramientas permiten al cliente MCP leer las definiciones y prompts
-de las skills almacenadas en la carpeta .agent/skills del vault.
+de las skills almacenadas en la carpeta .agents/skills del vault.
 
 Mejoras v2:
 - Parsing estructurado de YAML frontmatter
 - Validación de schema con Pydantic
 - Caché en memoria para evitar re-lecturas innecesarias
-- Soporte para .agent/REGLAS_GLOBALES.md como reglas globales
+- Soporte para .agents/REGLAS_GLOBALES.md como reglas globales
 """
 
 from __future__ import annotations
@@ -52,7 +52,7 @@ def register_agent_tools(mcp: FastMCP) -> None:
     @mcp.tool()
     def obtener_reglas_globales() -> str:
         """
-        Obtiene las reglas globales del Agente (.agent/REGLAS_GLOBALES.md).
+        Obtiene las reglas globales del Agente (.agents/REGLAS_GLOBALES.md).
 
         ⚠️ OBLIGATORIO PARA AGENTES DE IA: ⚠️
         DEBES leer estas reglas ANTES de realizar cualquier escritura

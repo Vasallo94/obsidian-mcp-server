@@ -8,7 +8,7 @@ Ideas for future development of obsidian-mcp-server.
 
 **Status**: Deferred
 
-**Description**: Tool that automatically generates `.agent/vault.yaml` from an existing vault structure.
+**Description**: Tool that automatically generates `.agents/vault.yaml` from an existing vault structure.
 
 **Implementation ideas**:
 - Scan root folders and detect naming patterns
@@ -22,7 +22,7 @@ Ideas for future development of obsidian-mcp-server.
 @mcp.tool()
 def generar_vault_config(confirmar: bool = False) -> str:
     """
-    Scans the vault and generates .agent/vault.yaml.
+    Scans the vault and generates .agents/vault.yaml.
 
     Args:
         confirmar: If True, creates the file. If False, only previews.

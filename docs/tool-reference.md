@@ -51,11 +51,11 @@ Tools based on AI and embeddings.
 
 ## Skills (Agents)
 
-Skills are specialized personalities or roles defined in **your Obsidian vault** (not in the MCP repository). They are stored in the `.agent/skills/` folder within your vault.
+Skills are specialized personalities or roles defined in **your Obsidian vault** (not in the MCP repository). They are stored in the `.agents/skills/` folder within your vault.
 
 > **Important**: These tools read files from your vault, not from the MCP server configuration.
 
-- **`listar_agentes()`**: Lists available skills in `{your_vault}/.agent/skills/`.
+- **`listar_agentes()`**: Lists available skills in `{your_vault}/.agents/skills/`.
 - **`obtener_instrucciones_agente(nombre)`**: Reads the content of a specific skill (`SKILL.md`).
-- **`obtener_reglas_globales()`**: Reads global rules from `{your_vault}/.agent/GLOBAL_RULES.md`.
+- **`obtener_reglas_globales()`**: Reads global rules from `{your_vault}/.agents/GLOBAL_RULES.md`.
 - **`refrescar_cache_skills()`**: Invalidates the skills cache (useful after editing files).

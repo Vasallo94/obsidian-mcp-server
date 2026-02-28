@@ -257,9 +257,9 @@ uv run mcp dev obsidian_mcp/server.py
 
 Las skills NO están en este repositorio. Se cargan desde el vault del usuario:
 
-- **Ubicación**: `{vault}/.agent/skills/{nombre_skill}/SKILL.md`
+- **Ubicación**: `{vault}/.agents/skills/{nombre_skill}/SKILL.md`
 - **Formato**: Frontmatter YAML + cuerpo Markdown
-- **Reglas globales**: `{vault}/.agent/REGLAS_GLOBALES.md`
+- **Reglas globales**: `{vault}/.agents/REGLAS_GLOBALES.md`
 
 ## Logging
 

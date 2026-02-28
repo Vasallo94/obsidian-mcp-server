@@ -10,7 +10,7 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 ### Added
 - Nueva arquitectura **Vault-Agnostic**: el servidor es ahora genérico e independiente de la estructura de carpetas.
 - Lógica de **auto-detección inteligente** de carpetas de plantillas y recursos.
-- Configuración opcional mediante `.agent/vault.yaml` para personalización avanzada de rutas y privacidad.
+- Configuración opcional mediante `.agents/vault.yaml` para personalización avanzada de rutas y privacidad.
 - Soporte para **procesamiento de fechas** dinámico (`{{date}}`, `{{fecha}}`) en `crear_nota`.
 - Seguridad mejorada con **listas blancas y negras** configurables mediante `private_paths`.
 - Herramienta `leer_contexto_vault` mejorada con resumen de estructura y etiquetas.

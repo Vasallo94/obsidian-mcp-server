@@ -26,7 +26,7 @@ def _collect_folder_structure(vault_path: Path) -> list[str]:
         ".space",
         ".makemd",
         ".obsidianrag",
-        ".agent",
+        ".agents",
     }
     estructura = []
 
@@ -103,16 +103,16 @@ def _collect_common_tags(vault_path: Path) -> str:
 
 
 def _collect_agent_context(vault_path: Path) -> list[str]:
-    """Collect information about the .agent folder structure."""
-    agent_path = vault_path / ".agent"
+    """Collect information about the .agents folder structure."""
+    agent_path = vault_path / ".agents"
     if not agent_path.exists() or not agent_path.is_dir():
         return [
-            "⚠️ No se encontró la carpeta .agent",
+            "⚠️ No se encontró la carpeta .agents",
             "  -> SUGESTIÓN: Lee la documentación para configurar "
             "tus Agentes y Reglas.",
         ]
 
-    info = ["✅ Carpeta .agent encontrada."]
+    info = ["✅ Carpeta .agents encontrada."]
     for item in sorted(agent_path.iterdir()):
         if item.name.startswith("."):
             continue
@@ -171,7 +171,7 @@ def read_vault_context() -> Result[str]:
         else:
             reporte += "No se detectaron etiquetas comunes.\n\n"
 
-        reporte += "## 🤖 Contexto del Agente (.agent)\n"
+        reporte += "## 🤖 Contexto del Agente (.agents)\n"
         reporte += "\n".join(agent_info) + "\n"
 
         return Result.ok(reporte)

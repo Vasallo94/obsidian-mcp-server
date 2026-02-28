@@ -33,7 +33,7 @@ SKILL_TEMPLATE = dedent("""
     ## Antes de Crear Notas
 
     > [!CAUTION]
-    > **OBLIGATORIO**: Lee y aplica [[.agent/REGLAS_GLOBALES]]
+    > **OBLIGATORIO**: Lee y aplica [[.agents/REGLAS_GLOBALES]]
     > antes de crear cualquier nota.
 
     **Ubicación por defecto:** `{default_location}`
@@ -79,7 +79,7 @@ def generate_skill(
         return Result.fail("El nombre de la skill no puede estar vacío.")
 
     # Check if skill already exists
-    skills_path = vault_path / ".agent" / "skills"
+    skills_path = vault_path / ".agents" / "skills"
     skill_path = skills_path / nombre_limpio
     skill_file = skill_path / "SKILL.md"
 
@@ -125,7 +125,7 @@ def generate_skill(
 
     return Result.ok(
         f"Skill creada: **{titulo}**\n"
-        f"📍 Ubicación: `.agent/skills/{nombre_limpio}/SKILL.md`\n\n"
+        f"📍 Ubicación: `.agents/skills/{nombre_limpio}/SKILL.md`\n\n"
         "La skill ya está disponible. Usa `listar_agentes()` para verla."
     )
 
@@ -146,7 +146,7 @@ def suggest_skills_for_vault() -> Result[str]:
     total_notes = 0
 
     # Excluded folders
-    excluded = {".git", ".obsidian", ".trash", ".agent", "node_modules"}
+    excluded = {".git", ".obsidian", ".trash", ".agents", "node_modules"}
 
     for md_file in vault_path.rglob("*.md"):
         # Skip excluded
@@ -301,9 +301,9 @@ def sync_skills(actualizar: bool = False) -> Result[str]:
     if not vault_path:
         return Result.fail("La ruta del vault no está configurada.")
 
-    skills_path = vault_path / ".agent" / "skills"
+    skills_path = vault_path / ".agents" / "skills"
     if not skills_path.exists():
-        return Result.fail("No existe la carpeta `.agent/skills/`.")
+        return Result.fail("No existe la carpeta `.agents/skills/`.")
 
     issues: list[dict[str, str | bool]] = []
     fixed: list[str] = []
@@ -341,7 +341,7 @@ def sync_skills(actualizar: bool = False) -> Result[str]:
                 new_content = re.sub(
                     r"(^# .+\n)",
                     r"\1\n> [!CAUTION]\n> **OBLIGATORIO**: Lee y aplica "
-                    r"[[.agent/REGLAS_GLOBALES]] antes de crear notas.\n\n",
+                    r"[[.agents/REGLAS_GLOBALES]] antes de crear notas.\n\n",
                     content,
                     count=1,
                     flags=re.MULTILINE,

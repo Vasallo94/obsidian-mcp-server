@@ -46,7 +46,7 @@ Each functional domain is grouped logically into its own file, ensuring easy mai
 - **`creation.py`**: Writing notes, handling dynamic templates, section appendices, and content creation bounds.
 - **`analysis.py`**: Vault metadata auditing, taxonomy checking, and tag synchronization.
 - **`graph.py`**: Traversing note connections (backlinks, orphans, graph relationships).
-- **`agents.py`**: Reading custom skills (roles) from `{vault}/.agent/skills/` and global rules from `{vault}/.agent/REGLAS_GLOBALES.md` (these settings live seamlessly inside the vault, not the MCP server repo).
+- **`agents.py`**: Reading custom skills (roles) from `{vault}/.agents/skills/` and global rules from `{vault}/.agents/REGLAS_GLOBALES.md` (these settings live seamlessly inside the vault, not the MCP server repo).
 - **`semantic.py`**: Connecting with the vector search engine.
 - **`youtube.py`**: External utility for fast fetching of video transcripts.
 
@@ -58,7 +58,7 @@ This is an optional component (requires the `[rag]` extra dependencies) that man
 
 ### 4. Utilities & Config (`obsidian_mcp/utils/` and config files)
 - **`config.py`**: Centralized management of `.env` environment variables using `python-dotenv`.
-- **`vault_config.py`**: Auto-detection logic for vault structure mapping and optional `.agent/vault.yaml` overrides.
+- **`vault_config.py`**: Auto-detection logic for vault structure mapping and optional `.agents/vault.yaml` overrides.
 - **`utils/`**: Safe file extraction and manipulation helpers, logging configurations, string handlers, formatting, and secure sub-process interactions.
 
 ## MCP Request Lifecycle

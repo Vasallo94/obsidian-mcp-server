@@ -1,12 +1,12 @@
 # Agent Folder Setup Guide
 
-This guide explains how to configure the `.agent/` folder in your Obsidian vault for use with the MCP server.
+This guide explains how to configure the `.agents/` folder in your Obsidian vault for use with the MCP server.
 
 ## Directory Structure
 
 ```text
 your-vault/
-├── .agent/
+├── .agents/
 │   ├── vault.yaml        # (Optional) Minimal operational settings
 │   ├── REGLAS_GLOBALES.md # Agent behavior & global rules
 │   └── skills/           # Specialized agent capabilities
@@ -22,7 +22,7 @@ your-vault/
 Minimal operational settings. Only required if auto-detection doesn't work.
 
 ```yaml
-# .agent/vault.yaml
+# .agents/vault.yaml
 version: "1.0"
 
 # Where templates are stored (auto-detected if contains "template" or "plantilla")

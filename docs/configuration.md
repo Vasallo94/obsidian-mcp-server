@@ -36,10 +36,10 @@ The server automatically tries to find key folders:
 - **Templates**: It searches for any folder containing "template" or "plantilla" in its name (e.g., `ZZ_Templates`, `Templates`, `06_Templates`).
 
 ### 2. Optional Configuration (`vault.yaml`)
-If you have a non-standard structure or want more granular control, you can create a `.agent/vault.yaml` file at the root of your vault:
+If you have a non-standard structure or want more granular control, you can create a `.agents/vault.yaml` file at the root of your vault:
 
 ```yaml
-# .agent/vault.yaml
+# .agents/vault.yaml
 version: "1.0"
 
 # Optional: Specify the templates folder if auto-detection fails
@@ -51,7 +51,7 @@ private_paths:
   - "**/secrets.md"
 ```
 
-For a detailed guide on how to configure the `.agent/` folder, refer to the [Agent Folder Setup Guide](agent-folder-setup.md).
+For a detailed guide on how to configure the `.agents/` folder, refer to the [Agent Folder Setup Guide](agent-folder-setup.md).
 
 > [!WARNING]
 > Never point `OBSIDIAN_VAULT_PATH` to a folder that contains sensitive private information outside of Obsidian, as the agent could read it if it has read permissions.
@@ -153,7 +153,7 @@ The MCP server can read **skills** (AI personalities/roles) and **global rules**
 
 ```text
 Your_Vault/
-├── .agent/
+├── .agents/
 │   ├── REGLAS_GLOBALES.md      # General instructions for the assistant
 │   └── skills/
 │       ├── writer/

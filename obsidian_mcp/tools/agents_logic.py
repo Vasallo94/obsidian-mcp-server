@@ -98,7 +98,7 @@ def get_cached_skills(vault_path_str: str) -> dict[str, Result[SkillInfo]]:
     El caché se invalida si cambia vault_path_str.
     """
     vault_path = Path(vault_path_str)
-    skills_path = vault_path / ".agent" / "skills"
+    skills_path = vault_path / ".agents" / "skills"
 
     if not skills_path.exists():
         return {}
@@ -134,7 +134,7 @@ def list_available_skills() -> Result[str]:
 
         if not skills:
             return Result.ok(
-                f"ℹ️ No se encontraron skills en {vault_path}/.agent/skills/"
+                f"ℹ️ No se encontraron skills en {vault_path}/.agents/skills/"
             )
 
         # Construir respuesta estructurada
@@ -215,7 +215,7 @@ def get_global_rules() -> Result[str]:
         if not vault_path:
             return Result.fail("La ruta del vault no está configurada.")
 
-        new_rules_path = vault_path / ".agent" / "REGLAS_GLOBALES.md"
+        new_rules_path = vault_path / ".agents" / "REGLAS_GLOBALES.md"
         legacy_rules_path = vault_path / ".github" / "copilot-instructions.md"
 
         rules_path = None
@@ -226,7 +226,7 @@ def get_global_rules() -> Result[str]:
 
         if not rules_path:
             return Result.ok(
-                "ℹ️ No se encontraron reglas globales (.agent/REGLAS_GLOBALES.md)."
+                "ℹ️ No se encontraron reglas globales (.agents/REGLAS_GLOBALES.md)."
             )
 
         contenido = rules_path.read_text(encoding="utf-8")

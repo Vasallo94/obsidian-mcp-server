@@ -22,7 +22,7 @@ The server exposes a wide variety of tools categorized by function:
 - **Creation and Editing**: Automatic template usage, location suggestions, and non-destructive editing preserving metadata (frontmatter/YAML).
 - **Analysis and Quality**: Vault statistics, tag synchronization with the official registry, and integrity checks.
 - **Graphs and Connections**: Backlink analysis, orphan note detection, and local graph visualization.
-- **Skills (Agents)**: Dynamic loading of AI personalities/roles from your vault (`{vault}/.agent/skills/`).
+- **Skills (Agents)**: Dynamic loading of AI personalities/roles from your vault (`{vault}/.agents/skills/`).
 - **Semantic Search (RAG)**: Meaning-based searches, suggestions for non-obvious connections, and vector indexing.
 - **YouTube**: Extraction of transcripts to feed your knowledge base.
 
@@ -30,7 +30,7 @@ The server exposes a wide variety of tools categorized by function:
 
 - **Vault-Agnostic Architecture**: Independent of your folder structure; it uses intelligent auto-detection to find templates and resources.
 - **Security**: Strict protection of sensitive folders via `.forbidden_paths` and vault privacy configurations.
-- **Customizable Skills**: Define specific AI roles directly within your vault (`.agent/skills/`) for specialized tasks.
+- **Customizable Skills**: Define specific AI roles directly within your vault (`.agents/skills/`) for specialized tasks.
 
 ## Quick Setup
 
@@ -103,7 +103,7 @@ To dive deeper into how the server works and how to customize it, check our deta
 1. [Architecture](docs/architecture.md): Modular structure and data flow of the project.
 2. [Tool Reference](docs/tool-reference.md): Complete list of available MCP tools and their parameters.
 3. [Server Configuration](docs/configuration.md): Guide on environment variables and technical configuration.
-4. [Agent Setup](docs/agent-folder-setup.md): How to organize your vault (`.agent/`) with skills and contextual rules.
+4. [Agent Setup](docs/agent-folder-setup.md): How to organize your vault (`.agents/`) with skills and contextual rules.
 5. [Semantic Search (RAG)](docs/semantic-search.md): Deep dive into vector indexing and RAG mechanics.
 6. [Future Roadmap](docs/FUTURE.md): Planned improvements and next steps for the server.
 

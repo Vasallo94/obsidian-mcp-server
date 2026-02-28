@@ -87,7 +87,7 @@ obsidian-mcp-server/
 │   │   ├── creation.py    # Create, edit, delete notes
 │   │   ├── analysis.py    # Vault stats, tag management
 │   │   ├── graph.py       # Backlinks, orphan detection
-│   │   ├── agents.py      # Skills loader (reads from user's vault/.agent/skills/)
+│   │   ├── agents.py      # Skills loader (reads from user's vault/.agents/skills/)
 │   │   ├── semantic.py    # RAG/vector search integration
 │   │   ├── context.py     # Vault context and structure
 │   │   └── youtube.py     # Transcript extraction
@@ -132,9 +132,9 @@ def register_xxx_tools(mcp: FastMCP) -> None:
 
 ### Skills System
 Skills are loaded from the **user's vault**, not this repo:
-- Location: `{vault}/.agent/skills/{skill_name}/SKILL.md`
+- Location: `{vault}/.agents/skills/{skill_name}/SKILL.md`
 - Format: YAML frontmatter (name, description, tools) + Markdown body
-- Global rules: `{vault}/.agent/REGLAS_GLOBALES.md`
+- Global rules: `{vault}/.agents/REGLAS_GLOBALES.md`
 
 ### Logging
 - All logs go to `stderr` (stdout is reserved for MCP protocol)

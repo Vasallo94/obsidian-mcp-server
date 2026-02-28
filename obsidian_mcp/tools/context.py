@@ -25,7 +25,7 @@ def register_context_tools(mcp: FastMCP) -> None:
         cualquier tarea con el vault. Te informa de:
         1. Estructura de carpetas válida.
         2. Plantillas disponibles.
-        3. Estado de la configuración de Agentes (.agent).
+        3. Estado de la configuración de Agentes (.agents).
 
         Devuelve un resumen de carpetas, plantillas y etiquetas comunes.
         """

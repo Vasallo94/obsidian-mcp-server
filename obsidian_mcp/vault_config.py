@@ -2,7 +2,7 @@
 Minimal vault configuration loader.
 
 This module provides a simple way to load optional vault-specific settings
-from .agent/vault.yaml. The schema is intentionally minimal - behavior
+from .agents/vault.yaml. The schema is intentionally minimal - behavior
 and style should come from REGLAS_GLOBALES.md and skills, not from config.
 
 Usage:
@@ -26,7 +26,7 @@ DEFAULT_EXCLUDED_FOLDERS: tuple[str, ...] = (
     "00_Sistema",
     "ZZ_Plantillas",
     "04_Recursos/Obsidian",
-    ".agent",
+    ".agents",
     ".trash",
     ".git",
     ".obsidian",
@@ -76,7 +76,7 @@ class VaultConfig(BaseModel):
 def _load_vault_config_cached(vault_path_str: str) -> Optional[VaultConfig]:
     """Load and cache vault configuration."""
     vault_path = Path(vault_path_str)
-    config_path = vault_path / ".agent" / "vault.yaml"
+    config_path = vault_path / ".agents" / "vault.yaml"
 
     if not config_path.exists():
         return None
@@ -96,7 +96,7 @@ def _load_vault_config_cached(vault_path_str: str) -> Optional[VaultConfig]:
 
 def get_vault_config(vault_path: Path) -> Optional[VaultConfig]:
     """
-    Get vault configuration from .agent/vault.yaml if it exists.
+    Get vault configuration from .agents/vault.yaml if it exists.
 
     Args:
         vault_path: Path to the Obsidian vault

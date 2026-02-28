@@ -26,7 +26,7 @@ docs/
 ├── configuration.md      # Variables de entorno y configuración
 ├── tool-reference.md     # Referencia de todas las herramientas MCP
 ├── semantic-search.md    # Guía de búsqueda semántica
-├── agent-folder-setup.md # Configuración de carpeta .agent
+├── agent-folder-setup.md # Configuración de carpeta .agents
 ├── FUTURE.md            # Ideas para desarrollo futuro
 └── examples/            # Ejemplos de configuración
 ```

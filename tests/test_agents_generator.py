@@ -13,12 +13,12 @@ from obsidian_mcp.tools.agents_generator import (
 
 @pytest.fixture
 def temp_vault(tmp_path):
-    """Create a temporary vault with .agent structure."""
+    """Create a temporary vault with .agents structure."""
     vault = tmp_path / "test_vault"
     vault.mkdir()
 
-    # Create .agent/skills directory
-    skills_dir = vault / ".agent" / "skills"
+    # Create .agents/skills directory
+    skills_dir = vault / ".agents" / "skills"
     skills_dir.mkdir(parents=True)
 
     return vault
@@ -44,7 +44,7 @@ class TestGenerateSkill:
         assert "test-skill" in result.data
 
         # Verify file was created
-        skill_file = temp_vault / ".agent" / "skills" / "test-skill" / "SKILL.md"
+        skill_file = temp_vault / ".agents" / "skills" / "test-skill" / "SKILL.md"
         assert skill_file.exists()
 
         content = skill_file.read_text()
@@ -67,7 +67,7 @@ class TestGenerateSkill:
         )
 
         assert result.success
-        skill_dir = temp_vault / ".agent" / "skills" / "my-test-skill"
+        skill_dir = temp_vault / ".agents" / "skills" / "my-test-skill"
         assert skill_dir.exists()
 
     def test_fails_if_skill_exists(self, temp_vault, monkeypatch):
@@ -78,7 +78,7 @@ class TestGenerateSkill:
         )
 
         # Create existing skill
-        existing = temp_vault / ".agent" / "skills" / "existing" / "SKILL.md"
+        existing = temp_vault / ".agents" / "skills" / "existing" / "SKILL.md"
         existing.parent.mkdir(parents=True)
         existing.write_text("# Existing")
 
@@ -106,7 +106,7 @@ class TestGenerateSkill:
         )
 
         assert result.success
-        skill_file = temp_vault / ".agent" / "skills" / "custom-tools" / "SKILL.md"
+        skill_file = temp_vault / ".agents" / "skills" / "custom-tools" / "SKILL.md"
         content = skill_file.read_text()
         assert "web, github, sequentialthinking" in content
 
@@ -147,7 +147,7 @@ class TestSyncSkills:
         )
 
         # Create skill without REGLAS_GLOBALES
-        skill_dir = temp_vault / ".agent" / "skills" / "incomplete"
+        skill_dir = temp_vault / ".agents" / "skills" / "incomplete"
         skill_dir.mkdir(parents=True)
         skill_file = skill_dir / "SKILL.md"
         skill_file.write_text("# Incomplete Skill\n\nNo rules here.")
@@ -166,7 +166,7 @@ class TestSyncSkills:
         )
 
         # Create skill without golden rule
-        skill_dir = temp_vault / ".agent" / "skills" / "fixme"
+        skill_dir = temp_vault / ".agents" / "skills" / "fixme"
         skill_dir.mkdir(parents=True)
         skill_file = skill_dir / "SKILL.md"
         skill_file.write_text(
@@ -190,7 +190,7 @@ class TestSyncSkills:
         )
 
         # Create valid skill
-        skill_dir = temp_vault / ".agent" / "skills" / "valid"
+        skill_dir = temp_vault / ".agents" / "skills" / "valid"
         skill_dir.mkdir(parents=True)
         skill_file = skill_dir / "SKILL.md"
         skill_file.write_text(

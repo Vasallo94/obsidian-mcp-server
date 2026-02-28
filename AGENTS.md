@@ -52,8 +52,8 @@ MCP (Model Context Protocol) server built with **FastMCP** that exposes Obsidian
 
 ### Key Principles
 
-1. **Vault-Agnostic**: Auto-detects vault structure. User config lives in `{vault}/.agent/vault.yaml`, not here.
-2. **Skills System**: AI personas loaded from the **user's vault** at `{vault}/.agent/skills/`. Each skill has `SKILL.md` with YAML frontmatter.
+1. **Vault-Agnostic**: Auto-detects vault structure. User config lives in `{vault}/.agents/vault.yaml`, not here.
+2. **Skills System**: AI personas loaded from the **user's vault** at `{vault}/.agents/skills/`. Each skill has `SKILL.md` with YAML frontmatter.
 3. **Separation of Concerns**: Tool registration (`tools/*.py`) → Business logic (`tools/*_logic.py`) → Utilities (`utils/*.py`).
 4. **Security Model**: Path validation via `.forbidden_paths` and vault config. All file ops go through `utils/security.py`.
 5. **Optional RAG**: Semantic search requires extra deps (`uv sync --extra rag`). ChromaDB-based vector indexing in `semantic/`.
@@ -64,7 +64,7 @@ MCP (Model Context Protocol) server built with **FastMCP** that exposes Obsidian
 obsidian_mcp/
 ├── server.py              # FastMCP instance, module registration, transport config
 ├── config.py              # Pydantic Settings (env: OBSIDIAN_VAULT_PATH, LOG_LEVEL, etc.)
-├── vault_config.py        # Loads optional .agent/vault.yaml from user's vault
+├── vault_config.py        # Loads optional .agents/vault.yaml from user's vault
 ├── constants.py           # Centralized magic numbers (SemanticDefaults, SearchLimits, etc.)
 ├── messages.py            # User-facing message templates
 ├── result.py              # Generic Result[T] type for consistent return values
@@ -77,7 +77,7 @@ obsidian_mcp/
 │   ├── analysis_logic.py
 │   ├── graph.py           # Backlinks, orphans, connection analysis
 │   ├── graph_logic.py
-│   ├── agents.py          # Skills loader (from user vault/.agent/skills/)
+│   ├── agents.py          # Skills loader (from user vault/.agents/skills/)
 │   ├── agents_logic.py
 │   ├── agents_generator.py # Skill generation, suggestion, and sync tools
 │   ├── context.py         # Vault structure and metadata
@@ -139,15 +139,15 @@ def my_logic(param: str) -> Result[str]:
    - `LOG_LEVEL`: DEBUG|INFO|WARNING|ERROR (default: INFO)
    - `OBSIDIAN_SEARCH_TIMEOUT_SECONDS`, `OBSIDIAN_MAX_SEARCH_RESULTS`, `OBSIDIAN_CACHE_TTL_SECONDS`
 
-2. **Vault Config** (`{vault}/.agent/vault.yaml`):
+2. **Vault Config** (`{vault}/.agents/vault.yaml`):
    - `templates_folder`, `excluded_folders`, `excluded_patterns`, `private_paths`
 
 3. **Constants** (`constants.py`):
    - `SemanticDefaults`, `SearchLimits`, `FolderSuggestion`, `FileConstants`
 
 4. **Skills & Rules** (in user's vault, NOT this repo):
-   - Skills: `{vault}/.agent/skills/{name}/SKILL.md`
-   - Global rules: `{vault}/.agent/REGLAS_GLOBALES.md`
+   - Skills: `{vault}/.agents/skills/{name}/SKILL.md`
+   - Global rules: `{vault}/.agents/REGLAS_GLOBALES.md`
 
 ## Quality & CI
 
@@ -188,12 +188,12 @@ Installed via `make hooks`. Runs on every commit:
 
 ## Dev Environment
 
-### `.agent/` in This Repo
+### `.agents/` in This Repo
 
-This repo has its own `.agent/` directory with **development-specific** guidance (separate from the user's vault `.agent/`):
+This repo has its own `.agents/` directory with **development-specific** guidance (separate from the user's vault `.agents/`):
 
-- **Skills** (`.agent/skills/`): `code-quality`, `docs-updater`, `git-workflow`, `mcp-developer`, `python-patterns`, `refactoring`, `test-runner`
-- **Workflows** (`.agent/workflows/`): `debug-tests`, `dev-server`, `new-tool`, `quality-check`, `quick-push`
+- **Skills** (`.agents/skills/`): `code-quality`, `docs-updater`, `git-workflow`, `mcp-developer`, `python-patterns`, `refactoring`, `test-runner`
+- **Workflows** (`.agents/workflows/`): `debug-tests`, `dev-server`, `new-tool`, `quality-check`, `quick-push`
 
 Read these before performing related tasks. Workflows can be invoked via `/slash-command` syntax.
 
@@ -212,7 +212,7 @@ Detailed documentation in `docs/`:
 
 ## Common Gotchas
 
-1. **Skills are in the user's vault**, not this repo. The `.agent/skills/` here are for **development guidance**, not runtime skills.
+1. **Skills are in the user's vault**, not this repo. The `.agents/skills/` here are for **development guidance**, not runtime skills.
 2. **stdout is sacred**: Only MCP protocol JSON goes to stdout. Everything else → stderr.
 3. **Path validation is critical**: Always validate through `utils/security.py` to prevent directory traversal.
 4. **RAG is optional**: Handle missing `langchain` deps gracefully. Check imports and skip RAG if unavailable.

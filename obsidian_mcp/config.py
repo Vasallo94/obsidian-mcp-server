@@ -17,7 +17,7 @@ class VaultSettings(BaseSettings):
     Environment-level vault configuration.
 
     NOTE: Vault-specific settings (folder names, exclusions, etc.) are now
-    loaded from .agent/vault.yaml within the vault. See vault_config.py.
+    loaded from .agents/vault.yaml within the vault. See vault_config.py.
 
     This class only contains:
     - vault_path: Required path to the Obsidian vault
