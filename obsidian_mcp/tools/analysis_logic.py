@@ -324,17 +324,20 @@ def sync_tag_registry(actualizar: bool = False) -> Result[str]:
             status = "✅" if t in tags_registradas else "⚠️"
             nueva_tabla += f"| {status} {t} | {freq} | {hoy} |\n"
 
-        seccion_header = "## 📊 **Estadísticas de Tags**"
-        if seccion_header not in contenido_registro:
-            seccion_header = "## 📊 Estadísticas de Tags"
+        seccion_header = None
+        header_match = re.search(
+            r"^(## .*[Ee]stad[ií]sticas.*)$", contenido_registro, re.MULTILINE
+        )
+        if header_match:
+            seccion_header = header_match.group(1)
 
-        if seccion_header in contenido_registro:
-            partes = contenido_registro.split(seccion_header)
-            resto = partes[1].split("\n\n---")[1] if "\n\n---" in partes[1] else ""
+        if seccion_header and seccion_header in contenido_registro:
+            partes = contenido_registro.split(seccion_header, 1)
+            # Keep everything after the next section (## ) or end of file
+            next_section = re.search(r"\n## ", partes[1])
+            resto = partes[1][next_section.start() :] if next_section else ""
 
-            nuevo_contenido = partes[0] + seccion_header + "\n\n" + nueva_tabla
-            if resto:
-                nuevo_contenido += "\n---" + resto
+            nuevo_contenido = partes[0] + seccion_header + "\n\n" + nueva_tabla + resto
 
             with open(registry_path, "w", encoding="utf-8") as f:
                 f.write(nuevo_contenido)
@@ -344,8 +347,16 @@ def sync_tag_registry(actualizar: bool = False) -> Result[str]:
                 "La tabla de estadísticas ha sido regenerada."
             )
         else:
+            # Section doesn't exist, create it at the end
+            nuevo_contenido = (
+                contenido_registro.rstrip() + "\n\n## Estadísticas\n\n" + nueva_tabla
+            )
+            with open(registry_path, "w", encoding="utf-8") as f:
+                f.write(nuevo_contenido)
+
             resultado += (
-                "\n⚠️ No se pudo encontrar la sección de estadísticas para actualizar."
+                "\n✅ **Sección creada y registro actualizado**: "
+                "Se añadió la tabla de estadísticas al final del archivo."
             )
 
     return Result.ok(resultado)

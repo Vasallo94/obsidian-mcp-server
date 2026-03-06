@@ -239,6 +239,10 @@ def extract_tags_from_content(content: str) -> List[str]:
     for t in body_tags:
         tags.add(t)
 
+    # 3. Filter out hex color codes (e.g., #fff, #0f0f0f, #e1f5fe)
+    hex_color_re = re.compile(r"^([0-9a-fA-F]{3}){1,2}$")
+    tags = {t for t in tags if not hex_color_re.match(t)}
+
     return sorted(list(tags))
 
 
