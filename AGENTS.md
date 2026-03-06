@@ -206,6 +206,7 @@ Detailed documentation in `docs/`:
 
 - Conventional commits: `type(scope): description`
 - Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `ci`, `build`
+- **CHANGELOG.md**: Before every commit, add an entry to `CHANGELOG.md` describing the change. Group entries by version under `## [Unreleased]` until a release is tagged.
 - For bug fixes: `git commit --trailer "Reported-by:<name>"`
 - For issues: `git commit --trailer "Github-Issue:#<number>"`
 - **NEVER mention co-authors, AI tools, or Copilot in commits or PRs**
