@@ -8,8 +8,8 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 ## [Unreleased]
 
 ### Added
-- **Pydantic Tool Validations**: Implementación de `BaseModel` para todas las 40 herramientas, validando tipos rigurosamente (`tool_inputs.py`).
-- **Seguridad en CI**: Integración de validadores como `pip-audit` (`make audit`) y `actionlint` en el proceso de pre-commit y Github Actions de CI.
+- **Pydantic Tool Validations**: Implementación de jerarquía `BaseModel` para todas las **40 herramientas** mediante `tool_inputs.py`, logrando validación rigurosa de tipos. Las descripciones y metadatos se exponen ahora dinámicamente al `_tool_manager` de FastMCP.
+- **Seguridad y Calidad en CI**: Integración completa de validadores como `pip-audit` (`make audit`) y `actionlint` en los `pre-commit hooks` y en `GitHub Actions` (pipeline `ci.yml`). El proyecto ahora exige y pasa con un **10.00/10 en Pylint**.
 - Nueva arquitectura **Vault-Agnostic**: el servidor es ahora genérico e independiente de la estructura de carpetas.
 - Lógica de **auto-detección inteligente** de carpetas de plantillas y recursos.
 - Configuración opcional mediante `.agents/vault.yaml` para personalización avanzada de rutas y privacidad.
@@ -19,8 +19,9 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 - **Indexación Semántica de Imágenes**: El sistema ahora extrae descripciones de imágenes (`![[img|desc]]` o `![desc](img)`) y las inyecta como contexto semántico, haciendo buscable el contenido visual.
 
 ### Fixed
-- **Actionable Errors**: Las herramientas ahora devuelven mensajes semánticos al MCP ante errores ("No encontré esto, prueba esto") en lugar de reventar con excepciones nativas (Ej. `FileNotFoundError`).
-- **QA Code Coverage**: Arreglados avisos de `pylint` (complejidad ciclomática y múltiples ramas) y mitigadas 2 vulnerabilidades (CVEs) de `authlib` y `diskcache`.
+- **Actionable Errors**: Las herramientas ahora devuelven mensajes semánticos al modelo LLM ante errores (Ej: `❌ No se encontró la nota 'X', usa listar_notas primero`) en lugar de levantar excepciones nativas como `FileNotFoundError` que rompían el agente.
+- **QA Code Coverage**: Arreglados todos los avisos estrictos de `pylint` (reduciendo la complejidad ciclomática explícita y gestionando *lazy loading* de paquetes RAG).
+- **Vulnerabilidades Corregidas**: Mitigadas 2 vulnerabilidades moderadas/altas (CVEs) encontradas en dependencias secundarias (`authlib` y `diskcache`) vía `uv sync --upgrade`.
 - **Tag Extraction**: Filtro de códigos de color hexadecimales (`#fff`, etc.) en `extract_tags_from_content` para evitar falsos positivos.
 - **Tag Sync**: Búsqueda flexible (regex) del encabezado de estadísticas en el Registro de Tags y fallback de creación iterativo si no existe en `sync_tag_registry`.
 - **Import circular** en `security.py` que impedía el arranque del servidor MCP. El import de `vault_config` se movió a nivel de función para romper el ciclo de dependencias.
