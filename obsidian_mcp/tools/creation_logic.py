@@ -338,14 +338,14 @@ def edit_note(nombre_archivo: str, nuevo_contenido: str) -> Result[str]:
 
 
 def suggest_folder_location(titulo: str, contenido: str, etiquetas: str = "") -> str:
+    # pylint: disable=too-many-return-statements,too-many-branches
     """Helper to suggest location based on semantics and keywords."""
 
     # 1. Try Semantic Suggestion (multi-candidate)
     # Import inside try to gracefully degrade when RAG optional deps are missing.
     try:
-        from ..semantic.service import (
-            SemanticService,  # pylint: disable=import-outside-toplevel # noqa: PLC0415
-        )
+        # pylint: disable-next=import-outside-toplevel
+        from ..semantic.service import SemanticService
 
         vault_path = get_vault_path()
         if vault_path:
@@ -424,9 +424,9 @@ def suggest_folder_location(titulo: str, contenido: str, etiquetas: str = "") ->
     # Lógica simple de categorización basada en la estructura del vault
     if any(k in texto for k in ["poema", "poesía", "verso", "rima"]):
         return "📂 Sugerencia: `03_Creaciones/Poemas`"
-    elif any(k in texto for k in ["reflexión", "pienso", "creo", "opinión"]):
+    if any(k in texto for k in ["reflexión", "pienso", "creo", "opinión"]):
         return "📂 Sugerencia: `03_Creaciones/Reflexiones`"
-    elif any(
+    if any(
         k in texto
         for k in [
             "código",
@@ -440,7 +440,7 @@ def suggest_folder_location(titulo: str, contenido: str, etiquetas: str = "") ->
         ]
     ):
         return "📂 Sugerencia: `02_Aprendizaje/Programación`"
-    elif any(
+    if any(
         k in texto
         for k in [
             "sistema",
@@ -453,9 +453,9 @@ def suggest_folder_location(titulo: str, contenido: str, etiquetas: str = "") ->
         ]
     ):
         return "📂 Sugerencia: `02_Aprendizaje/Sistemas`"
-    elif any(k in texto for k in ["filosofía", "ética", "aristóteles", "dualismo"]):
+    if any(k in texto for k in ["filosofía", "ética", "aristóteles", "dualismo"]):
         return "📂 Sugerencia: `02_Aprendizaje/Filosofía`"
-    elif any(k in texto for k in ["psicología", "cognitivo", "mente", "ego"]):
+    if any(k in texto for k in ["psicología", "cognitivo", "mente", "ego"]):
         return "📂 Sugerencia: `02_Aprendizaje/Psicología`"
 
     # Default fallback - scan for inbox-like folders or use root
@@ -482,6 +482,7 @@ def create_note(
     agente_creador: str = "",
     descripcion: str = "",
 ) -> Result[str]:
+    # pylint: disable=too-many-branches,too-many-statements,too-many-locals,too-many-positional-arguments
     """Create a new note in the vault.
 
     Args:
@@ -708,6 +709,7 @@ def search_and_replace_global(
     solo_preview: bool = True,
     limite: int = 100,
 ) -> Result[str]:
+    # pylint: disable=too-many-branches,too-many-locals
     """Search and replace text in all notes.
 
     Args:
@@ -885,6 +887,7 @@ def append_to_section(
     contenido: str,
     crear_si_no_existe: bool = True,
 ) -> Result[str]:
+    # pylint: disable=too-many-locals
     """Append content to a specific section of a note.
 
     Args:

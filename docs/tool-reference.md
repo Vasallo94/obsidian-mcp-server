@@ -44,7 +44,7 @@ Tools based on AI and embeddings.
 
 - **`preguntar_al_conocimiento(pregunta, metadata_filter)`**: Natural language search over the vault's content.
 - **`indexar_vault_semantico(forzar)`**: Updates the vector index (ChromaDB) with the latest changes.
-- **`encontrar_conexiones_sugeridas(threshold, limite)`**: Finds similar notes that are not yet linked.
+- **`encontrar_conexiones_sugeridas(threshold, limit)`**: Finds similar notes that are not yet linked.
 
 ## YouTube
 - **`get_youtube_transcript(url, language)`**: Downloads a video's transcript to process it like any other note.

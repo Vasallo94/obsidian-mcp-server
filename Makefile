@@ -1,4 +1,4 @@
-.PHONY: install dev test lint clean verify hooks check
+.PHONY: install dev test lint clean verify hooks check audit
 
 install:
 	uv sync
@@ -21,6 +21,9 @@ coverage:
 lint:
 	uv run ruff check .
 	uv run pyright .
+
+audit:
+	uv run pip-audit
 
 format:
 	uv run ruff check --fix .

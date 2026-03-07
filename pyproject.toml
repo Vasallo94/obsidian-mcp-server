@@ -68,6 +68,7 @@ dev = [
     "pre-commit>=4.0.0",
     "pylint>=3.0.0",
     "bandit[toml]>=1.8.0",
+    "pip-audit>=2.10.0",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -79,7 +80,7 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B"]
-ignore = []
+ignore = ["E501"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

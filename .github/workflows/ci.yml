@@ -77,6 +77,9 @@ jobs:
       - name: Bandit
         run: uv run bandit -c pyproject.toml -r obsidian_mcp/
 
+      - name: Pip Audit
+        run: uv run pip-audit
+
   test:
     name: Tests
     runs-on: ubuntu-latest

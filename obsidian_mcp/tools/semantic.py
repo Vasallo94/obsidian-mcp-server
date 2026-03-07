@@ -18,7 +18,10 @@ def register_semantic_tools(mcp: FastMCP) -> None:
     """
     try:
         # Check for core dependencies locally to decide whether to register
+        # pylint: disable-next=import-outside-toplevel,unused-import
         import chromadb  # noqa: F401
+
+        # pylint: disable-next=import-outside-toplevel,unused-import
         import langchain  # noqa: F401
 
         @mcp.tool()
@@ -34,11 +37,12 @@ def register_semantic_tools(mcp: FastMCP) -> None:
                 pregunta: La pregunta o tema sobre el que quieres consultar.
                 metadata_filter: Opcional. Filtro de metadatos (ej: {"type": "poesia"}).
             """
+            # pylint: disable-next=import-outside-toplevel
             from .semantic_logic import ask_knowledge
 
             try:
                 return ask_knowledge(pregunta, metadata_filter).to_display()
-            except Exception as e:
+            except Exception as e:  # pylint: disable=broad-exception-caught
                 return f"❌ Error en búsqueda semántica: {e}"
 
         @mcp.tool()
@@ -50,11 +54,12 @@ def register_semantic_tools(mcp: FastMCP) -> None:
             Args:
                 forzar: Si es True, borra el índice anterior y lo crea desde cero.
             """
+            # pylint: disable-next=import-outside-toplevel
             from .semantic_logic import index_semantic_vault
 
             try:
                 return index_semantic_vault(forzar).to_display()
-            except Exception as e:
+            except Exception as e:  # pylint: disable=broad-exception-caught
                 return f"❌ Error al actualizar el índice: {e}"
 
         @mcp.tool()
@@ -77,13 +82,14 @@ def register_semantic_tools(mcp: FastMCP) -> None:
                 excluir_mocs: Ignorar MOC, Home, Inbox y sistema. (Default: True).
                 min_palabras: Ignorar notas con menos de X palabras. (Default: 150).
             """
+            # pylint: disable-next=import-outside-toplevel
             from .semantic_logic import find_suggested_connections
 
             try:
                 return find_suggested_connections(
                     threshold, limite, carpetas_incluir, excluir_mocs, min_palabras
                 ).to_display()
-            except Exception as e:
+            except ValueError as e:
                 return f"❌ Error al buscar conexiones: {e}"
 
         logger.info("✅ Herramientas semánticas registradas correctamente")
