@@ -282,12 +282,57 @@ def delete_note(nombre_archivo: str, confirmar: bool = False) -> Result[str]:
     return Result.ok(f"Nota eliminada: {ruta_relativa}")
 
 
-def edit_note(nombre_archivo: str, contenido: str) -> Result[str]:
-    """Edit an existing note, replacing all its content.
+def _update_frontmatter_date(
+    content: str, user_set_updated: bool = False
+) -> str:
+    """Update the 'updated' field in frontmatter to today's date.
+
+    Args:
+        content: The full note content.
+        user_set_updated: If True, skip auto-update (user set it explicitly).
+
+    Returns:
+        Content with updated date in frontmatter.
+    """
+    if user_set_updated:
+        return content
+
+    if not content.startswith("---"):
+        return content
+
+    ahora = datetime.now().strftime("%Y-%m-%d")
+
+    if re.search(r"^updated:", content, re.MULTILINE):
+        return re.sub(
+            r'^(updated:\s*["\']?)[^"\'\n]+(["\']?)$',
+            rf"\g<1>{ahora}\g<2>",
+            content,
+            count=1,
+            flags=re.MULTILINE,
+        )
+
+    if re.search(r"^created:", content, re.MULTILINE):
+        return re.sub(
+            r"^(created:\s*.+)$",
+            rf"\1\nupdated: {ahora}",
+            content,
+            count=1,
+            flags=re.MULTILINE,
+        )
+
+    return content.replace("\n---\n", f"\nupdated: {ahora}\n---\n", 1)
+
+
+def edit_note(
+    nombre_archivo: str, operaciones: list[dict[str, str]]
+) -> Result[str]:
+    """Edit an existing note by applying a list of old->new operations.
+
+    All operations are validated before any writes (atomic).
 
     Args:
         nombre_archivo: Name or path of the note to edit.
-        contenido: The complete new content (including YAML frontmatter).
+        operaciones: List of {"old": "...", "new": "..."} dicts.
 
     Returns:
         Result with success message or error.
@@ -304,37 +349,88 @@ def edit_note(nombre_archivo: str, contenido: str) -> Result[str]:
     if not is_allowed:
         return Result.fail(error)
 
-    contenido_procesado = _process_date_placeholders(contenido)
+    if not operaciones:
+        return Result.fail("Debe incluir al menos una operacion.")
 
-    ahora = datetime.now().strftime("%Y-%m-%d")
-    if contenido_procesado.startswith("---"):
-        if re.search(r"^updated:", contenido_procesado, re.MULTILINE):
-            contenido_procesado = re.sub(
-                r'^(updated:\s*["\']?)[^"\'\n]+(["\']?)$',
-                rf"\g<1>{ahora}\g<2>",
-                contenido_procesado,
-                count=1,
-                flags=re.MULTILINE,
-            )
-        else:
-            if re.search(r"^created:", contenido_procesado, re.MULTILINE):
-                contenido_procesado = re.sub(
-                    r"^(created:\s*.+)$",
-                    rf"\1\nupdated: {ahora}",
-                    contenido_procesado,
-                    count=1,
-                    flags=re.MULTILINE,
-                )
-            else:
-                contenido_procesado = contenido_procesado.replace(
-                    "\n---\n", f"\nupdated: {ahora}\n---\n", 1
-                )
+    if len(operaciones) > 50:
+        return Result.fail(
+            "Maximo 50 operaciones por llamada."
+        )
 
-    with open(nota_path, "w", encoding="utf-8") as f:
-        f.write(contenido_procesado)
+    with open(nota_path, "r", encoding="utf-8") as f:
+        contenido_actual = f.read()
 
     ruta_relativa = nota_path.relative_to(vault_path)
-    return Result.ok(f"Nota editada correctamente: {ruta_relativa}")
+
+    # --- Full-replace mode ---
+    if any(op["old"] == "" for op in operaciones):
+        if len(operaciones) != 1:
+            return Result.fail(
+                "El reemplazo total (old vacio) debe ser la unica operacion en la lista."
+            )
+        op = operaciones[0]
+        if op["new"] == "":
+            return Result.fail(
+                "No se puede vaciar la nota completa. Usa eliminar_nota para borrar."
+            )
+        contenido_final = _process_date_placeholders(op["new"])
+        has_updated = bool(re.search(r"^updated:", op["new"], re.MULTILINE))
+        contenido_final = _update_frontmatter_date(contenido_final, user_set_updated=has_updated)
+        with open(nota_path, "w", encoding="utf-8") as f:
+            f.write(contenido_final)
+        return Result.ok(f"Nota editada: {ruta_relativa} (reemplazo total)")
+
+    # --- Partial edit mode: validate all operations ---
+    matches: list[tuple[int, int, str]] = []  # (start, end, new_text)
+
+    for i, op in enumerate(operaciones):
+        old_text = op["old"]
+        new_text = op["new"]
+
+        count = contenido_actual.count(old_text)
+        if count == 0:
+            preview = old_text[:80] + ("..." if len(old_text) > 80 else "")
+            return Result.fail(
+                f"No se encontro el texto: '{preview}' en la nota {ruta_relativa}"
+            )
+        if count > 1:
+            preview = old_text[:80] + ("..." if len(old_text) > 80 else "")
+            return Result.fail(
+                f"El texto '{preview}' aparece {count} veces en la nota. "
+                "Incluye mas contexto para que sea unico."
+            )
+
+        start = contenido_actual.index(old_text)
+        end = start + len(old_text)
+        matches.append((start, end, new_text))
+
+    # Check for overlaps
+    for i, (start_a, end_a, _) in enumerate(matches):
+        for j, (start_b, end_b, _) in enumerate(matches):
+            if i >= j:
+                continue
+            if start_a < end_b and start_b < end_a:
+                return Result.fail(
+                    f"Las operaciones {i + 1} y {j + 1} afectan el mismo fragmento de texto."
+                )
+
+    # Check if user explicitly modifies the "updated" field
+    user_set_updated = any("updated:" in op["new"] for op in operaciones)
+
+    # Apply in reverse order so offsets remain valid
+    matches.sort(key=lambda m: m[0], reverse=True)
+    resultado = contenido_actual
+    for start, end, new_text in matches:
+        resultado = resultado[:start] + new_text + resultado[end:]
+
+    resultado = _process_date_placeholders(resultado)
+    resultado = _update_frontmatter_date(resultado, user_set_updated=user_set_updated)
+
+    with open(nota_path, "w", encoding="utf-8") as f:
+        f.write(resultado)
+
+    n = len(operaciones)
+    return Result.ok(f"Nota editada: {ruta_relativa} ({n} operaciones aplicadas)")
 
 
 def suggest_folder_location(titulo: str, contenido: str, etiquetas: str = "") -> str:
