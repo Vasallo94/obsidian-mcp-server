@@ -49,12 +49,22 @@ class EliminarNotaInput(BaseModel):
     )
 
 
+class EditOperation(BaseModel):
+    old: str = Field(
+        description="Texto exacto a buscar en la nota (debe ser unico). Vacio = reemplazo total."
+    )
+    new: str = Field(
+        description="Texto de reemplazo."
+    )
+
+
 class EditarNotaInput(BaseModel):
     nombre_archivo: str = Field(
         description="Nombre o ruta de la nota a editar (ej: 'Mi Nota.md')."
     )
-    contenido: str = Field(
-        description="El contenido completo actualizado (incluye frontmatter YAML)."
+    operaciones: list[EditOperation] = Field(
+        min_length=1,
+        description="Lista de operaciones old->new a aplicar (minimo 1)."
     )
 
 
