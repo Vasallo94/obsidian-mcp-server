@@ -24,9 +24,14 @@ Redesign `editar_nota` to accept a list of `old -> new` text replacement operati
 ```python
 editar_nota(
     nombre_archivo: str,
-    operaciones: list[dict],   # [{"old": "...", "new": "..."}, ...]
+    operaciones: list[EditOperation],   # [{"old": "...", "new": "..."}, ...]
 )
 ```
+
+The function signature uses `list[EditOperation]` (not `list[dict]`) so that FastMCP
+generates a proper JSON Schema with the `old` and `new` keys visible to the LLM.
+If FastMCP does not serialize nested Pydantic models correctly, fall back to
+`operaciones: str` (JSON string) and parse manually, similar to `actualizar_frontmatter`.
 
 ### Pydantic Models
 
@@ -44,9 +49,16 @@ class EditarNotaInput(BaseModel):
         description="Nombre o ruta de la nota a editar (ej: 'Mi Nota.md')."
     )
     operaciones: list[EditOperation] = Field(
-        description="Lista de operaciones old->new a aplicar."
+        min_length=1,
+        description="Lista de operaciones old->new a aplicar (minimo 1)."
     )
 ```
+
+**Note on Pydantic models:** The input models in `tool_inputs.py` serve as schema
+documentation and validation reference. The actual MCP tool registration in `creation.py`
+uses plain function parameters. During implementation, test whether FastMCP supports
+`list[EditOperation]` as a parameter type. If not, accept `str` (JSON) and validate
+with the Pydantic model manually inside the function.
 
 ### Usage Modes
 
@@ -62,7 +74,10 @@ class EditarNotaInput(BaseModel):
 - `old` must match **exactly** (including whitespace and newlines).
 - `old` must be **unique** in the note. If it appears more than once, the agent must include more surrounding context to disambiguate.
 - Full-replace mode (`old=""`) is only allowed when the list contains exactly one operation.
+- `old=""` + `new=""` is rejected: use `eliminar_nota` to delete a note entirely.
 - `old == new` is accepted silently as a no-op.
+- `operaciones` must contain at least one operation (enforced via `min_length=1`).
+- Maximum 50 operations per call to prevent pathological overlap-checking costs.
 
 ## Execution Flow
 
@@ -76,11 +91,16 @@ class EditarNotaInput(BaseModel):
       - If old appears more than once -> ATOMIC FAIL (ambiguity)
       - Record match position (start, end)
    b. Check that no operations overlap
+      Overlap = ranges [start_a, end_a) and [start_b, end_b) have non-empty
+      intersection (start_a < end_b AND start_b < end_a).
+      Adjacent ranges sharing an endpoint are allowed.
 3. APPLICATION PHASE (only if all validated):
    - Apply operations in reverse position order (bottom-to-top)
      so that earlier offsets are not displaced
    - Process date placeholders
-   - Update "updated" field in frontmatter
+   - Update "updated" field in frontmatter AFTER all operations are applied.
+     If a user operation explicitly sets the "updated" field, the system
+     does NOT override it (user intent takes precedence).
 4. Write result to file
 ```
 
@@ -92,6 +112,8 @@ class EditarNotaInput(BaseModel):
 | `old` appears N times | `"El texto '<first 80 chars>...' aparece N veces en la nota. Incluye mas contexto para que sea unico."` |
 | Operations overlap | `"Las operaciones 1 y 3 afectan el mismo fragmento de texto."` |
 | Full-replace + other ops | `"El reemplazo total (old vacio) debe ser la unica operacion en la lista."` |
+| Empty list | `"Debe incluir al menos una operacion."` |
+| old="" + new="" | `"No se puede vaciar la nota completa. Usa eliminar_nota para borrar."` |
 
 ## Docstring (agent-facing)
 
@@ -129,7 +151,14 @@ Returns:
 - `editar_nota` — new signature `(nombre_archivo, operaciones)` replaces `(nombre_archivo, contenido)`. Breaking change.
 - `EditarNotaInput` in `models/tool_inputs.py` — new model with `EditOperation`.
 - `edit_note()` in `tools/creation_logic.py` — new validation + application logic.
-- `tools/agents_generator.py` — "Golden Rule" updated to explain old/new pattern instead of "full file".
+- `tools/agents_generator.py` — "Golden Rule" updated. New text:
+  ```
+  Cuando uses `editar_nota`, envia operaciones old->new:
+  - Lee la nota primero con `leer_nota`.
+  - old debe ser texto EXACTO de la nota (incluyendo saltos de linea).
+  - old debe ser UNICO. Si aparece mas de una vez, incluye mas contexto.
+  - Para reemplazo total: [{"old": "", "new": "contenido completo"}]
+  ```
 - `docs/tool-reference.md`, `docs/examples/REGLAS_GLOBALES-example.md`, `docs/examples/SKILL-writer-example.md` — updated references.
 
 ### Unchanged
@@ -156,11 +185,25 @@ Returns:
 - `old` appears more than once -> all fail with "include more context" message
 - Two operations that overlap -> all fail
 - Full-replace (old="") with additional operations in list -> fail
+- Empty operaciones list -> fail
+- old="" + new="" -> fail with "use eliminar_nota"
 - Note not found / forbidden path -> existing errors
 
 ### Edge Cases
 
 - old == new (no-op, accepted silently)
 - old with trailing whitespace/newlines
-- Empty note
+- Empty note (0 bytes): partial replace fails (old not found), full-replace works
 - Operation where old includes part of YAML frontmatter
+- `updated` field set by user operation: system does not override it
+
+### Success Message Format
+
+```
+"Nota editada: Mi Nota.md (3 operaciones aplicadas)"
+```
+
+For full-replace mode:
+```
+"Nota editada: Mi Nota.md (reemplazo total)"
+```
