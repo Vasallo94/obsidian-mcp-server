@@ -23,9 +23,9 @@ description: >
 ### 2. Golden Rule of Editing
 When using `editar_nota()`:
 1. **FIRST** read the note with `leer_nota()`
-2. `contenido` must be the **COMPLETE FILE**
-3. **REPLACE** existing YAML block, don't duplicate
-4. **NEVER** accidentally delete existing content
+2. Send `operaciones` as a list of `{"old": "exact text", "new": "replacement"}`
+3. `old` must be **UNIQUE** in the note — include more context if ambiguous
+4. For full replace: `[{"old": "", "new": "complete content"}]`
 
 ### 3. Access Restrictions
 - Don't access files in `.forbidden_paths`

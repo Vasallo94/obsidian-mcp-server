@@ -15,7 +15,7 @@ Tools to explore and read the vault's content.
 Tools to manipulate information.
 
 - **`crear_nota(titulo, contenido, carpeta, etiquetas, plantilla, agente_creador)`**: Creates a new note. Supports templates from the templates folder (auto-detected or configured in `vault.yaml`).
-- **`editar_nota(nombre_archivo, contenido)`**: Replaces a note's content. It is recommended to read it first.
+- **`editar_nota(nombre_archivo, operaciones)`**: Edits a note by applying a list of `old->new` text operations. Atomic: all operations succeed or none are applied. Supports partial edits, insertions, deletions, and full replace.
 - **`agregar_a_nota(nombre_archivo, contenido, al_final)`**: Appends or prepends text to an existing note.
 - **`sugerir_ubicacion(titulo, contenido, etiquetas)`**: Suggests folders using **RAG semantic search**. Finds similar notes whose folders "vote" for the best location. Returns multiple candidates with confidence scores. See [Semantic Search](semantic-search.md#4-sugerir_ubicacion-folder-recommendation) for details.
 - **`mover_nota(origen, destino, crear_carpetas)`**: Renames or moves files, managing directory creation if necessary.

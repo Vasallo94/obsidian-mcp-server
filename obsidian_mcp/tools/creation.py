@@ -160,27 +160,33 @@ def register_creation_tools(mcp: FastMCP) -> None:
             return f"❌ Error al eliminar nota: {e}"
 
     @mcp.tool()
-    def editar_nota(nombre_archivo: str, contenido: str) -> str:
+    def editar_nota(nombre_archivo: str, operaciones: list[dict]) -> str:
         """
-        Edita una nota existente, reemplazando todo su contenido.
+        Edita una nota existente aplicando una lista de operaciones old->new.
 
-        ⚠️ ADVERTENCIA CRÍTICA PARA AGENTES DE IA: ⚠️
-        1. NO uses herramientas genéricas de sistema de archivos.
-        2. ANTES de ejecutar, DEBES leer la nota original con `leer_nota`.
-        3. DEBES respetar las Reglas Globales (sin emojis en títulos,
-           frontmatter válido).
-        4. El nuevo contenido debe ser TOTAL (no diffs).
+        Cada operacion busca un texto exacto (old) y lo reemplaza por otro (new).
+        Todas las operaciones se validan antes de aplicar ninguna (atomico).
+
+        Modos de uso:
+        - Reemplazar fragmento: {"old": "texto viejo", "new": "texto nuevo"}
+        - Insertar despues de ancla: {"old": "ancla", "new": "ancla\\n\\nnuevo texto"}
+        - Eliminar fragmento: {"old": "texto a borrar", "new": ""}
+        - Reemplazo total: [{"old": "", "new": "contenido completo"}] (solo 1 operacion)
+
+        Reglas:
+        - old debe coincidir EXACTAMENTE con el texto de la nota (incluyendo saltos de linea)
+        - old debe ser UNICO en la nota. Si aparece mas de una vez, incluye mas contexto.
+        - ANTES de editar, lee la nota con leer_nota para conocer el contenido exacto.
 
         Args:
-            nombre_archivo: Nombre o ruta de la nota a editar (ej: "Mi Nota.md")
-            contenido: El contenido completo actualizado
-                       (incluye frontmatter YAML)
+            nombre_archivo: Nombre o ruta de la nota (ej: "Mi Nota.md")
+            operaciones: Lista de {"old": "...", "new": "..."} a aplicar
 
         Returns:
-            Mensaje de confirmación o error
+            Mensaje de confirmacion con el numero de operaciones aplicadas, o error.
         """
         try:
-            return edit_note(nombre_archivo, contenido).to_display(
+            return edit_note(nombre_archivo, operaciones).to_display(
                 success_prefix="✅"
             )
         except Exception as e:  # pylint: disable=broad-exception-caught
