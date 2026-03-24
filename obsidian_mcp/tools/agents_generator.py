@@ -43,7 +43,7 @@ SKILL_TEMPLATE = dedent("""
     {instructions}
 
     ## REGLA DE ORO DE EDICIÓN
-    Cuando uses `editar_nota`, el `nuevo_contenido` debe ser el **ARCHIVO COMPLETO**.
+    Cuando uses `editar_nota`, el `contenido` debe ser el **ARCHIVO COMPLETO**.
     - **NUNCA** dupliques el bloque YAML.
     - **REEMPLAZA** la metadata anterior con la nueva.
     - Asegura que solo exista un título `#` principal.
@@ -363,7 +363,7 @@ def sync_skills(actualizar: bool = False) -> Result[str]:
                 golden_rule = dedent("""
 
                     ## REGLA DE ORO DE EDICIÓN
-                    Cuando uses `editar_nota`, el `nuevo_contenido`
+                    Cuando uses `editar_nota`, el `contenido`
                     debe ser el **ARCHIVO COMPLETO**.
                     - **NUNCA** dupliques el bloque YAML.
                     - **REEMPLAZA** la metadata anterior.

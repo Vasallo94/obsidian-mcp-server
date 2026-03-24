@@ -282,12 +282,12 @@ def delete_note(nombre_archivo: str, confirmar: bool = False) -> Result[str]:
     return Result.ok(f"Nota eliminada: {ruta_relativa}")
 
 
-def edit_note(nombre_archivo: str, nuevo_contenido: str) -> Result[str]:
+def edit_note(nombre_archivo: str, contenido: str) -> Result[str]:
     """Edit an existing note, replacing all its content.
 
     Args:
         nombre_archivo: Name or path of the note to edit.
-        nuevo_contenido: The complete new content (including YAML frontmatter).
+        contenido: The complete new content (including YAML frontmatter).
 
     Returns:
         Result with success message or error.
@@ -304,7 +304,7 @@ def edit_note(nombre_archivo: str, nuevo_contenido: str) -> Result[str]:
     if not is_allowed:
         return Result.fail(error)
 
-    contenido_procesado = _process_date_placeholders(nuevo_contenido)
+    contenido_procesado = _process_date_placeholders(contenido)
 
     ahora = datetime.now().strftime("%Y-%m-%d")
     if contenido_procesado.startswith("---"):

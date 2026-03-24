@@ -23,7 +23,7 @@ description: >
 ### 2. Golden Rule of Editing
 When using `editar_nota()`:
 1. **FIRST** read the note with `leer_nota()`
-2. `nuevo_contenido` must be the **COMPLETE FILE**
+2. `contenido` must be the **COMPLETE FILE**
 3. **REPLACE** existing YAML block, don't duplicate
 4. **NEVER** accidentally delete existing content
 

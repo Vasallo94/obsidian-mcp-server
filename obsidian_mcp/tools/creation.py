@@ -160,7 +160,7 @@ def register_creation_tools(mcp: FastMCP) -> None:
             return f"❌ Error al eliminar nota: {e}"
 
     @mcp.tool()
-    def editar_nota(nombre_archivo: str, nuevo_contenido: str) -> str:
+    def editar_nota(nombre_archivo: str, contenido: str) -> str:
         """
         Edita una nota existente, reemplazando todo su contenido.
 
@@ -173,14 +173,14 @@ def register_creation_tools(mcp: FastMCP) -> None:
 
         Args:
             nombre_archivo: Nombre o ruta de la nota a editar (ej: "Mi Nota.md")
-            nuevo_contenido: El contenido completo actualizado
-                             (incluye frontmatter YAML)
+            contenido: El contenido completo actualizado
+                       (incluye frontmatter YAML)
 
         Returns:
             Mensaje de confirmación o error
         """
         try:
-            return edit_note(nombre_archivo, nuevo_contenido).to_display(
+            return edit_note(nombre_archivo, contenido).to_display(
                 success_prefix="✅"
             )
         except Exception as e:  # pylint: disable=broad-exception-caught

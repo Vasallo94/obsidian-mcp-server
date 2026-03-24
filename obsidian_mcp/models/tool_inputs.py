@@ -53,7 +53,7 @@ class EditarNotaInput(BaseModel):
     nombre_archivo: str = Field(
         description="Nombre o ruta de la nota a editar (ej: 'Mi Nota.md')."
     )
-    nuevo_contenido: str = Field(
+    contenido: str = Field(
         description="El contenido completo actualizado (incluye frontmatter YAML)."
     )
 
