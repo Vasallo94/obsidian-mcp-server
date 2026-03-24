@@ -42,11 +42,12 @@ SKILL_TEMPLATE = dedent("""
 
     {instructions}
 
-    ## REGLA DE ORO DE EDICIÓN
-    Cuando uses `editar_nota`, el `contenido` debe ser el **ARCHIVO COMPLETO**.
-    - **NUNCA** dupliques el bloque YAML.
-    - **REEMPLAZA** la metadata anterior con la nueva.
-    - Asegura que solo exista un título `#` principal.
+    ## REGLA DE ORO DE EDICION
+    Cuando uses `editar_nota`, envia operaciones old->new:
+    - Lee la nota primero con `leer_nota`.
+    - old debe ser texto EXACTO de la nota (incluyendo saltos de linea).
+    - old debe ser UNICO. Si aparece mas de una vez, incluye mas contexto.
+    - Para reemplazo total: [{{"old": "", "new": "contenido completo"}}]
 """).strip()
 
 
@@ -362,11 +363,11 @@ def sync_skills(actualizar: bool = False) -> Result[str]:
                 # Append the golden rule
                 golden_rule = dedent("""
 
-                    ## REGLA DE ORO DE EDICIÓN
-                    Cuando uses `editar_nota`, el `contenido`
-                    debe ser el **ARCHIVO COMPLETO**.
-                    - **NUNCA** dupliques el bloque YAML.
-                    - **REEMPLAZA** la metadata anterior.
+                    ## REGLA DE ORO DE EDICION
+                    Cuando uses `editar_nota`, envia operaciones old->new:
+                    - Lee la nota primero con `leer_nota`.
+                    - old debe ser texto EXACTO de la nota.
+                    - old debe ser UNICO. Si aparece mas de una vez, incluye mas contexto.
                 """).strip()
                 skill_file.write_text(content + "\n\n" + golden_rule, encoding="utf-8")
                 if skill_dir.name not in fixed:
