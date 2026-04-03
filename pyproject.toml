@@ -132,6 +132,7 @@ disable = [
     "W0613",  # unused-argument: falso positivo con fixtures de pytest
     "W0621",  # redefined-outer-name: falso positivo con fixtures de pytest
     "W1203",  # logging-fstring-interpolation
+    "R0917",  # too-many-positional-arguments: max-args=8 ya cubre este límite
 ]
 
 [tool.pylint.DESIGN]

@@ -62,7 +62,8 @@ def register_canvas_tools(mcp: FastMCP) -> None:
         text: str,
         group: str = "",
         color: str = "",
-        dimensions: str = "",
+        width: int = 280,
+        height: int = 160,
     ) -> str:
         """Add a text card to a canvas file.
 
@@ -71,22 +72,13 @@ def register_canvas_tools(mcp: FastMCP) -> None:
             text: Card text content
             group: Name of group to place the card in (optional)
             color: Card color as string "0"-"6" (optional)
-            dimensions: Card dimensions as "WIDTHxHEIGHT" e.g. "280x160" (optional, defaults to 280x160)
+            width: Card width in pixels (default 280)
+            height: Card height in pixels (default 160)
 
         Returns:
             Confirmation with the new card ID
         """
         try:
-            width = 280
-            height = 160
-            if dimensions:
-                parts = dimensions.split("x")
-                if len(parts) == 2:
-                    try:
-                        width = int(parts[0])
-                        height = int(parts[1])
-                    except ValueError:
-                        pass
             return add_card(canvas_path, text, group, color, width, height).to_display()
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error adding card: {e}"
