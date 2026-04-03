@@ -22,7 +22,7 @@ classifiers = [
 ]
 dependencies = [
     "aiofiles>=25.1.0",
-    "fastmcp>=2.9.2",
+    "fastmcp>=3.2.0",
     "pathspec>=0.12.1",
     "pydantic>=2.11.7",
     "pydantic-settings>=2.7.0",
@@ -30,6 +30,10 @@ dependencies = [
     "tqdm>=4.66.0",
     "youtube-transcript-api>=1.2.3",
     "PyYAML>=6.0.0",
+    "cryptography>=46.0.6",
+    "pygments>=2.20.0",
+    "pyjwt>=2.12.0",
+    "requests>=2.33.0",
 ]
 
 [project.optional-dependencies]
