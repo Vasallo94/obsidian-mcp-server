@@ -13,7 +13,10 @@ from langchain_core.documents import Document  # type: ignore
 from langchain_core.embeddings import Embeddings  # type: ignore
 from langchain_huggingface import HuggingFaceEmbeddings  # type: ignore
 from langchain_ollama import OllamaEmbeddings  # type: ignore
-from langchain_text_splitters import RecursiveCharacterTextSplitter  # type: ignore
+from langchain_text_splitters import (
+    MarkdownHeaderTextSplitter,  # type: ignore
+    RecursiveCharacterTextSplitter,  # type: ignore
+)
 
 from ..constants import CHUNK_OVERLAP, CHUNK_SIZE
 from .metadata_tracker import FileMetadataTracker
@@ -80,6 +83,14 @@ def get_embeddings(
     )
 
 
+_HEADERS_TO_SPLIT_ON = [
+    ("#", "h1"),
+    ("##", "h2"),
+    ("###", "h3"),
+    ("####", "h4"),
+]
+
+
 def get_text_splitter(
     chunk_size: int = CHUNK_SIZE, chunk_overlap: int = CHUNK_OVERLAP
 ) -> RecursiveCharacterTextSplitter:
@@ -90,6 +101,40 @@ def get_text_splitter(
         length_function=len,
         separators=["#", "##", "###", "####", "\n\n", "\n", " ", ""],
     )
+
+
+def split_documents_smart(documents: List[Document]) -> List[Document]:
+    """Split documents using markdown-aware chunking.
+
+    For .md files: splits by headers first, then by characters if needed.
+    For canvas nodes: skips splitting (nodes are already small).
+    """
+    md_splitter = MarkdownHeaderTextSplitter(
+        headers_to_split_on=_HEADERS_TO_SPLIT_ON,
+        strip_headers=False,
+    )
+    char_splitter = get_text_splitter()
+
+    result = []
+    for doc in documents:
+        if doc.metadata.get("type") == "canvas_node":
+            result.append(doc)
+            continue
+
+        try:
+            md_chunks = md_splitter.split_text(doc.page_content)
+            for chunk in md_chunks:
+                # Inherit original doc metadata (don't overwrite header metadata)
+                for k, v in doc.metadata.items():
+                    chunk.metadata.setdefault(k, v)
+                if len(chunk.page_content) > CHUNK_SIZE:
+                    result.extend(char_splitter.split_documents([chunk]))
+                else:
+                    result.append(chunk)
+        except Exception:  # pylint: disable=broad-exception-caught
+            result.extend(char_splitter.split_documents([doc]))
+
+    return result
 
 
 def extract_image_captions(content: str) -> List[str]:
@@ -321,8 +366,7 @@ def load_or_create_db(
 
             docs = load_documents_from_paths(new_files | modified_files)
             if docs:
-                splitter = get_text_splitter()
-                texts = splitter.split_documents(docs)
+                texts = split_documents_smart(docs)
                 db.add_documents(texts)
 
             tracker.update_metadata(obsidian_path)
@@ -336,8 +380,7 @@ def load_or_create_db(
     stats["docs_processed"] = len(documents)
     stats["is_incremental"] = False
 
-    splitter = get_text_splitter()
-    texts = splitter.split_documents(documents)
+    texts = split_documents_smart(documents)
 
     if os.path.exists(db_path):
         shutil.rmtree(db_path)

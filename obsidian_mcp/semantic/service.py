@@ -64,6 +64,15 @@ class SemanticService:
         if self._retriever is None and self._db is not None:
             self._retriever = create_retriever_with_reranker(self._db)
 
+    def _deduplicate_by_source(self, docs: list) -> list:
+        """Keep only the highest-ranked result per source file."""
+        seen: dict = {}
+        for doc in docs:
+            source = doc.metadata.get("source", doc.metadata.get("canvas_name", ""))
+            if source not in seen:
+                seen[source] = doc
+        return list(seen.values())
+
     def query(
         self,
         text: str,
@@ -88,6 +97,7 @@ class SemanticService:
         else:
             docs = self._retriever.invoke(text)
 
+        docs = self._deduplicate_by_source(docs)
         results = []
         for doc in docs:
             links = (

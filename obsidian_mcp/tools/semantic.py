@@ -3,6 +3,7 @@ Semantic search tools for the Obsidian MCP server.
 Provides tools for RAG (Retrieval-Augmented Generation) based knowledge retrieval.
 """
 
+import asyncio
 from typing import Any, Dict, Optional
 
 from fastmcp import FastMCP
@@ -46,7 +47,7 @@ def register_semantic_tools(mcp: FastMCP) -> None:
                 return f"❌ Error en búsqueda semántica: {e}"
 
         @mcp.tool()
-        async def indexar_vault_semantico(forzar: bool = False) -> str:
+        async def indexar_vault_semantico(ctx, forzar: bool = False) -> str:
             """
             Actualiza el índice semántico del vault. Realiza un rastreo de todas las
             notas para que las nuevas búsquedas semánticas estén actualizadas.
@@ -58,7 +59,10 @@ def register_semantic_tools(mcp: FastMCP) -> None:
             from .semantic_logic import index_semantic_vault
 
             try:
-                return index_semantic_vault(forzar).to_display()
+                await ctx.report_progress(0, 1, "Indexando vault semántico...")
+                result = await asyncio.to_thread(index_semantic_vault, forzar)
+                await ctx.report_progress(1, 1, "Indexación completada")
+                return result.to_display()
             except Exception as e:  # pylint: disable=broad-exception-caught
                 return f"❌ Error al actualizar el índice: {e}"
 
