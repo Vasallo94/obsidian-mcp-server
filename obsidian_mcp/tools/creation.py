@@ -5,7 +5,7 @@ Estas herramientas permiten crear nuevas notas y modificar las existentes,
 facilitando la gestión de contenido del vault desde un cliente MCP.
 """
 
-from fastmcp import FastMCP
+from fastmcp import Context, FastMCP
 
 from .creation_logic import (
     append_to_note,
@@ -141,19 +141,30 @@ def register_creation_tools(mcp: FastMCP) -> None:
             return f"❌ Error al agregar contenido: {e}"
 
     @mcp.tool()
-    def eliminar_nota(nombre_archivo: str, confirmar: bool = False) -> str:
+    async def eliminar_nota(nombre_archivo: str, ctx: Context) -> str:
         """
-        Elimina una nota del vault (requiere confirmación).
+        Elimina una nota del vault. Solicita confirmación interactiva antes de borrar.
 
         Args:
             nombre_archivo: Nombre del archivo a eliminar.
-            confirmar: Confirmación para eliminar (debe ser True).
 
         Returns:
             Un mensaje indicando el resultado de la operación.
         """
         try:
-            return delete_note(nombre_archivo, confirmar).to_display(
+            result = await ctx.elicit(
+                f"¿Eliminar permanentemente '{nombre_archivo}'? Esta acción no se puede deshacer.",
+                response_type=None,
+            )
+            if result.action != "accept":
+                return "❌ Operación cancelada."
+        except Exception:  # pylint: disable=broad-exception-caught
+            return (
+                "❌ El cliente no soporta confirmación interactiva. "
+                "Operación cancelada por seguridad."
+            )
+        try:
+            return delete_note(nombre_archivo, confirmar=True).to_display(
                 success_prefix="✅"
             )
         except Exception as e:  # pylint: disable=broad-exception-caught
@@ -193,9 +204,10 @@ def register_creation_tools(mcp: FastMCP) -> None:
             return f"❌ Error al editar nota: {e}"
 
     @mcp.tool()
-    def buscar_y_reemplazar_global(
+    async def buscar_y_reemplazar_global(
         buscar: str,
         reemplazar: str,
+        ctx: Context,
         carpeta: str = "",
         solo_preview: bool = True,
         limite: int = 100,
@@ -208,12 +220,26 @@ def register_creation_tools(mcp: FastMCP) -> None:
             buscar: Texto o patrón a buscar (texto literal, no regex).
             reemplazar: Texto de reemplazo.
             carpeta: Carpeta específica donde buscar (vacío = todo el vault).
-            solo_preview: Si True, solo muestra qué cambiaría sin modificar.
+            solo_preview: Si True, solo muestra qué cambiaría sin modificar (por defecto).
             limite: Máximo de archivos a procesar (seguridad).
 
         Returns:
             Resumen de archivos afectados y cambios realizados.
         """
+        if not solo_preview:
+            try:
+                result = await ctx.elicit(
+                    f"¿Reemplazar '{buscar}' por '{reemplazar}' en hasta {limite} notas"
+                    f"{f' de {carpeta}' if carpeta else ''}? Esta acción modifica archivos reales.",
+                    response_type=None,
+                )
+                if result.action != "accept":
+                    return "❌ Operación cancelada."
+            except Exception:  # pylint: disable=broad-exception-caught
+                return (
+                    "❌ El cliente no soporta confirmación interactiva. "
+                    "Usa solo_preview=True para ver los cambios primero."
+                )
         try:
             return search_and_replace_global(
                 buscar, reemplazar, carpeta, solo_preview, limite

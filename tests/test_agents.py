@@ -1,6 +1,7 @@
 # We verify the tools exist in the module and are decorated correctly.
 # These tests mock validate_configuration to avoid requiring a real vault.
 
+import asyncio
 from unittest.mock import patch
 
 import pytest
@@ -16,20 +17,16 @@ def mock_valid_vault():
         yield mock_validate
 
 
+def _get_tool_names(mcp) -> list[str]:
+    """Get registered tool names using the public FastMCP API."""
+    tools = asyncio.run(mcp.list_tools())
+    return [t.name for t in tools]
+
+
 def test_agent_tools_registration(mock_valid_vault):
     """Verify that agent tools are registered in the server."""
     mcp = create_server()
-    # FastMCP stores tools in an internal registry.
-    tool_names = (
-        [t.name for t in mcp._tool_manager._tools.values()]  # type: ignore
-        if hasattr(mcp._tool_manager, "_tools")
-        else []
-    )
-
-    # Fallback for different FastMCP versions
-    if not tool_names and hasattr(mcp._tool_manager, "tools"):
-        tool_names = [t.name for t in mcp._tool_manager.tools.values()]  # type: ignore
-
+    tool_names = _get_tool_names(mcp)
     assert "listar_agentes" in tool_names
     assert "obtener_instrucciones_agente" in tool_names
     assert "obtener_reglas_globales" in tool_names
@@ -38,5 +35,5 @@ def test_agent_tools_registration(mock_valid_vault):
 def test_navigation_move_registration(mock_valid_vault):
     """Verify that mover_nota is registered."""
     mcp = create_server()
-    tool_names = [t.name for t in mcp._tool_manager._tools.values()]  # type: ignore
+    tool_names = _get_tool_names(mcp)
     assert "mover_nota" in tool_names

@@ -8,6 +8,8 @@ from typing import Any, Dict, Literal, Optional
 
 from fastmcp import FastMCP
 
+from .canvas.canvas_tools import register_canvas_tools
+from .canvas.workflow_tools import register_workflow_tools
 from .config import APP_NAME, validate_configuration
 from .prompts import register_assistant_prompts
 from .resources import register_vault_resources
@@ -74,6 +76,12 @@ def create_server() -> FastMCP:
     logger.info("Registrando herramientas semánticas (RAG)...")
     register_semantic_tools(mcp)
 
+    logger.info("Registrando herramientas de canvas...")
+    register_canvas_tools(mcp)
+
+    logger.info("Registrando herramientas de workflow Kanvas...")
+    register_workflow_tools(mcp)
+
     # Registrar recursos
     logger.info("Registrando recursos del vault...")
     register_vault_resources(mcp)
@@ -136,7 +144,7 @@ def run_server(
     except KeyboardInterrupt:
         logger.info("🛑 Servidor detenido por el usuario")
         sys.exit(0)
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-exception-caught
         logger.error("Fatal server error", extra={"error": str(e)})
         import traceback
 

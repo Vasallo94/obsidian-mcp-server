@@ -5,7 +5,7 @@ Incluye funciones para listar, leer y buscar notas
 
 from pathlib import Path
 
-from fastmcp import FastMCP
+from fastmcp import Context, FastMCP
 
 from ..config import get_vault_path
 from ..utils import (
@@ -51,7 +51,7 @@ def _formatear_resultados(resultados: list, solo_titulos: bool) -> str:
     return resultado_str
 
 
-def register_navigation_tools(mcp: FastMCP) -> None:
+def register_navigation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-statements
     """
     Registra todas las herramientas de navegación en el servidor MCP
 
@@ -87,7 +87,7 @@ def register_navigation_tools(mcp: FastMCP) -> None:
             return f"❌ Error al leer nota: {e}"
 
     @mcp.tool()
-    def buscar_en_notas(
+    def buscar_en_notas(  # pylint: disable=too-many-locals,too-many-branches,too-many-statements,too-many-nested-blocks
         texto: str, carpeta: str = "", solo_titulos: bool = False
     ) -> str:
         """
@@ -220,33 +220,29 @@ def register_navigation_tools(mcp: FastMCP) -> None:
                     # Salir rápido si solo buscamos títulos
                     if resultados:
                         return _formatear_resultados(resultados, solo_titulos=True)
-                    else:
-                        return f"🔍 No se encontraron notas con el título '{texto}'"
+                    return f"🔍 No se encontraron notas con el título '{texto}'"
 
                 # Si es contenido (Fallback Python)
-                else:
-                    for archivo_item in search_path.rglob("*.md"):
-                        # Security
-                        is_forbidden_path, _ = is_path_forbidden(
-                            archivo_item, vault_path
+                for archivo_item in search_path.rglob("*.md"):
+                    # Security
+                    is_forbidden_path, _ = is_path_forbidden(archivo_item, vault_path)
+                    if is_forbidden_path:
+                        continue
+
+                    try:
+                        # Leer archivo
+                        with open(archivo_item, "r", encoding="utf-8") as f:
+                            contenido = f.read().lower()
+
+                        # Verificar AND logic
+                        if all(t.lower() in contenido for t in terminos):
+                            archivos_coincidentes.add(str(archivo_item))
+
+                    except OSError as e:
+                        logger.debug(
+                            "No se pudo leer fichero '%s': %s", archivo_item, e
                         )
-                        if is_forbidden_path:
-                            continue
-
-                        try:
-                            # Leer archivo
-                            with open(archivo_item, "r", encoding="utf-8") as f:
-                                contenido = f.read().lower()
-
-                            # Verificar AND logic
-                            if all(t.lower() in contenido for t in terminos):
-                                archivos_coincidentes.add(str(archivo_item))
-
-                        except OSError as e:
-                            logger.debug(
-                                "No se pudo leer fichero '%s': %s", archivo_item, e
-                            )
-                            continue
+                        continue
 
             # --- PROCESAR RESULTADOS DE CONTENIDO ---
             # Si tenemos archivos candidatos (de rg o python), extraemos el contexto
@@ -374,10 +370,11 @@ def register_navigation_tools(mcp: FastMCP) -> None:
             return f"❌ Error: {e}"
 
     @mcp.tool()
-    def leer_multiples_notas(rutas: list[str]) -> str:
+    async def leer_multiples_notas(rutas: list[str], ctx: Context) -> str:
         """
         Lee el contenido (y frontmatter) de múltiples notas a la vez.
         Útil para ahorrar roundtrips cuando se necesita cargar contexto de varias notas.
+        Emite progreso en tiempo real para lotes grandes.
 
         Args:
             rutas: Lista de nombres de archivos o rutas (ej: ["Nota1.md", "Nota2.md"]).
@@ -386,7 +383,13 @@ def register_navigation_tools(mcp: FastMCP) -> None:
             JSON string con los resultados de lectura exitosos o errores.
         """
         try:
-            return read_multiple_notes_logic(rutas).to_display()
+            total = len(rutas)
+            if total > 5:
+                await ctx.report_progress(0, total, f"Leyendo {total} notas...")
+            result = read_multiple_notes_logic(rutas)
+            if total > 5:
+                await ctx.report_progress(total, total, "Completado")
+            return result.to_display()
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"❌ Error al leer múltiples notas: {e}"
 

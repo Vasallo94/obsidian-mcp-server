@@ -38,17 +38,20 @@ class TestImports:
         assert dotenv is not None
 
 
+PROJECT_ROOT = Path(__file__).parent.parent
+
+
 class TestConfiguration:
     """Tests de configuración del proyecto"""
 
     def test_env_file_exists(self):
         """Verificar que el archivo .env existe"""
-        env_file = Path(".env")
+        env_file = PROJECT_ROOT / ".env"
         assert env_file.exists(), "Archivo .env no encontrado"
 
     def test_env_example_exists(self):
         """Verificar que el archivo .env.example existe"""
-        env_example = Path(".env.example")
+        env_example = PROJECT_ROOT / ".env.example"
         assert env_example.exists(), "Archivo .env.example no encontrado"
 
     def test_obsidian_vault_path_configured(self):
@@ -84,7 +87,7 @@ class TestServerInitialization:
         """Test de creación de componentes del servidor"""
         from obsidian_mcp import create_server, validate_configuration
 
-        is_valid, message = validate_configuration()
+        is_valid, _ = validate_configuration()
         if is_valid:
             server = create_server()
             assert server is not None

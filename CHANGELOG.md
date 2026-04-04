@@ -8,6 +8,14 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 ## [Unreleased]
 
 ### Added
+- **Canvas Integration (22 nuevas herramientas)**: Soporte completo para ficheros `.canvas` de Obsidian con dos capas:
+  - **8 herramientas genéricas** (`canvas_read`, `canvas_list`, `canvas_add_card`, `canvas_add_group`, `canvas_add_edge`, `canvas_update_card`, `canvas_remove_card`, `canvas_remove_edge`) para CRUD sobre cualquier canvas.
+  - **14 herramientas de workflow Kanvas** (`kanvas_init`, `kanvas_status`, `kanvas_task`, `kanvas_ready`, `kanvas_blocked`, `kanvas_start`, `kanvas_finish`, `kanvas_pause`, `kanvas_approve`, `kanvas_complete`, `kanvas_edit_task`, `kanvas_add_dependency`, `kanvas_propose_task`, `kanvas_propose_group`) para gestión de proyectos con estados codificados por color (gris=bloqueado, rojo=pendiente, naranja=en curso, cian=revisión, verde=hecho, morado=propuesto).
+  - Dos modos de workflow: **STRICT** (solo el humano aprueba/completa) y **RELAXED** (el agente también puede).
+  - Detección automática de ciclos en dependencias entre tareas.
+  - Normalización automática de estados (bloqueos) al guardar.
+
+
 - **Pydantic Tool Validations**: Implementación de jerarquía `BaseModel` para todas las **40 herramientas** mediante `tool_inputs.py`, logrando validación rigurosa de tipos. Las descripciones y metadatos se exponen ahora dinámicamente al `_tool_manager` de FastMCP.
 - **Seguridad y Calidad en CI**: Integración completa de validadores como `pip-audit` (`make audit`) y `actionlint` en los `pre-commit hooks` y en `GitHub Actions` (pipeline `ci.yml`). El proyecto ahora exige y pasa con un **10.00/10 en Pylint**.
 - Nueva arquitectura **Vault-Agnostic**: el servidor es ahora genérico e independiente de la estructura de carpetas.
