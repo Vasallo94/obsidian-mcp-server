@@ -1,5 +1,6 @@
 """Database service for vector storage and document management"""
 
+import json
 import logging
 import os
 import re
@@ -111,11 +112,48 @@ def extract_image_captions(content: str) -> List[str]:
     return captions
 
 
+def _load_canvas_nodes(filepath: str) -> List[Document]:
+    """Extract text nodes from a .canvas file as indexable documents."""
+    try:
+        with open(filepath, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, json.JSONDecodeError) as e:
+        logger.warning(
+            "Could not load canvas", extra={"filepath": filepath, "error": str(e)}
+        )
+        return []
+
+    canvas_name = os.path.splitext(os.path.basename(filepath))[0]
+    documents = []
+    for node in data.get("nodes", []):
+        if node.get("type") != "text":
+            continue
+        text = node.get("text", "").strip()
+        if not text:
+            continue
+        documents.append(
+            Document(
+                page_content=text,
+                metadata={
+                    "source": filepath,
+                    "canvas_name": canvas_name,
+                    "canvas_node_id": node.get("id", ""),
+                    "type": "canvas_node",
+                },
+            )
+        )
+    return documents
+
+
 def load_documents_from_paths(filepaths: Set[str]) -> List[Document]:
     """Load documents from specific file paths with link and caption extraction"""
     documents = []
 
     for filepath in filepaths:
+        if filepath.endswith(".canvas"):
+            documents.extend(_load_canvas_nodes(filepath))
+            continue
+
         try:
             with open(filepath, "r", encoding="utf-8") as f:
                 content = f.read()
@@ -159,7 +197,7 @@ def load_documents_from_paths(filepaths: Set[str]) -> List[Document]:
 
 def load_all_obsidian_documents(obsidian_path: str) -> List[Document]:
     """Load all documents from Obsidian vault using recursive walk"""
-    logger.info("Loading Obsidian documents (.md) recursively")
+    logger.info("Loading Obsidian documents (.md and .canvas) recursively")
 
     # File patterns to exclude (binary, canvas, etc.)
     excluded_patterns = [
@@ -208,6 +246,19 @@ def load_all_obsidian_documents(obsidian_path: str) -> List[Document]:
                     logger.error(
                         "Error loading file",
                         extra={"filepath": filepath, "error": str(e)},
+                    )
+
+    # Load canvas files
+    for root, _, files in os.walk(obsidian_path):
+        for file in files:
+            if file.endswith(".canvas"):
+                filepath = os.path.join(root, file)
+                canvas_docs = _load_canvas_nodes(filepath)
+                documents.extend(canvas_docs)
+                if canvas_docs:
+                    logger.debug(
+                        "Loaded canvas nodes",
+                        extra={"canvas": file, "nodes": len(canvas_docs)},
                     )
 
     return documents
