@@ -164,3 +164,52 @@ def _check_allowed_values(rule: dict[str, Any], fm: dict[str, Any]) -> str | Non
     if value and value not in rule["allowed_values"]:
         return rule["warning"].format(value=value)
     return None
+
+
+# --- Response Enrichment ---
+
+CONTENT_CREATION_TOOLS = frozenset(
+    {"crear_nota", "agregar_a_nota", "agregar_en_seccion"}
+)
+
+TOOL_MODE_MAP: dict[str, str] = {
+    "crear_nota": "create",
+    "captura_rapida": "create",
+    "agregar_a_nota": "append",
+    "agregar_en_seccion": "append",
+    "editar_nota": "edit",
+    "actualizar_frontmatter": "edit",
+}
+
+
+def enrich_response(
+    tool_name: str,
+    result: str,
+    title: str = "",
+    content: str = "",
+    frontmatter: dict[str, Any] | None = None,
+) -> str:
+    """Main entry point. Run validations and inject rules prose into tool response."""
+    mode = TOOL_MODE_MAP.get(tool_name)
+    if not mode:
+        return result
+
+    rules = load_vault_rules()
+    warnings = run_validations(rules, mode, title, content, frontmatter)
+
+    parts = [result]
+
+    if warnings:
+        parts.append("---")
+        parts.append(f"[WARNINGS: {len(warnings)} violacion(es) detectada(s)]")
+        for w in warnings:
+            parts.append(f"- {w}")
+
+    if tool_name in CONTENT_CREATION_TOOLS:
+        prose = load_vault_rules_prose()
+        if prose:
+            parts.append("---")
+            parts.append("[REGLAS ACTIVAS DEL VAULT]")
+            parts.append(prose)
+
+    return "\n".join(parts)
