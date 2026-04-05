@@ -84,3 +84,83 @@ def invalidate_rules_cache() -> None:
     global _rules_cache, _prose_cache  # pylint: disable=global-statement
     _rules_cache = None
     _prose_cache = None
+
+
+# --- Validation Engine ---
+
+
+def run_validations(
+    rules: list[dict[str, Any]],
+    mode: str,
+    title: str = "",
+    content: str = "",
+    frontmatter: dict[str, Any] | None = None,
+) -> list[str]:
+    """Run applicable validations and return list of warning strings."""
+    warnings = []
+    for rule in rules:
+        if mode not in rule.get("applies_to", []):
+            continue
+        warning = _check_rule(rule, title, content, frontmatter or {})
+        if warning:
+            warnings.append(warning)
+    return warnings
+
+
+def _check_rule(
+    rule: dict[str, Any], title: str, content: str, fm: dict[str, Any]
+) -> str | None:
+    """Execute a single rule. Returns warning string or None."""
+    scope = rule.get("scope", "")
+
+    if scope in ("headings", "title", "body") and "pattern" in rule:
+        return _check_pattern(rule, title, content)
+
+    if scope == "frontmatter":
+        if "required_fields" in rule:
+            return _check_required_fields(rule, fm)
+        if "field" in rule and "allowed_values" in rule:
+            return _check_allowed_values(rule, fm)
+
+    return None
+
+
+def _check_pattern(rule: dict[str, Any], title: str, content: str) -> str | None:
+    """Validate regex against the indicated scope."""
+    try:
+        pattern = re.compile(rule["pattern"])
+    except re.error as e:
+        logger.warning("Invalid regex in rule '%s': %s", rule.get("id", "?"), e)
+        return None
+
+    scope = rule["scope"]
+
+    if scope == "title":
+        if pattern.search(title):
+            return rule["warning"]
+    elif scope == "headings":
+        for line in content.splitlines():
+            if line.startswith("#") and pattern.search(line):
+                return rule["warning"]
+    elif scope == "body":
+        if pattern.search(content):
+            return rule["warning"]
+
+    return None
+
+
+def _check_required_fields(rule: dict[str, Any], fm: dict[str, Any]) -> str | None:
+    """Check that required frontmatter fields are present and non-empty."""
+    missing = [f for f in rule["required_fields"] if f not in fm or not fm[f]]
+    if missing:
+        return rule["warning"].format(missing_fields=", ".join(missing))
+    return None
+
+
+def _check_allowed_values(rule: dict[str, Any], fm: dict[str, Any]) -> str | None:
+    """Check that a frontmatter field value is in the allowed list."""
+    field = rule["field"]
+    value = fm.get(field, "")
+    if value and value not in rule["allowed_values"]:
+        return rule["warning"].format(value=value)
+    return None

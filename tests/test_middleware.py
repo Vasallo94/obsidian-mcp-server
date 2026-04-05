@@ -7,6 +7,7 @@ from obsidian_mcp.middleware import (
     invalidate_rules_cache,
     load_vault_rules,
     load_vault_rules_prose,
+    run_validations,
 )
 
 SAMPLE_RULES_FILE = """\
@@ -109,3 +110,113 @@ class TestInvalidateCache:
             rules2 = load_vault_rules()
         assert rules1 is not rules2
         assert rules1 == rules2
+
+
+EMOJI_RULE = {
+    "id": "no_emoji_headings",
+    "applies_to": ["create", "append", "edit"],
+    "scope": "headings",
+    "pattern": "[\U0001f300-\U0001ffff]",
+    "warning": "Emojis en cabeceras",
+}
+
+EMOJI_TITLE_RULE = {
+    "id": "no_emoji_title",
+    "applies_to": ["create"],
+    "scope": "title",
+    "pattern": "[\U0001f300-\U0001ffff]",
+    "warning": "Emojis en el titulo",
+}
+
+REQUIRED_FM_RULE = {
+    "id": "required_frontmatter",
+    "applies_to": ["create"],
+    "scope": "frontmatter",
+    "required_fields": ["type", "status", "tags"],
+    "warning": "Frontmatter incompleto: faltan {missing_fields}",
+}
+
+VALID_STATUS_RULE = {
+    "id": "valid_status",
+    "applies_to": ["create", "edit"],
+    "scope": "frontmatter",
+    "field": "status",
+    "allowed_values": ["captura", "en_proceso", "completo", "archivo"],
+    "warning": "Valor de 'status' invalido: '{value}'",
+}
+
+ALL_RULES = [EMOJI_RULE, EMOJI_TITLE_RULE, REQUIRED_FM_RULE, VALID_STATUS_RULE]
+
+
+class TestRunValidations:
+    def test_no_warnings_on_clean_content(self):
+        warnings = run_validations(
+            ALL_RULES,
+            mode="create",
+            title="Mi nota",
+            content="## Seccion\n\nTexto normal",
+            frontmatter={"type": "apunte", "status": "captura", "tags": ["test"]},
+        )
+        assert not warnings
+
+    def test_detects_emoji_in_heading(self):
+        warnings = run_validations(
+            [EMOJI_RULE],
+            mode="create",
+            content="## \U0001f680 Titulo con emoji\n\nTexto",
+        )
+        assert len(warnings) == 1
+        assert "Emojis en cabeceras" in warnings[0]
+
+    def test_ignores_emoji_in_body_for_headings_scope(self):
+        warnings = run_validations(
+            [EMOJI_RULE],
+            mode="create",
+            content="## Titulo limpio\n\nTexto con \U0001f680 emoji",
+        )
+        assert not warnings
+
+    def test_detects_emoji_in_title(self):
+        warnings = run_validations(
+            [EMOJI_TITLE_RULE],
+            mode="create",
+            title="\U0001f4dd Mi nota",
+            content="",
+        )
+        assert len(warnings) == 1
+        assert "Emojis en el titulo" in warnings[0]
+
+    def test_detects_missing_frontmatter_fields(self):
+        warnings = run_validations(
+            [REQUIRED_FM_RULE],
+            mode="create",
+            frontmatter={"type": "apunte"},
+        )
+        assert len(warnings) == 1
+        assert "status" in warnings[0]
+        assert "tags" in warnings[0]
+
+    def test_detects_invalid_status(self):
+        warnings = run_validations(
+            [VALID_STATUS_RULE],
+            mode="create",
+            frontmatter={"status": "borrador"},
+        )
+        assert len(warnings) == 1
+        assert "borrador" in warnings[0]
+
+    def test_skips_rules_for_wrong_mode(self):
+        warnings = run_validations(
+            [REQUIRED_FM_RULE],  # applies_to: [create]
+            mode="edit",
+            frontmatter={},
+        )
+        assert not warnings
+
+    def test_skips_allowed_values_when_field_missing(self):
+        warnings = run_validations(
+            [VALID_STATUS_RULE],
+            mode="create",
+            frontmatter={},
+        )
+        assert not warnings
