@@ -7,6 +7,7 @@ facilitando la gestión de contenido del vault desde un cliente MCP.
 
 from fastmcp import Context, FastMCP
 
+from ..middleware import enrich_response, invalidate_rules_cache
 from .creation_logic import (
     append_to_note,
     append_to_section,
@@ -21,6 +22,14 @@ from .creation_logic import (
     suggest_folder_location,
     update_frontmatter_logic,
 )
+
+
+def _extract_fm(contenido: str) -> dict:
+    """Extract frontmatter dict from content for middleware validation."""
+    from .creation_logic import _extract_frontmatter_from_content
+
+    fm, _ = _extract_frontmatter_from_content(contenido)
+    return fm
 
 
 def register_creation_tools(mcp: FastMCP) -> None:
@@ -106,7 +115,7 @@ def register_creation_tools(mcp: FastMCP) -> None:
                 {{description}}).
         """
         try:
-            return create_note(
+            result = create_note(
                 titulo,
                 contenido,
                 carpeta,
@@ -115,6 +124,13 @@ def register_creation_tools(mcp: FastMCP) -> None:
                 agente_creador,
                 descripcion,
             ).to_display(success_prefix="✅")
+            return enrich_response(
+                tool_name="crear_nota",
+                result=result,
+                title=titulo,
+                content=contenido,
+                frontmatter=_extract_fm(contenido),
+            )
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"❌ Error al crear nota: {e}"
 
@@ -134,8 +150,13 @@ def register_creation_tools(mcp: FastMCP) -> None:
             Un mensaje indicando el resultado de la operación.
         """
         try:
-            return append_to_note(nombre_archivo, contenido, al_final).to_display(
+            result = append_to_note(nombre_archivo, contenido, al_final).to_display(
                 success_prefix="✅"
+            )
+            return enrich_response(
+                tool_name="agregar_a_nota",
+                result=result,
+                content=contenido,
             )
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"❌ Error al agregar contenido: {e}"
@@ -197,8 +218,16 @@ def register_creation_tools(mcp: FastMCP) -> None:
             Mensaje de confirmacion con el numero de operaciones aplicadas, o error.
         """
         try:
-            return edit_note(nombre_archivo, operaciones).to_display(
+            result = edit_note(nombre_archivo, operaciones).to_display(
                 success_prefix="✅"
+            )
+            if "REGLAS_GLOBALES" in nombre_archivo:
+                invalidate_rules_cache()
+            combined_new = "\n".join(op.get("new", "") for op in operaciones)
+            return enrich_response(
+                tool_name="editar_nota",
+                result=result,
+                content=combined_new,
             )
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"❌ Error al editar nota: {e}"
@@ -263,7 +292,13 @@ def register_creation_tools(mcp: FastMCP) -> None:
             Confirmación con la ruta de la nota creada.
         """
         try:
-            return quick_capture(texto, etiquetas).to_display()
+            result = quick_capture(texto, etiquetas).to_display()
+            return enrich_response(
+                tool_name="captura_rapida",
+                result=result,
+                title=texto[:80],
+                content=texto,
+            )
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"❌ Error en captura rápida: {e}"
 
@@ -290,9 +325,14 @@ def register_creation_tools(mcp: FastMCP) -> None:
             Confirmación del contenido añadido.
         """
         try:
-            return append_to_section(
+            result = append_to_section(
                 nombre_archivo, seccion, contenido, crear_si_no_existe
             ).to_display()
+            return enrich_response(
+                tool_name="agregar_en_seccion",
+                result=result,
+                content=contenido,
+            )
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"❌ Error al añadir a sección: {e}"
 
@@ -332,9 +372,20 @@ def register_creation_tools(mcp: FastMCP) -> None:
             Mensaje de confirmación.
         """
         try:
-            return update_frontmatter_logic(
+            result = update_frontmatter_logic(
                 nombre_archivo, frontmatter_updates, merge
             ).to_display(success_prefix="✅")
+            import json as _json
+
+            try:
+                fm = _json.loads(frontmatter_updates)
+            except (ValueError, TypeError):
+                fm = {}
+            return enrich_response(
+                tool_name="actualizar_frontmatter",
+                result=result,
+                frontmatter=fm,
+            )
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"❌ Error al actualizar frontmatter: {e}"
 
