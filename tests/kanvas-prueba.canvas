@@ -1,0 +1,115 @@
+{
+  "nodes": [
+    {
+      "id": "6e27abf16ac04aa8",
+      "type": "group",
+      "x": 0,
+      "y": 0,
+      "width": 400,
+      "height": 800,
+      "label": "Planificación"
+    },
+    {
+      "id": "333b46e396584bd5",
+      "type": "group",
+      "x": 450,
+      "y": 0,
+      "width": 400,
+      "height": 800,
+      "label": "Desarrollo"
+    },
+    {
+      "id": "0852b59206e24f73",
+      "type": "group",
+      "x": 900,
+      "y": 0,
+      "width": 400,
+      "height": 800,
+      "label": "Testing"
+    },
+    {
+      "id": "legend",
+      "type": "text",
+      "x": 1350,
+      "y": 0,
+      "width": 220,
+      "height": 300,
+      "text": "# Legend\n| Color | State |\n|-------|-------|\n| Purple | Proposed |\n| Red | To Do |\n| Orange | Doing |\n| Cyan | Review |\n| Green | Done |\n| Gray | Blocked |",
+      "color": "0"
+    },
+    {
+      "id": "da583644d6534702",
+      "type": "text",
+      "x": 20,
+      "y": 60,
+      "width": 280,
+      "height": 160,
+      "text": "## P-01 Definir requisitos\nLevantar requisitos con el equipo",
+      "color": "4"
+    },
+    {
+      "id": "4c4d7369aeb944fb",
+      "type": "text",
+      "x": 470,
+      "y": 60,
+      "width": 280,
+      "height": 160,
+      "text": "## D-01 Implementar API\nCrear los endpoints REST",
+      "color": "4"
+    },
+    {
+      "id": "ce416a7779454ca7",
+      "type": "text",
+      "x": 470,
+      "y": 260,
+      "width": 280,
+      "height": 160,
+      "text": "## D-02 Crear base de datos\nDiseñar y crear el esquema",
+      "color": "4"
+    },
+    {
+      "id": "bc63af32ace14707",
+      "type": "text",
+      "x": 920,
+      "y": 60,
+      "width": 280,
+      "height": 160,
+      "text": "## T-01 Tests unitarios\nCubrir al menos 80% del código",
+      "color": "4"
+    }
+  ],
+  "edges": [
+    {
+      "id": "2c4de616e2164874",
+      "fromNode": "da583644d6534702",
+      "toNode": "4c4d7369aeb944fb",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "a43fe1951f7d47c8",
+      "fromNode": "da583644d6534702",
+      "toNode": "ce416a7779454ca7",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "9c00e28055cf45ab",
+      "fromNode": "4c4d7369aeb944fb",
+      "toNode": "bc63af32ace14707",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "9c7a8d948ce14981",
+      "fromNode": "ce416a7779454ca7",
+      "toNode": "bc63af32ace14707",
+      "fromSide": "right",
+      "toSide": "left"
+    }
+  ],
+  "kanvas": {
+    "mode": "relaxed",
+    "version": "1.0"
+  }
+}

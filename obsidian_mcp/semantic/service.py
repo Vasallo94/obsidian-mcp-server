@@ -4,6 +4,7 @@ import logging
 import os
 import re
 import traceback
+import unicodedata
 from typing import Any, Dict, List, Optional
 
 from ..utils.timeout import TimeoutError as TimeLimitExceeded
@@ -41,7 +42,10 @@ class SemanticService:
 
     def __init__(self, vault_path: str):
         self.vault_path = vault_path
-        self.data_dir = os.path.join(vault_path, ".obsidianrag")
+        self.data_dir = os.getenv(
+            "OBSIDIAN_RAG_DATA_DIR",
+            os.path.join(vault_path, ".obsidianrag"),
+        )
         self.db_path = os.path.join(self.data_dir, "db")
         self.metadata_file = os.path.join(self.data_dir, "metadata.json")
         self._db = None
@@ -64,13 +68,23 @@ class SemanticService:
         if self._retriever is None and self._db is not None:
             self._retriever = create_retriever_with_reranker(self._db)
 
+    def _canonical_source_key(self, source: str) -> str:
+        """Normalize mobile-import duplicate suffixes to a canonical note key."""
+        filename = os.path.basename(source or "")
+        stem, ext = os.path.splitext(filename)
+        canonical_stem = re.sub(r"_SM-[A-Za-z0-9_-]+$", "", stem)
+        canonical_filename = unicodedata.normalize("NFC", f"{canonical_stem}{ext}")
+        folder = unicodedata.normalize("NFC", os.path.dirname(source or ""))
+        return os.path.join(folder, canonical_filename)
+
     def _deduplicate_by_source(self, docs: list) -> list:
-        """Keep only the highest-ranked result per source file."""
+        """Keep only the highest-ranked result per canonical source file."""
         seen: dict = {}
         for doc in docs:
             source = doc.metadata.get("source", doc.metadata.get("canvas_name", ""))
-            if source not in seen:
-                seen[source] = doc
+            canonical_source = self._canonical_source_key(source)
+            if canonical_source not in seen:
+                seen[canonical_source] = doc
         return list(seen.values())
 
     def query(
@@ -108,7 +122,7 @@ class SemanticService:
             res = {
                 "content": doc.page_content,
                 "source": doc.metadata.get("source", "Unknown"),
-                "relevance": doc.metadata.get("relevance_score", 0.0),
+                "relevance": doc.metadata.get("relevance_score"),
                 "metadata": {
                     k: v
                     for k, v in doc.metadata.items()
@@ -335,6 +349,32 @@ class SemanticService:
 
                         valid_indices.append(i)
 
+                    best_indices: Dict[str, int] = {}
+                    for idx in valid_indices:
+                        source = all_metadatas[idx].get("source", "")
+                        canonical = self._canonical_source_key(source)
+                        current = best_indices.get(canonical)
+
+                        if current is None:
+                            best_indices[canonical] = idx
+                            continue
+
+                        current_source = all_metadatas[current].get("source", "")
+                        current_is_duplicate = (
+                            current_source != self._canonical_source_key(current_source)
+                        )
+                        new_is_duplicate = source != canonical
+
+                        if current_is_duplicate and not new_is_duplicate:
+                            best_indices[canonical] = idx
+                            continue
+
+                        if current_is_duplicate == new_is_duplicate and len(
+                            all_documents[idx].split()
+                        ) > len(all_documents[current].split()):
+                            best_indices[canonical] = idx
+
+                    valid_indices = list(best_indices.values())
                     n_docs = len(valid_indices)
                     logger.info(
                         "Found valid notes",
@@ -395,8 +435,11 @@ class SemanticService:
                         source_i = all_metadatas[idx_i].get("source", "")
                         source_j = all_metadatas[idx_j].get("source", "")
 
-                        # P0 FIX: Skip self-references (same file appearing as similar)
-                        if source_i == source_j:
+                        canonical_i = self._canonical_source_key(source_i)
+                        canonical_j = self._canonical_source_key(source_j)
+
+                        # Skip self-references and canonical duplicate copies
+                        if source_i == source_j or canonical_i == canonical_j:
                             continue
 
                         title_i = os.path.basename(source_i)

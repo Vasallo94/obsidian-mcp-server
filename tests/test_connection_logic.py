@@ -5,18 +5,27 @@ These tests verify the vectorized similarity and filtering logic.
 Uses pytest with proper fixtures to avoid polluting sys.modules.
 """
 
+import importlib.util
 import os
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-# Check if numpy is available (required for vectorized tests)
-try:
-    import numpy  # noqa: F401 # type: ignore
+HAS_NUMPY = importlib.util.find_spec("numpy") is not None
 
-    HAS_NUMPY = True
-except ImportError:
-    HAS_NUMPY = False
+
+class TestSemanticServiceMixin:
+    """Expose a small public testing surface for SemanticService internals."""
+
+    def set_mock_db_payload(self, payload: dict[str, object]) -> None:
+        """Install a mock DB payload and stub DB initialization."""
+        self._db = MagicMock()
+        self._db.get.return_value = payload
+        self._ensure_db = MagicMock()
+
+    def should_exclude_path(self, note_path: str) -> bool:
+        """Proxy exclusion logic through a public test helper."""
+        return self._should_exclude(note_path)
 
 
 @pytest.fixture
@@ -47,15 +56,15 @@ def mock_dependencies():
 @pytest.fixture
 def mock_service(mock_dependencies):
     """Create a mock SemanticService for testing."""
-    try:
-        from obsidian_mcp.semantic.service import SemanticService
+    semantic_service_module = pytest.importorskip(
+        "obsidian_mcp.semantic.service", exc_type=ImportError
+    )
+    base_class = semantic_service_module.SemanticService
 
-        service = SemanticService("/tmp/mock_vault")
-        service._db = MagicMock()
-        service._ensure_db = MagicMock()
-        return service
-    except (ImportError, ModuleNotFoundError) as e:
-        pytest.skip(f"SemanticService dependencies not available: {e}")
+    class TestSemanticService(TestSemanticServiceMixin, base_class):
+        """Concrete test double for SemanticService."""
+
+    return TestSemanticService("/tmp/mock_vault")
 
 
 @pytest.mark.skipif(not HAS_NUMPY, reason="numpy is required for vectorized tests")
@@ -64,25 +73,22 @@ class TestConnectionLogic:
 
     def test_suggest_connections_vectorized(self, mock_service):
         """Test that similar notes are correctly identified."""
-        # Setup mock data with known embeddings
-        # Note A and Note B are identical vectors -> max similarity (1.0)
-
         documents = [
-            "Content of Note A with enough words to pass the filter. " * 30,  # 0
-            "Content of Note B with enough words to pass the filter. " * 30,  # 1
-            "Short note.",  # 2
-            "MOC content here.",  # 3
-            "System file content.",  # 4
-            "Diff content note C. " * 30,  # 5
+            "Content of Note A with enough words to pass the filter. " * 30,
+            "Content of Note B with enough words to pass the filter. " * 30,
+            "Short note.",
+            "MOC content here.",
+            "System file content.",
+            "Diff content note C. " * 30,
         ]
 
         embeddings = [
-            [1.0, 0.0],  # A
-            [1.0, 0.0],  # B (Matches A)
-            [0.5, 0.5],  # Short
-            [0.0, 0.0],  # MOC
-            [0.0, 0.0],  # System
-            [0.0, 1.0],  # C (Diff)
+            [1.0, 0.0],
+            [1.0, 0.0],
+            [0.5, 0.5],
+            [0.0, 0.0],
+            [0.0, 0.0],
+            [0.0, 1.0],
         ]
 
         metadatas = [
@@ -94,11 +100,13 @@ class TestConnectionLogic:
             {"source": "03_Notas/Note C.md", "links": ""},
         ]
 
-        mock_service._db.get.return_value = {
-            "documents": documents,
-            "metadatas": metadatas,
-            "embeddings": embeddings,
-        }
+        mock_service.set_mock_db_payload(
+            {
+                "documents": documents,
+                "metadatas": metadatas,
+                "embeddings": embeddings,
+            }
+        )
 
         suggestions = mock_service.suggest_connections(
             min_palabras=10, limit=5, threshold=0.70
@@ -109,10 +117,58 @@ class TestConnectionLogic:
         assert suggestions[0]["note_b"] == "Note B.md"
         assert abs(suggestions[0]["similarity"] - 1.0) < 0.00001
 
+    def test_suggest_connections_skips_canonical_mobile_duplicates(self, mock_service):
+        """Canonical note and Samsung-import copy should not be suggested."""
+        documents = [
+            "Canonical skills content with enough words to pass the filter. " * 30,
+            "Canonical skills content with enough words to pass the filter. " * 30,
+            "MCP governance content with enough words to pass the filter. " * 30,
+        ]
+
+        embeddings = [
+            [1.0, 0.0],
+            [1.0, 0.0],
+            [0.9, 0.1],
+        ]
+
+        metadatas = [
+            {
+                "source": "02_Aprendizaje/IA/Skills en Claude Code y criterio de uso.md",
+                "links": "",
+            },
+            {
+                "source": "02_Aprendizaje/IA/Skills en Claude Code y criterio de uso_SM-S906B_Mar-21-1957-2026_1.md",
+                "links": "",
+            },
+            {
+                "source": "02_Aprendizaje/IA/Catalogo corporativo MCP con managed-mcp.json.md",
+                "links": "",
+            },
+        ]
+
+        mock_service.set_mock_db_payload(
+            {
+                "documents": documents,
+                "metadatas": metadatas,
+                "embeddings": embeddings,
+            }
+        )
+
+        suggestions = mock_service.suggest_connections(
+            min_palabras=10, limit=5, threshold=0.70
+        )
+
+        assert len(suggestions) == 1
+        assert suggestions[0]["note_a"] == "Skills en Claude Code y criterio de uso.md"
+        assert (
+            suggestions[0]["note_b"]
+            == "Catalogo corporativo MCP con managed-mcp.json.md"
+        )
+
     def test_exclusion_logic(self, mock_service):
         """Test that system files are properly excluded."""
         p1 = os.path.join(mock_service.vault_path, "00_Sistema/File.md")
-        assert mock_service._should_exclude(p1) is True
+        assert mock_service.should_exclude_path(p1) is True
 
         p4 = os.path.join(mock_service.vault_path, "03_Notas/ValidNote.md")
-        assert mock_service._should_exclude(p4) is False
+        assert mock_service.should_exclude_path(p4) is False

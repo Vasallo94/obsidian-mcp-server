@@ -17,7 +17,7 @@ SEMANTIC_SERVICE_INSTANCE = None
 
 
 def get_semantic_service():
-    """Lazy initialization of the SemanticService"""
+    """Lazy initialization of the SemanticService."""
     global SEMANTIC_SERVICE_INSTANCE  # pylint: disable=global-statement
     if SEMANTIC_SERVICE_INSTANCE is None:
         try:
@@ -72,17 +72,20 @@ def ask_knowledge(
                 if meta
                 else ""
             )
-
-            formatted_results += (
-                f"**{i}. {source_name}** "
-                f"(Relevancia: {res['relevance']:.2f}){meta_str}\n"
+            relevance = res.get("relevance")
+            relevance_str = (
+                f"(Relevancia: {relevance:.2f})"
+                if relevance is not None
+                else "(Relevancia: N/D)"
             )
+
+            formatted_results += f"**{i}. {source_name}** {relevance_str}{meta_str}\n"
             formatted_results += f"{res['content']}\n\n---\n"
 
         return Result.ok(formatted_results)
 
-    except Exception as e:
-        return Result.fail(f"Error en búsqueda semántica: {e}")
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        return Result.fail(f"Error en búsqueda semántica: {exc}")
 
 
 def index_semantic_vault(forzar: bool = False) -> Result[str]:
@@ -118,8 +121,8 @@ def index_semantic_vault(forzar: bool = False) -> Result[str]:
 
         return Result.fail("Error interno al actualizar el índice semántico.")
 
-    except Exception as e:
-        return Result.fail(f"Excepción al indexar: {e}")
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        return Result.fail(f"Excepción al indexar: {exc}")
 
 
 def find_suggested_connections(
@@ -180,5 +183,5 @@ def find_suggested_connections(
         result += "\n*Usa `[[Nota]]` para conectarlas manualmente en tu vault.*"
         return Result.ok(result)
 
-    except Exception as e:
-        return Result.fail(f"Error al buscar conexiones: {e}")
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        return Result.fail(f"Error al buscar conexiones: {exc}")
