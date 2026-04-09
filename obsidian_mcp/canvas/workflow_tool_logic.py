@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from ..config import get_vault_path
 from ..result import Result
 from ..utils import get_logger
 from . import engine
@@ -36,10 +37,39 @@ from .workflow_logic import (
 logger = get_logger(__name__)
 
 
+def _resolve_canvas_path(canvas_path: str) -> Result[str]:
+    """Resolve a canvas path to an absolute path using the vault root.
+
+    Mirrors the same helper in canvas_logic.py so that kanvas workflow
+    tools write files inside the vault instead of the server's CWD.
+
+    Absolute paths are returned as-is (for test compatibility).
+    Relative paths require OBSIDIAN_VAULT_PATH to be configured.
+    """
+    abs_path = Path(canvas_path)
+
+    if not abs_path.is_absolute():
+        vault_path = get_vault_path()
+        if vault_path is None:
+            return Result.fail(
+                "Vault path is not configured (OBSIDIAN_VAULT_PATH missing)."
+            )
+        abs_path = vault_path / canvas_path
+
+    if abs_path.suffix != ".canvas":
+        return Result.fail(f"Not a .canvas file: {canvas_path}")
+
+    return Result.ok(str(abs_path))
+
+
 def _load_project_canvas(canvas_path: str) -> Result[CanvasFile]:
     """Load a canvas and verify it's a project canvas (has kanvas metadata)."""
+    resolved = _resolve_canvas_path(canvas_path)
+    if not resolved.success:
+        return Result.fail(resolved.error)  # type: ignore[arg-type]
+
     try:
-        canvas = engine.load_canvas(canvas_path)
+        canvas = engine.load_canvas(resolved.data)  # type: ignore[arg-type]
     except FileNotFoundError:
         return Result.fail(f"Canvas file not found: {canvas_path}")
     except Exception as exc:  # pylint: disable=broad-exception-caught
@@ -559,13 +589,19 @@ def init_project(
     mode: str = "strict",
 ) -> Result[str]:
     """Initialize a new project canvas with groups, legend, and optional tasks."""
-    if Path(canvas_path).exists():
+    resolved = _resolve_canvas_path(canvas_path)
+    if not resolved.success:
+        return Result.fail(resolved.error)  # type: ignore[arg-type]
+
+    resolved_path = resolved.data  # type: ignore[assignment]
+
+    if Path(resolved_path).exists():
         return Result.fail(f"Canvas already exists: {canvas_path}")
 
-    Path(canvas_path).parent.mkdir(parents=True, exist_ok=True)
+    Path(resolved_path).parent.mkdir(parents=True, exist_ok=True)
 
     canvas = CanvasFile(
-        path=canvas_path,
+        path=resolved_path,
         nodes=[],
         edges=[],
         kanvas=KanvasMetadata(mode=WorkflowMode(mode)),
