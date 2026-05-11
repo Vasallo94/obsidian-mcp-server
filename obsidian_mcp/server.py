@@ -1,7 +1,4 @@
-"""
-Servidor MCP principal para Obsidian
-Configura y ejecuta el servidor con todas las herramientas, recursos y prompts
-"""
+"""Main MCP server for Obsidian vault access."""
 
 import sys
 from typing import Any, Dict, Literal, Optional
@@ -29,72 +26,58 @@ from .utils import get_logger
 # Type alias for supported transport protocols
 TransportType = Literal["stdio", "http", "sse"]
 
-# Configurar logging
 logger = get_logger(__name__)
 
 
 def create_server() -> FastMCP:
-    """
-    Crea y configura el servidor MCP de Obsidian
-
-    Returns:
-        Instancia configurada del servidor FastMCP
-
-    Raises:
-        ValueError: Si la configuración no es válida
-    """
-    # Validar configuración antes de crear el servidor
+    """Create and configure the Obsidian MCP server."""
     is_valid, error_message = validate_configuration()
     if not is_valid:
         logger.error(error_message)
         raise ValueError(error_message)
 
-    # Crear servidor
     mcp = FastMCP(APP_NAME)
 
-    # Registrar herramientas
-    logger.info("Registrando herramientas de navegación...")
+    logger.info("Registering navigation tools...")
     register_navigation_tools(mcp)
 
-    logger.info("Registrando herramientas de creación...")
+    logger.info("Registering creation tools...")
     register_creation_tools(mcp)
 
-    logger.info("Registrando herramientas de análisis...")
+    logger.info("Registering analysis tools...")
     register_analysis_tools(mcp)
 
-    logger.info("Registrando herramientas de grafos...")
+    logger.info("Registering graph tools...")
     register_graph_tools(mcp)
 
-    logger.info("Registrando herramientas de YouTube...")
+    logger.info("Registering YouTube tools...")
     register_youtube_tools(mcp)
 
-    logger.info("Registrando herramientas de contexto...")
+    logger.info("Registering context tools...")
     register_context_tools(mcp)
 
-    logger.info("Registrando herramientas de agentes...")
+    logger.info("Registering skill tools...")
     register_agent_tools(mcp)
 
-    logger.info("Registrando herramientas semánticas (RAG)...")
+    logger.info("Registering legacy semantic tools...")
     register_semantic_tools(mcp)
 
-    logger.info("Registrando herramientas de ObsidianRAG...")
+    logger.info("Registering ObsidianRAG tools...")
     register_obsidianrag_tools(mcp)
 
-    logger.info("Registrando herramientas de canvas...")
+    logger.info("Registering canvas tools...")
     register_canvas_tools(mcp)
 
-    logger.info("Registrando herramientas de workflow Kanvas...")
+    logger.info("Registering Kanvas workflow tools...")
     register_workflow_tools(mcp)
 
-    # Registrar recursos
-    logger.info("Registrando recursos del vault...")
+    logger.info("Registering vault resources...")
     register_vault_resources(mcp)
 
-    # Registrar prompts
-    logger.info("Registrando prompts del asistente...")
+    logger.info("Registering assistant prompts...")
     register_assistant_prompts(mcp)
 
-    logger.info("✅ Servidor MCP configurado correctamente")
+    logger.info("MCP server configured successfully")
     return mcp
 
 
@@ -104,22 +87,12 @@ def run_server(
     port: Optional[int] = None,
     path: Optional[str] = None,
 ) -> None:
-    """
-    Ejecuta el servidor MCP.
-
-    Args:
-        transport: Tipo de transporte ("stdio", "http", "sse")
-        host: Host para transportes HTTP/SSE
-        port: Puerto para transportes HTTP/SSE
-        path: Path para transporte HTTP
-    """
+    """Run the MCP server."""
     try:
         logger.info("Starting MCP server", extra={"transport": transport})
 
-        # Crear servidor
         mcp = create_server()
 
-        # Ejecutar servidor según el transporte
         if transport == "stdio":
             mcp.run()
         elif transport == "http":
@@ -141,12 +114,12 @@ def run_server(
             # FastMCP.run() transport param typing is incomplete
             mcp.run(transport="sse", **kwargs_sse)
         else:
-            raise ValueError(f"Transporte no soportado: {transport}")
+            raise ValueError(f"Unsupported transport: {transport}")
 
-        logger.info("🎯 Servidor listo. Esperando conexiones...")
+        logger.info("Server ready. Waiting for connections...")
 
     except KeyboardInterrupt:
-        logger.info("🛑 Servidor detenido por el usuario")
+        logger.info("Server stopped by user")
         sys.exit(0)
     except Exception as e:  # pylint: disable=broad-exception-caught
         logger.error("Fatal server error", extra={"error": str(e)})
@@ -157,7 +130,7 @@ def run_server(
 
 
 def main() -> None:
-    """Función principal del servidor MCP"""
+    """Run the default stdio server."""
     run_server()
 
 

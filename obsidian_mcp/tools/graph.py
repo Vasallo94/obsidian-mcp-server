@@ -1,83 +1,53 @@
-"""
-Herramientas de grafos y conexiones para el vault de Obsidian.
-
-Estas herramientas permiten explorar las relaciones entre notas,
-encontrar backlinks, buscar por tags y analizar la estructura del grafo.
-"""
+"""MCP graph and connection tools for Obsidian vaults."""
 
 from fastmcp import FastMCP
 
 from .graph_logic import (
-    find_orphan_notes,
-    get_backlinks,
-    get_local_graph,
-    get_notes_by_tag,
+    find_orphan_notes as find_orphan_notes_logic,
 )
+from .graph_logic import (
+    get_backlinks as get_backlinks_logic,
+)
+from .graph_logic import (
+    get_local_graph as get_local_graph_logic,
+)
+from .graph_logic import (
+    get_notes_by_tag as get_notes_by_tag_logic,
+)
+from .registry import register_tool
 
 
 def register_graph_tools(mcp: FastMCP) -> None:
-    """
-    Registra las herramientas de grafos y conexiones en el servidor MCP.
-    """
+    """Register graph and relationship tools."""
 
-    @mcp.tool()
-    def obtener_backlinks(nombre_nota: str) -> str:
-        """
-        Obtiene todas las notas que enlazan a la nota especificada (backlinks).
-
-        Args:
-            nombre_nota: Nombre de la nota (con o sin .md)
-
-        Returns:
-            Lista de notas que contienen enlaces a esta nota
-        """
+    @register_tool(mcp, "get_backlinks")
+    def get_backlinks(note_path: str) -> str:
+        """List notes that link to the given note."""
         try:
-            return get_backlinks(nombre_nota).to_display()
+            return get_backlinks_logic(note_path).to_display()
         except Exception as e:  # pylint: disable=broad-exception-caught
-            return f"❌ Error al obtener backlinks: {e}"
+            return f"Error reading backlinks: {e}"
 
-    @mcp.tool()
-    def obtener_notas_por_tag(tag: str) -> str:
-        """
-        Busca todas las notas que contienen una etiqueta específica.
-
-        Args:
-            tag: Etiqueta a buscar (con o sin #)
-
-        Returns:
-            Lista de notas que contienen la etiqueta
-        """
+    @register_tool(mcp, "get_notes_by_tag")
+    def get_notes_by_tag(tag: str) -> str:
+        """List notes that contain a specific tag."""
         try:
-            return get_notes_by_tag(tag).to_display()
+            return get_notes_by_tag_logic(tag).to_display()
         except Exception as e:  # pylint: disable=broad-exception-caught
-            return f"❌ Error al buscar por tag: {e}"
+            return f"Error finding notes by tag: {e}"
 
-    @mcp.tool()
-    def obtener_grafo_local(nombre_nota: str, profundidad: int = 1) -> str:
-        """
-        Obtiene el grafo local de una nota: enlaces salientes y entrantes.
-
-        Args:
-            nombre_nota: Nombre de la nota central
-            profundidad: Niveles de profundidad (1 = solo conexiones directas)
-
-        Returns:
-            Visualización del grafo local de la nota
-        """
+    @register_tool(mcp, "get_local_graph")
+    def get_local_graph(note_path: str, depth: int = 1) -> str:
+        """Read incoming and outgoing links around a note."""
         try:
-            return get_local_graph(nombre_nota, profundidad).to_display()
+            return get_local_graph_logic(note_path, depth).to_display()
         except Exception as e:  # pylint: disable=broad-exception-caught
-            return f"❌ Error al obtener grafo: {e}"
+            return f"Error reading local graph: {e}"
 
-    @mcp.tool()
-    def encontrar_notas_huerfanas() -> str:
-        """
-        Encuentra notas huérfanas: sin enlaces entrantes ni salientes.
-
-        Returns:
-            Lista de notas que no están conectadas al grafo del vault
-        """
+    @register_tool(mcp, "find_orphan_notes")
+    def find_orphan_notes() -> str:
+        """Find notes without incoming or outgoing wikilinks."""
         try:
-            return find_orphan_notes().to_display()
+            return find_orphan_notes_logic().to_display()
         except Exception as e:  # pylint: disable=broad-exception-caught
-            return f"❌ Error al buscar huérfanas: {e}"
+            return f"Error finding orphan notes: {e}"

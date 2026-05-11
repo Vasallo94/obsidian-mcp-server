@@ -1,15 +1,4 @@
-"""
-Herramientas para la integración de Habilidades (Skills).
-
-Estas herramientas permiten al cliente MCP leer las definiciones y prompts
-de las skills almacenadas en la carpeta .agents/skills del vault.
-
-Mejoras v2:
-- Parsing estructurado de YAML frontmatter
-- Validación de schema con Pydantic
-- Caché en memoria para evitar re-lecturas innecesarias
-- Soporte para .agents/REGLAS_GLOBALES.md como reglas globales
-"""
+"""MCP tools and resources for vault skills."""
 
 from __future__ import annotations
 
@@ -18,102 +7,68 @@ from fastmcp import FastMCP
 from .agents_generator import generate_skill, suggest_skills_for_vault, sync_skills
 from .agents_logic import (
     get_agent_instructions,
-    get_global_rules,
     list_available_skills,
-    refresh_skills_cache,
 )
+from .agents_logic import (
+    get_global_rules as get_global_rules_logic,
+)
+from .agents_logic import (
+    refresh_skills_cache as refresh_skills_cache_logic,
+)
+from .registry import register_tool
 
 
 def register_agent_tools(mcp: FastMCP) -> None:
-    """
-    Registra las herramientas y recursos de gestión de skills (agentes).
-    """
+    """Register vault skill tools and resources."""
 
-    @mcp.resource("skills://list")
-    def resource_listar_skills() -> str:
-        """Recurso que devuelve la lista de skills disponibles."""
+    @mcp.resource("obsidian://skills/list")
+    def resource_list_skills() -> str:
+        """Return the list of skills available in the vault."""
         return list_available_skills().to_display()
 
-    @mcp.tool()
-    def listar_agentes() -> str:
-        """Lista las skills (agentes) disponibles en el vault."""
+    @register_tool(mcp, "list_skills")
+    def list_skills() -> str:
+        """List skills available in the vault."""
         return list_available_skills().to_display()
 
-    @mcp.tool()
-    def obtener_instrucciones_agente(nombre: str) -> str:
-        """
-        Obtiene el contenido de una Skill específica (SKILL.md).
+    @register_tool(mcp, "read_skill")
+    def read_skill(name: str) -> str:
+        """Read a specific vault skill file."""
+        return get_agent_instructions(name).to_display()
 
-        Args:
-            nombre: El nombre de la carpeta de la skill (ej: 'escritor').
-        """
-        return get_agent_instructions(nombre).to_display()
+    @register_tool(mcp, "get_global_rules")
+    def get_global_rules() -> str:
+        """Read global vault agent rules."""
+        return get_global_rules_logic().to_display()
 
-    @mcp.tool()
-    def obtener_reglas_globales() -> str:
-        """
-        Obtiene las reglas globales del Agente (.agents/REGLAS_GLOBALES.md).
+    @register_tool(mcp, "refresh_skills_cache")
+    def refresh_skills_cache() -> str:
+        """Invalidate and refresh the in-memory skill cache."""
+        return refresh_skills_cache_logic().to_display()
 
-        ⚠️ OBLIGATORIO PARA AGENTES DE IA: ⚠️
-        DEBES leer estas reglas ANTES de realizar cualquier escritura
-        o modificación en el vault.
-        Contienen restricciones críticas (ej: NO emojis, formatos permitidos).
-        """
-        return get_global_rules().to_display()
-
-    @mcp.tool()
-    def refrescar_cache_skills() -> str:
-        """Invalida y refresca el caché de skills (úsalo tras editar SKILL.md)."""
-        return refresh_skills_cache().to_display()
-
-    @mcp.tool()
-    def generar_skill(
-        nombre: str,
-        descripcion: str,
-        instrucciones: str,
-        herramientas: str = "",
-        ubicacion_defecto: str = "",
+    @register_tool(mcp, "create_skill")
+    def create_skill(
+        name: str,
+        description: str,
+        instructions: str,
+        tools: str = "",
+        default_location: str = "",
     ) -> str:
-        """
-        Genera una nueva skill con estructura consistente.
-
-        Crea automáticamente el archivo SKILL.md con:
-        - Frontmatter YAML correcto
-        - Referencia a REGLAS_GLOBALES
-        - Sección "REGLA DE ORO DE EDICIÓN"
-
-        Args:
-            nombre: Identificador de la skill (ej: "profesor-fisica").
-            descripcion: Descripción breve de lo que hace la skill.
-            instrucciones: Instrucciones principales en markdown.
-            herramientas: Herramientas separadas por comas (ej: "read, edit, web").
-            ubicacion_defecto: Carpeta por defecto para notas (ej: "02_Aprendizaje/").
-        """
+        """Generate a new vault skill with a consistent structure."""
         return generate_skill(
-            nombre, descripcion, instrucciones, herramientas, ubicacion_defecto
+            name,
+            description,
+            instructions,
+            tools,
+            default_location,
         ).to_display()
 
-    @mcp.tool()
-    def sugerir_skills_para_vault() -> str:
-        """
-        Analiza el vault y sugiere skills personalizadas.
-
-        Escanea patrones de uso: tags frecuentes, carpetas con más contenido,
-        tipos de notas. Devuelve sugerencias de skills basadas en tu vault.
-        """
+    @register_tool(mcp, "suggest_vault_skills")
+    def suggest_vault_skills() -> str:
+        """Analyze the vault and suggest useful personal skills."""
         return suggest_skills_for_vault().to_display()
 
-    @mcp.tool()
-    def sincronizar_skills(actualizar: bool = False) -> str:
-        """
-        Sincroniza y valida las skills existentes.
-
-        Detecta problemas como:
-        - Falta de referencia a REGLAS_GLOBALES
-        - Falta de sección "REGLA DE ORO DE EDICIÓN"
-        - Frontmatter incorrecto
-
-        Args:
-            actualizar: Si True, aplica correcciones. Si False, solo reporta.
-        """
-        return sync_skills(actualizar).to_display()
+    @register_tool(mcp, "sync_skills")
+    def sync_vault_skills(update: bool = False) -> str:
+        """Validate skills and optionally apply automatic fixes."""
+        return sync_skills(update).to_display()

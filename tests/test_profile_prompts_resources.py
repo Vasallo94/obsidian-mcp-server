@@ -133,7 +133,7 @@ def test_diagnostic_tools_are_registered_and_report_profile(tmp_path, monkeypatc
 
 
 def test_obsidianrag_pack_registers_resources_and_tools(tmp_path, monkeypatch):
-    _write_vault_profile(tmp_path, extra_prompt_sets=["obsidianrag"])
+    _write_vault_profile(tmp_path, extra_tool_sets=["obsidianrag"])
     _write_skill(tmp_path, "explorador")
     monkeypatch.setenv("OBSIDIAN_VAULT_PATH", str(tmp_path))
 
@@ -160,7 +160,7 @@ def test_obsidianrag_pack_registers_resources_and_tools(tmp_path, monkeypatch):
 
 
 def test_obsidianrag_rejects_non_loopback_api_url(tmp_path, monkeypatch):
-    _write_vault_profile(tmp_path, extra_prompt_sets=["obsidianrag"])
+    _write_vault_profile(tmp_path, extra_tool_sets=["obsidianrag"])
     config_path = tmp_path / ".agents" / "vault.yaml"
     config_path.write_text(
         config_path.read_text(encoding="utf-8").replace(
@@ -179,7 +179,7 @@ def test_obsidianrag_rejects_non_loopback_api_url(tmp_path, monkeypatch):
 def test_obsidianrag_setup_uses_shell_safe_paths(tmp_path, monkeypatch):
     vault_path = tmp_path / "Vault With Spaces"
     vault_path.mkdir()
-    _write_vault_profile(vault_path, extra_prompt_sets=["obsidianrag"])
+    _write_vault_profile(vault_path, extra_tool_sets=["obsidianrag"])
     monkeypatch.setenv("OBSIDIAN_VAULT_PATH", str(vault_path))
 
     setup = build_obsidianrag_setup_resource()
@@ -189,9 +189,7 @@ def test_obsidianrag_setup_uses_shell_safe_paths(tmp_path, monkeypatch):
     assert shlex.quote(str(vault_path)) in setup
 
 
-def _write_vault_profile(
-    vault: Path, extra_prompt_sets: list[str] | None = None
-) -> None:
+def _write_vault_profile(vault: Path, extra_tool_sets: list[str] | None = None) -> None:
     standard_path = vault / "Standards" / "Media.md"
     standard_path.parent.mkdir(parents=True)
     standard_path.write_text("# Media Standard\n", encoding="utf-8")
@@ -202,8 +200,18 @@ def _write_vault_profile(
     agents_path = vault / ".agents"
     agents_path.mkdir()
     prompt_sets = "\n".join(
-        f'    - "{prompt_set}"'
-        for prompt_set in ["mermaid", "secundo_selebro", *(extra_prompt_sets or [])]
+        f'    - "{prompt_set}"' for prompt_set in ["mermaid", "secundo_selebro"]
+    )
+    tool_sets = "\n".join(
+        f'    - "{tool_set}"'
+        for tool_set in [
+            "notes_write",
+            "vault_analysis",
+            "secundo_selebro",
+            "agents_admin",
+            "youtube",
+            *(extra_tool_sets or []),
+        ]
     )
     (agents_path / "vault.yaml").write_text(
         f"""
@@ -213,6 +221,8 @@ profile:
   name: "secundo_selebro"
   prompt_sets:
 {prompt_sets}
+  tool_sets:
+{tool_sets}
   standards:
     media: "Standards/Media.md"
   local_docs:

@@ -1,0 +1,64 @@
+{
+  "$schema": "https://raw.githubusercontent.com/anthropics/mcpb/main/schemas/mcpb-manifest-v0.4.schema.json",
+  "manifest_version": "0.4",
+  "name": "obsidian-mcp-server",
+  "version": "1.0.0",
+  "description": "Local MCP server for reading, searching, and maintaining Obsidian vaults.",
+  "author": {
+    "name": "Enrique Book"
+  },
+  "server": {
+    "type": "python",
+    "entry_point": "server/obsidian_mcp_server.py",
+    "mcp_config": {
+      "command": "python",
+      "args": [
+        "${__dirname}/server/obsidian_mcp_server.py"
+      ],
+      "env": {
+        "OBSIDIAN_VAULT_PATH": "${user_config.vaultPath}",
+        "OBSIDIAN_MCP_TOOL_SETS": "${user_config.toolSets}",
+        "OBSIDIAN_MCP_PROFILE_NAME": "${user_config.profileName}",
+        "OBSIDIANRAG_API_URL": "${user_config.obsidianRagApiUrl}",
+        "PYTHONPATH": "${__dirname}/server/vendor:${__dirname}/server/package"
+      }
+    }
+  },
+  "user_config": {
+    "vaultPath": {
+      "type": "directory",
+      "title": "Obsidian vault",
+      "description": "Folder containing the Obsidian vault to expose.",
+      "required": true
+    },
+    "toolSets": {
+      "type": "string",
+      "title": "Tool sets",
+      "description": "Comma-separated optional tool sets such as notes_write,vault_analysis,obsidianrag.",
+      "default": "core"
+    },
+    "profileName": {
+      "type": "string",
+      "title": "Profile name",
+      "description": "Optional vault profile name.",
+      "default": ""
+    },
+    "obsidianRagApiUrl": {
+      "type": "string",
+      "title": "ObsidianRAG API URL",
+      "description": "Loopback HTTP URL for the optional ObsidianRAG backend.",
+      "default": "http://127.0.0.1:8000"
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "win32",
+      "linux"
+    ],
+    "runtimes": {
+      "python": ">=3.11"
+    }
+  }
+}

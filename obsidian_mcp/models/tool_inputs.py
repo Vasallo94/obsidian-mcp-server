@@ -1,308 +1,184 @@
-"""
-Modelos Pydantic para los inputs de las herramientas MCP.
-"""
+"""Pydantic input models for MCP tool schemas."""
 
 from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, Field
 
 
-class SugerirUbicacionInput(BaseModel):
-    titulo: str = Field(description="Título de la nota.")
-    contenido: str = Field(description="Fragmento o contenido total de la nota.")
-    etiquetas: str = Field(default="", description="Etiquetas enviadas o planeadas.")
+class SuggestNoteLocationInput(BaseModel):
+    title: str = Field(description="Note title.")
+    content: str = Field(description="Note content or representative excerpt.")
+    tags: str = Field(default="", description="Comma-separated tags.")
 
 
-class CrearNotaInput(BaseModel):
-    titulo: str = Field(description="Título de la nota.")
-    contenido: str = Field(description="Contenido de la nota.")
-    carpeta: str = Field(
-        default="", description="Carpeta donde crear la nota (vacío = raíz)."
-    )
-    etiquetas: str = Field(default="", description="Etiquetas separadas por comas.")
-    plantilla: str = Field(
-        default="", description="Nombre del archivo de plantilla (ej: 'Diario.md')."
-    )
-    agente_creador: str = Field(
-        default="",
-        description="Si se creó usando un agente específico (ej: 'escritor').",
-    )
-    descripcion: str = Field(
-        default="",
-        description="Descripción breve de la nota (para placeholder {{description}}).",
-    )
+class CreateNoteInput(BaseModel):
+    title: str = Field(description="Note title.")
+    content: str = Field(description="Note content.")
+    folder: str = Field(default="", description="Target folder relative to the vault.")
+    tags: str = Field(default="", description="Comma-separated tags.")
+    template: str = Field(default="", description="Template filename.")
+    creator: str = Field(default="", description="Optional creating agent name.")
+    description: str = Field(default="", description="Short note description.")
 
 
-class AgregarANotaInput(BaseModel):
-    nombre_archivo: str = Field(description="Nombre del archivo a modificar.")
-    contenido: str = Field(description="Contenido a agregar.")
-    al_final: bool = Field(
+class AppendToNoteInput(BaseModel):
+    note_path: str = Field(description="Note path or filename.")
+    content: str = Field(description="Content to insert.")
+    position: str = Field(default="end", description="'end', 'start', or 'section'.")
+    section: str = Field(default="", description="Section heading for section inserts.")
+    create_section: bool = Field(
         default=True,
-        description="Si agregar al final (True) o al principio (False) de la nota.",
+        description="Create the target section when it does not exist.",
     )
 
 
-class EliminarNotaInput(BaseModel):
-    nombre_archivo: str = Field(description="Nombre del archivo a eliminar.")
-    confirmar: bool = Field(
-        default=False, description="Confirmación para eliminar (debe ser True)."
-    )
+class DeleteNoteInput(BaseModel):
+    note_path: str = Field(description="Note path or filename to delete.")
 
 
 class EditOperation(BaseModel):
-    old: str = Field(
-        description="Texto exacto a buscar en la nota (debe ser unico). Vacio = reemplazo total."
-    )
-    new: str = Field(
-        description="Texto de reemplazo."
-    )
+    old: str = Field(description="Exact text to replace. Must be unique.")
+    new: str = Field(description="Replacement text.")
 
 
-class EditarNotaInput(BaseModel):
-    nombre_archivo: str = Field(
-        description="Nombre o ruta de la nota a editar (ej: 'Mi Nota.md')."
-    )
-    operaciones: list[EditOperation] = Field(
+class PatchNoteInput(BaseModel):
+    note_path: str = Field(description="Note path or filename to edit.")
+    operations: list[EditOperation] = Field(
         min_length=1,
-        description="Lista de operaciones old->new a aplicar (minimo 1)."
+        description="Atomic list of exact old/new replacements.",
     )
 
 
-class BuscarYReemplazarGlobalInput(BaseModel):
-    buscar: str = Field(
-        description="Texto o patrón a buscar (texto literal, no regex)."
-    )
-    reemplazar: str = Field(description="Texto de reemplazo.")
-    carpeta: str = Field(
-        default="",
-        description="Carpeta específica donde buscar (vacío = todo el vault).",
-    )
-    solo_preview: bool = Field(
-        default=True, description="Si True, solo muestra qué cambiaría sin modificar."
-    )
-    limite: int = Field(
-        default=100, description="Máximo de archivos a procesar (seguridad)."
-    )
+class ReplaceNoteInput(BaseModel):
+    note_path: str = Field(description="Note path or filename to replace.")
+    content: str = Field(description="Full replacement content.")
 
 
-class CapturaRapidaInput(BaseModel):
-    texto: str = Field(description="El contenido a capturar.")
-    etiquetas: str = Field(
-        default="", description="Etiquetas opcionales separadas por comas."
-    )
+class ReplaceInNotesInput(BaseModel):
+    search: str = Field(description="Literal text to search for.")
+    replacement: str = Field(description="Replacement text.")
+    folder: str = Field(default="", description="Optional folder scope.")
+    limit: int = Field(default=100, description="Maximum number of files to process.")
 
 
-class AgregarEnSeccionInput(BaseModel):
-    nombre_archivo: str = Field(description="Nombre de la nota a modificar.")
-    seccion: str = Field(
-        description="Nombre de la sección (ej: 'Recursos', '## Ideas')."
-    )
-    contenido: str = Field(description="Contenido a insertar.")
-    crear_si_no_existe: bool = Field(
-        default=True, description="Si True, crea la sección si no existe."
-    )
+class QuickCaptureInput(BaseModel):
+    text: str = Field(description="Content to capture.")
+    tags: str = Field(default="", description="Comma-separated tags.")
 
 
-class ObtenerFrontmatterInput(BaseModel):
-    nombre_archivo: str = Field(description="Nombre de la nota a leer.")
+class FrontmatterInput(BaseModel):
+    note_path: str = Field(description="Note path or filename.")
 
 
-class ActualizarFrontmatterInput(BaseModel):
-    nombre_archivo: str = Field(description="Nombre de la nota a modificar.")
-    frontmatter_updates: str = Field(
-        description="JSON string con un diccionario de actualizaciones."
-    )
-    merge: bool = Field(
-        default=True,
-        description="Si True, fusiona con el frontmatter existente. Si False, lo reemplaza por completo.",
-    )
+class UpdateFrontmatterInput(BaseModel):
+    note_path: str = Field(description="Note path or filename.")
+    frontmatter_updates: str = Field(description="JSON object with metadata updates.")
+    merge: bool = Field(default=True, description="Merge with existing frontmatter.")
 
 
-class GestionarEtiquetasInput(BaseModel):
-    nombre_archivo: str = Field(description="Nombre de la nota a modificar.")
-    operacion: str = Field(
-        description="'add' (añadir), 'remove' (eliminar), o 'list' (listar)."
-    )
-    etiquetas: str = Field(
-        default="", description="Etiquetas separadas por comas (para 'add' o 'remove')."
-    )
+class UpdateNoteTagsInput(BaseModel):
+    note_path: str = Field(description="Note path or filename.")
+    operation: str = Field(description="'add', 'remove', or 'set'.")
+    tags: str = Field(default="", description="Comma-separated tags.")
 
 
-# --- agents.py inputs ---
+class ReadSkillInput(BaseModel):
+    name: str = Field(description="Skill folder name.")
 
 
-class ObtenerInstruccionesAgenteInput(BaseModel):
-    nombre: str = Field(
-        description="El nombre de la carpeta de la skill (ej: 'escritor')."
-    )
+class CreateSkillInput(BaseModel):
+    name: str = Field(description="Skill identifier.")
+    description: str = Field(description="Short skill description.")
+    instructions: str = Field(description="Main Markdown instructions.")
+    tools: str = Field(default="", description="Comma-separated tool names.")
+    default_location: str = Field(default="", description="Default note folder.")
 
 
-class GenerarSkillInput(BaseModel):
-    nombre: str = Field(
-        description="Identificador de la skill (ej: 'profesor-fisica')."
-    )
-    descripcion: str = Field(description="Descripción breve de lo que hace la skill.")
-    instrucciones: str = Field(description="Instrucciones principales en markdown.")
-    herramientas: str = Field(
-        default="",
-        description="Herramientas separadas por comas (ej: 'read, edit, web').",
-    )
-    ubicacion_defecto: str = Field(
-        default="",
-        description="Carpeta por defecto para notas (ej: '02_Aprendizaje/').",
+class SyncSkillsInput(BaseModel):
+    update: bool = Field(default=False, description="Apply automatic fixes.")
+
+
+class ListNotesInput(BaseModel):
+    folder: str = Field(default="", description="Folder to list.")
+    include_subfolders: bool = Field(default=True, description="Include subfolders.")
+
+
+class ReadNoteInput(BaseModel):
+    note_path: str = Field(description="Note path or filename.")
+
+
+class SearchNotesInput(BaseModel):
+    query: str = Field(description="Text to search for.")
+    folder: str = Field(default="", description="Optional folder scope.")
+    titles_only: bool = Field(default=False, description="Search note titles only.")
+
+
+class SearchNotesByDateInput(BaseModel):
+    start_date: str = Field(description="Start date in YYYY-MM-DD format.")
+    end_date: str = Field(default="", description="End date in YYYY-MM-DD format.")
+
+
+class MoveNoteInput(BaseModel):
+    source: str = Field(description="Current note path.")
+    destination: str = Field(description="New note path.")
+    create_folders: bool = Field(
+        default=True, description="Create destination folders."
     )
 
 
-class SincronizarSkillsInput(BaseModel):
-    actualizar: bool = Field(
-        default=False,
-        description="Si True, aplica correcciones. Si False, solo reporta.",
-    )
+class RandomConceptInput(BaseModel):
+    folder: str = Field(default="", description="Optional folder scope.")
 
 
-# --- navigation.py inputs ---
+class ReadNotesInput(BaseModel):
+    paths: list[str] = Field(description="List of note paths or filenames.")
 
 
-class ListarNotasInput(BaseModel):
-    carpeta: str = Field(
-        default="",
-        description="Carpeta específica a explorar (vacío = raíz del vault).",
-    )
-    incluir_subcarpetas: bool = Field(
-        default=True, description="Si incluir subcarpetas en la búsqueda."
-    )
+class GetNoteInfoInput(BaseModel):
+    paths: list[str] = Field(description="List of note paths or filenames.")
 
 
-class LeerNotaInput(BaseModel):
-    nombre_archivo: str = Field(
-        description="Nombre del archivo (ej: 'Diario/2024-01-01.md')."
-    )
+class SyncTagRegistryInput(BaseModel):
+    update: bool = Field(default=False, description="Update registry statistics.")
 
 
-class BuscarEnNotasInput(BaseModel):
-    texto: str = Field(description="Texto a buscar (puede incluir múltiples palabras).")
-    carpeta: str = Field(
-        default="",
-        description="Carpeta específica donde buscar (vacío = todo el vault).",
-    )
-    solo_titulos: bool = Field(
-        default=False, description="Si buscar solo en los títulos de las notas."
-    )
+class SummarizeRecentActivityInput(BaseModel):
+    days: int = Field(default=7, description="Number of days to inspect.")
 
 
-class BuscarNotasPorFechaInput(BaseModel):
-    fecha_desde: str = Field(description="Fecha de inicio (YYYY-MM-DD).")
-    fecha_hasta: str = Field(
-        default="", description="Fecha de fin (YYYY-MM-DD, opcional, por defecto hoy)."
-    )
+class GetBacklinksInput(BaseModel):
+    note_path: str = Field(description="Central note path or filename.")
 
 
-class MoverNotaInput(BaseModel):
-    origen: str = Field(
-        description="Ruta relativa actual de la nota (ej: 'Sin titulo.md')."
-    )
-    destino: str = Field(
-        description="Ruta relativa nueva de la nota (ej: '01_Inbox/Nueva Nota.md')."
-    )
-    crear_carpetas: bool = Field(
-        default=True, description="Si crear las carpetas destino si no existen (True)."
-    )
+class GetNotesByTagInput(BaseModel):
+    tag: str = Field(description="Tag to search for.")
 
 
-class ConceptoAleatorioInput(BaseModel):
-    carpeta: str = Field(
-        default="",
-        description="Carpeta especifica donde buscar (vacio = todo el vault).",
-    )
-
-
-class LeerMultiplesNotasInput(BaseModel):
-    rutas: list[str] = Field(
-        description="Lista de nombres de archivos o rutas (ej: ['Nota1.md', 'Nota2.md'])."
-    )
-
-
-class ObtenerInfoNotasInput(BaseModel):
-    rutas: list[str] = Field(description="Lista de nombres de archivos o rutas.")
-
-
-# --- analysis.py inputs ---
-
-
-class SincronizarRegistroTagsInput(BaseModel):
-    actualizar: bool = Field(
-        default=False,
-        description="Si es True, intenta actualizar la tabla de estadísticas.",
-    )
-
-
-class ResumenActividadRecienteInput(BaseModel):
-    dias: int = Field(
-        default=7, description="Número de días hacia atrás para analizar."
-    )
-
-
-# --- graph.py inputs ---
-
-
-class ObtenerBacklinksInput(BaseModel):
-    nombre_nota: str = Field(description="Nombre de la nota (con o sin .md)")
-
-
-class ObtenerNotasPorTagInput(BaseModel):
-    tag: str = Field(description="Etiqueta a buscar (con o sin #)")
-
-
-class ObtenerGrafoLocalInput(BaseModel):
-    nombre_nota: str = Field(description="Nombre de la nota central")
-    profundidad: int = Field(
-        default=1, description="Niveles de profundidad (1 = solo conexiones directas)"
-    )
-
-
-# --- youtube.py inputs ---
+class GetLocalGraphInput(BaseModel):
+    note_path: str = Field(description="Central note path or filename.")
+    depth: int = Field(default=1, description="Traversal depth.")
 
 
 class GetYoutubeTranscriptInput(BaseModel):
-    url: str = Field(description="URL del video de YouTube o ID del video.")
-    language: Optional[str] = Field(
-        default=None,
-        description="Código del idioma opcional (ej: 'es', 'en'). Si se omite, busca subtítulos manuales en el idioma original, o falla al autogenerado del video.",
-    )
+    url: str = Field(description="YouTube URL or video ID.")
+    language: Optional[str] = Field(default=None, description="Optional language code.")
 
 
-# --- semantic.py inputs ---
-
-
-class PreguntarAlConocimientoInput(BaseModel):
-    pregunta: str = Field(
-        description="La pregunta o tema sobre el que quieres consultar."
-    )
+class SemanticSearchInput(BaseModel):
+    query: str = Field(description="Question or topic to search for.")
     metadata_filter: Optional[Dict[str, Any]] = Field(
         default=None,
-        description="Opcional. Filtro de metadatos (ej: {'type': 'poesia'}).",
+        description="Optional metadata filter.",
     )
 
 
-class IndexarVaultSemanticoInput(BaseModel):
-    forzar: bool = Field(
-        default=False,
-        description="Si es True, borra el índice anterior y lo crea desde cero.",
-    )
+class IndexVaultSemanticInput(BaseModel):
+    force: bool = Field(default=False, description="Rebuild the index from scratch.")
 
 
-class EncontrarConexionesSugeridasInput(BaseModel):
-    threshold: float = Field(
-        default=0.70, description="Nivel de similitud mínima (0.7 a 1.0). Default 0.70."
-    )
-    limite: int = Field(default=5, description="Máximo de sugerencias.")
-    carpetas_incluir: Optional[list[str]] = Field(
-        default=None,
-        description="Lista de carpetas donde buscar (e.g. ['03_Notas']). Si se omite, busca en todo excepto exclusiones.",
-    )
-    excluir_mocs: bool = Field(
-        default=True, description="Ignorar MOC, Home, Inbox y sistema."
-    )
-    min_palabras: int = Field(
-        default=150, description="Ignorar notas con menos de X palabras."
-    )
+class SuggestSemanticConnectionsInput(BaseModel):
+    threshold: float = Field(default=0.70, description="Minimum similarity threshold.")
+    limit: int = Field(default=5, description="Maximum suggestions.")
+    include_folders: Optional[list[str]] = Field(default=None, description="Folders.")
+    exclude_mocs: bool = Field(default=True, description="Exclude MOC/system notes.")
+    min_words: int = Field(default=150, description="Minimum note word count.")

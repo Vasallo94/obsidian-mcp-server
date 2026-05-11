@@ -89,7 +89,7 @@ class TestGenerateSkill:
         )
 
         assert not result.success
-        assert "Ya existe" in result.error
+        assert "already exists" in result.error
 
     def test_includes_custom_tools(self, temp_vault, monkeypatch):
         """Should include custom tools in frontmatter."""

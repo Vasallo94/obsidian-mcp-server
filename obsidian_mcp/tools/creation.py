@@ -1,414 +1,333 @@
-"""
-Herramientas de creación y edición para el vault de Obsidian.
+"""MCP note creation and editing tools."""
 
-Estas herramientas permiten crear nuevas notas y modificar las existentes,
-facilitando la gestión de contenido del vault desde un cliente MCP.
-"""
+import json
 
 from fastmcp import Context, FastMCP
 
 from ..middleware import enrich_response, invalidate_rules_cache
 from .creation_logic import (
-    append_to_note,
+    append_to_note as append_to_note_logic,
+)
+from .creation_logic import (
     append_to_section,
-    create_note,
-    delete_note,
     edit_note,
     get_frontmatter_logic,
-    list_templates,
     manage_tags_logic,
-    quick_capture,
     search_and_replace_global,
     suggest_folder_location,
     update_frontmatter_logic,
 )
+from .creation_logic import (
+    create_note as create_note_logic,
+)
+from .creation_logic import (
+    delete_note as delete_note_logic,
+)
+from .creation_logic import (
+    list_templates as list_templates_logic,
+)
+from .creation_logic import (
+    quick_capture as quick_capture_logic,
+)
+from .registry import register_tool
 
 
-def _extract_fm(contenido: str) -> dict:
+def _extract_fm(content: str) -> dict:
     """Extract frontmatter dict from content for middleware validation."""
     from .creation_logic import _extract_frontmatter_from_content
 
-    fm, _ = _extract_frontmatter_from_content(contenido)
-    return fm
+    frontmatter, _ = _extract_frontmatter_from_content(content)
+    return frontmatter
 
 
-def register_creation_tools(mcp: FastMCP) -> None:
-    """
-    Registra todas las herramientas de creación en el servidor MCP.
+def _parse_tags(tags: str) -> list[str]:
+    return [tag.strip() for tag in tags.split(",") if tag.strip()]
 
-    Args:
-        mcp: Instancia del servidor FastMCP.
-    """
 
-    @mcp.tool()
-    def listar_plantillas() -> str:
-        """
-        Lista las plantillas disponibles en la carpeta ZZ_Plantillas.
+def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-statements
+    """Register note creation and editing tools."""
 
-        Returns:
-            Lista de nombres de plantillas disponibles.
-        """
+    @register_tool(mcp, "list_templates")
+    def list_templates() -> str:
+        """List available note templates."""
         try:
-            return list_templates().to_display()
+            return list_templates_logic().to_display()
         except Exception as e:  # pylint: disable=broad-exception-caught
-            return f"❌ Error al listar plantillas: {e}"
+            return f"Error listing templates: {e}"
 
-    @mcp.tool()
-    def sugerir_ubicacion(titulo: str, contenido: str, etiquetas: str = "") -> str:
-        """
-        Sugiere carpetas candidatas para una nota nueva según su contenido y tags.
-
-        ⚠️ IMPORTANTE PARA AGENTES DE IA: ⚠️
-        Esta herramienta devuelve SUGERENCIAS PROBABILÍSTICAS, no respuestas
-        definitivas. Debes:
-        1. Evaluar las opciones junto con el contexto del usuario.
-        2. Considerar la confianza (confidence) de cada sugerencia.
-        3. Proponer la mejor opción al usuario, explicando tu razonamiento.
-        4. Si ninguna sugerencia tiene alta confianza (>0.5), preguntar al usuario.
-
-        La sugerencia se basa en notas similares ya existentes en el vault.
-        No es infalible: el usuario puede tener una mejor idea de dónde ubicarla.
-
-        Args:
-            titulo: Título de la nota.
-            contenido: Fragmento o contenido total de la nota.
-            etiquetas: Etiquetas enviadas o planeadas.
-
-        Returns:
-            Lista de carpetas sugeridas con confianza, o fallback a reglas.
-        """
+    @register_tool(mcp, "suggest_note_location")
+    def suggest_note_location(title: str, content: str, tags: str = "") -> str:
+        """Suggest candidate vault folders for a new note."""
         try:
-            return suggest_folder_location(titulo, contenido, etiquetas)
+            return suggest_folder_location(title, content, tags)
         except Exception as e:  # pylint: disable=broad-exception-caught
-            return f"❌ Error al sugerir ubicación: {e}"
+            return f"Error suggesting note location: {e}"
 
-    @mcp.tool()
-    def crear_nota(
-        titulo: str,
-        contenido: str,
+    @register_tool(mcp, "create_note")
+    def create_note(
+        title: str,
+        content: str,
         *,
-        carpeta: str = "",
-        etiquetas: str = "",
-        plantilla: str = "",
-        agente_creador: str = "",
-        descripcion: str = "",
+        folder: str = "",
+        tags: str = "",
+        template: str = "",
+        creator: str = "",
+        description: str = "",
     ) -> str:
-        """
-        Crea una nueva nota en el vault.
-
-        ⚠️ ADVERTENCIA CRÍTICA PARA AGENTES DE IA: ⚠️
-        1. NO uses herramientas genéricas de sistema de archivos (como write_file).
-           SIEMPRE usa esta herramienta para crear notas en el vault.
-        2. ANTES de ejecutar esta acción, DEBES haber leído las reglas globales
-           con `leer_contexto_vault` y `obtener_reglas_globales`.
-        3. Verifica si existe una SKILL aplicable (ej: investigador, escritor)
-           y sigue sus instrucciones específicas.
-
-        Args:
-            titulo: Título de la nota.
-            contenido: Contenido de la nota.
-            carpeta: Carpeta donde crear la nota (vacío = raíz).
-            etiquetas: Etiquetas separadas por comas.
-            plantilla: Nombre del archivo de plantilla (ej: "Diario.md").
-            agente_creador: Si se creó usando un agente específico (ej: "escritor").
-            descripcion: Descripción breve de la nota (para placeholder
-                {{description}}).
-        """
+        """Create a new Markdown note in the vault."""
         try:
-            result = create_note(
-                titulo,
-                contenido,
-                carpeta,
-                etiquetas,
-                plantilla,
-                agente_creador,
-                descripcion,
-            ).to_display(success_prefix="✅")
+            result = create_note_logic(
+                title,
+                content,
+                folder,
+                tags,
+                template,
+                creator,
+                description,
+            ).to_display(success_prefix="OK")
             return enrich_response(
-                tool_name="crear_nota",
+                tool_name="create_note",
                 result=result,
-                title=titulo,
-                content=contenido,
-                frontmatter=_extract_fm(contenido),
+                title=title,
+                content=content,
+                frontmatter=_extract_fm(content),
             )
         except Exception as e:  # pylint: disable=broad-exception-caught
-            return f"❌ Error al crear nota: {e}"
+            return f"Error creating note: {e}"
 
-    @mcp.tool()
-    def agregar_a_nota(
-        nombre_archivo: str, contenido: str, al_final: bool = True
+    @register_tool(mcp, "append_to_note")
+    def append_to_note(
+        note_path: str,
+        content: str,
+        position: str = "end",
+        section: str = "",
+        create_section: bool = True,
     ) -> str:
-        """
-        Agrega contenido a una nota existente.
-
-        Args:
-            nombre_archivo: Nombre del archivo a modificar.
-            contenido: Contenido a agregar.
-            al_final: Si agregar al final (True) o al principio (False) de la nota.
-
-        Returns:
-            Un mensaje indicando el resultado de la operación.
-        """
+        """Append, prepend, or insert content into a section of a note."""
         try:
-            result = append_to_note(nombre_archivo, contenido, al_final).to_display(
-                success_prefix="✅"
-            )
+            normalized_position = position.strip().lower()
+            if normalized_position == "section":
+                if not section:
+                    return "Error: section is required when position='section'."
+                result = append_to_section(
+                    note_path, section, content, create_section
+                ).to_display(success_prefix="OK")
+            elif normalized_position in {"end", "start"}:
+                result = append_to_note_logic(
+                    note_path,
+                    content,
+                    al_final=normalized_position == "end",
+                ).to_display(success_prefix="OK")
+            else:
+                return "Error: position must be 'end', 'start', or 'section'."
+
             return enrich_response(
-                tool_name="agregar_a_nota",
+                tool_name="append_to_note",
                 result=result,
-                content=contenido,
+                content=content,
             )
         except Exception as e:  # pylint: disable=broad-exception-caught
-            return f"❌ Error al agregar contenido: {e}"
+            return f"Error appending to note: {e}"
 
-    @mcp.tool()
-    async def eliminar_nota(nombre_archivo: str, ctx: Context) -> str:
-        """
-        Elimina una nota del vault. Solicita confirmación interactiva antes de borrar.
-
-        Args:
-            nombre_archivo: Nombre del archivo a eliminar.
-
-        Returns:
-            Un mensaje indicando el resultado de la operación.
-        """
+    @register_tool(mcp, "delete_note")
+    async def delete_note(note_path: str, ctx: Context) -> str:
+        """Delete a note after explicit client confirmation."""
         try:
             result = await ctx.elicit(
-                f"¿Eliminar permanentemente '{nombre_archivo}'? Esta acción no se puede deshacer.",
+                f"Permanently delete '{note_path}'? This cannot be undone.",
                 response_type=None,
             )
             if result.action != "accept":
-                return "❌ Operación cancelada."
+                return "Operation cancelled."
         except Exception:  # pylint: disable=broad-exception-caught
             return (
-                "❌ El cliente no soporta confirmación interactiva. "
-                "Operación cancelada por seguridad."
+                "Interactive confirmation is not supported by this client. "
+                "The delete operation was cancelled for safety."
             )
+
         try:
-            return delete_note(nombre_archivo, confirmar=True).to_display(
-                success_prefix="✅"
+            return delete_note_logic(note_path, confirmar=True).to_display(
+                success_prefix="OK"
             )
         except Exception as e:  # pylint: disable=broad-exception-caught
-            return f"❌ Error al eliminar nota: {e}"
+            return f"Error deleting note: {e}"
 
-    @mcp.tool()
-    def editar_nota(nombre_archivo: str, operaciones: list[dict]) -> str:
-        """
-        Edita una nota existente aplicando una lista de operaciones old->new.
-
-        Cada operacion busca un texto exacto (old) y lo reemplaza por otro (new).
-        Todas las operaciones se validan antes de aplicar ninguna (atomico).
-
-        Modos de uso:
-        - Reemplazar fragmento: {"old": "texto viejo", "new": "texto nuevo"}
-        - Insertar despues de ancla: {"old": "ancla", "new": "ancla\\n\\nnuevo texto"}
-        - Eliminar fragmento: {"old": "texto a borrar", "new": ""}
-        - Reemplazo total: [{"old": "", "new": "contenido completo"}] (solo 1 operacion)
-
-        Reglas:
-        - old debe coincidir EXACTAMENTE con el texto de la nota (incluyendo saltos de linea)
-        - old debe ser UNICO en la nota. Si aparece mas de una vez, incluye mas contexto.
-        - ANTES de editar, lee la nota con leer_nota para conocer el contenido exacto.
-
-        Args:
-            nombre_archivo: Nombre o ruta de la nota (ej: "Mi Nota.md")
-            operaciones: Lista de {"old": "...", "new": "..."} a aplicar
-
-        Returns:
-            Mensaje de confirmacion con el numero de operaciones aplicadas, o error.
-        """
+    @register_tool(mcp, "patch_note")
+    def patch_note(note_path: str, operations: list[dict]) -> str:
+        """Patch a note with exact-match old/new replacements."""
         try:
-            result = edit_note(nombre_archivo, operaciones).to_display(
-                success_prefix="✅"
-            )
-            if "REGLAS_GLOBALES" in nombre_archivo:
+            if any(operation.get("old", None) == "" for operation in operations):
+                return (
+                    "Error: patch_note does not allow full-note replacement. "
+                    "Use replace_note for that destructive operation."
+                )
+
+            result = edit_note(note_path, operations).to_display(success_prefix="OK")
+            if "REGLAS_GLOBALES" in note_path:
                 invalidate_rules_cache()
-            combined_new = "\n".join(op.get("new", "") for op in operaciones)
+            combined_new = "\n".join(
+                operation.get("new", "") for operation in operations
+            )
             return enrich_response(
-                tool_name="editar_nota",
+                tool_name="patch_note",
                 result=result,
                 content=combined_new,
             )
         except Exception as e:  # pylint: disable=broad-exception-caught
-            return f"❌ Error al editar nota: {e}"
+            return f"Error patching note: {e}"
 
-    @mcp.tool()
-    async def buscar_y_reemplazar_global(
-        buscar: str,
-        reemplazar: str,
-        ctx: Context,
-        carpeta: str = "",
-        solo_preview: bool = True,
-        limite: int = 100,
+    @register_tool(mcp, "replace_note")
+    async def replace_note(note_path: str, content: str, ctx: Context) -> str:
+        """Replace the full content of a note after explicit confirmation."""
+        try:
+            confirmation = await ctx.elicit(
+                f"Replace all content in '{note_path}'? This overwrites the note.",
+                response_type=None,
+            )
+            if confirmation.action != "accept":
+                return "Operation cancelled."
+        except Exception:  # pylint: disable=broad-exception-caught
+            return (
+                "Interactive confirmation is not supported by this client. "
+                "The replace operation was cancelled for safety."
+            )
+
+        try:
+            edit_result = edit_note(
+                note_path, [{"old": "", "new": content}]
+            ).to_display(success_prefix="OK")
+            if "REGLAS_GLOBALES" in note_path:
+                invalidate_rules_cache()
+            return enrich_response(
+                tool_name="replace_note",
+                result=edit_result,
+                content=content,
+            )
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            return f"Error replacing note: {e}"
+
+    @register_tool(mcp, "preview_replace_in_notes")
+    def preview_replace_in_notes(
+        search: str,
+        replacement: str,
+        folder: str = "",
+        limit: int = 100,
     ) -> str:
-        """
-        Busca y reemplaza texto en todas las notas del vault.
-        Útil para corregir enlaces rotos, renombrar tags, o actualizar rutas.
-
-        Args:
-            buscar: Texto o patrón a buscar (texto literal, no regex).
-            reemplazar: Texto de reemplazo.
-            carpeta: Carpeta específica donde buscar (vacío = todo el vault).
-            solo_preview: Si True, solo muestra qué cambiaría sin modificar (por defecto).
-            limite: Máximo de archivos a procesar (seguridad).
-
-        Returns:
-            Resumen de archivos afectados y cambios realizados.
-        """
-        if not solo_preview:
-            try:
-                result = await ctx.elicit(
-                    f"¿Reemplazar '{buscar}' por '{reemplazar}' en hasta {limite} notas"
-                    f"{f' de {carpeta}' if carpeta else ''}? Esta acción modifica archivos reales.",
-                    response_type=None,
-                )
-                if result.action != "accept":
-                    return "❌ Operación cancelada."
-            except Exception:  # pylint: disable=broad-exception-caught
-                return (
-                    "❌ El cliente no soporta confirmación interactiva. "
-                    "Usa solo_preview=True para ver los cambios primero."
-                )
+        """Preview a literal search/replace across notes without writing files."""
         try:
             return search_and_replace_global(
-                buscar, reemplazar, carpeta, solo_preview, limite
+                search,
+                replacement,
+                folder,
+                solo_preview=True,
+                limite=limit,
             ).to_display()
         except Exception as e:  # pylint: disable=broad-exception-caught
-            return f"❌ Error en búsqueda global: {e}"
+            return f"Error previewing replacement: {e}"
 
-    @mcp.tool()
-    def captura_rapida(texto: str, etiquetas: str = "") -> str:
-        """
-        Captura rápida de una idea al Inbox sin fricción.
-
-        Crea una nota en la carpeta Inbox (00_Bandeja) con timestamp automático.
-        Ideal para "guardar esto rápido" sin pensar en ubicación o formato.
-
-        Args:
-            texto: El contenido a capturar.
-            etiquetas: Etiquetas opcionales separadas por comas.
-
-        Returns:
-            Confirmación con la ruta de la nota creada.
-        """
-        try:
-            result = quick_capture(texto, etiquetas).to_display()
-            return enrich_response(
-                tool_name="captura_rapida",
-                result=result,
-                title=texto[:80],
-                content=texto,
-            )
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            return f"❌ Error en captura rápida: {e}"
-
-    @mcp.tool()
-    def agregar_en_seccion(
-        nombre_archivo: str,
-        seccion: str,
-        contenido: str,
-        crear_si_no_existe: bool = True,
+    @register_tool(mcp, "apply_replace_in_notes")
+    async def apply_replace_in_notes(
+        search: str,
+        replacement: str,
+        ctx: Context,
+        folder: str = "",
+        limit: int = 100,
     ) -> str:
-        """
-        Añade contenido debajo de una sección específica de una nota.
-
-        Busca el heading de la sección y añade el contenido justo antes
-        del siguiente heading del mismo nivel o superior.
-
-        Args:
-            nombre_archivo: Nombre de la nota a modificar.
-            seccion: Nombre de la sección (ej: "Recursos", "## Ideas").
-            contenido: Contenido a insertar.
-            crear_si_no_existe: Si True, crea la sección si no existe.
-
-        Returns:
-            Confirmación del contenido añadido.
-        """
+        """Apply a literal search/replace across notes after confirmation."""
         try:
-            result = append_to_section(
-                nombre_archivo, seccion, contenido, crear_si_no_existe
+            result = await ctx.elicit(
+                f"Replace '{search}' with '{replacement}' in up to {limit} notes"
+                f"{f' under {folder}' if folder else ''}?",
+                response_type=None,
+            )
+            if result.action != "accept":
+                return "Operation cancelled."
+        except Exception:  # pylint: disable=broad-exception-caught
+            return (
+                "Interactive confirmation is not supported by this client. "
+                "Run preview_replace_in_notes first and retry with a client "
+                "that supports confirmation."
+            )
+
+        try:
+            return search_and_replace_global(
+                search,
+                replacement,
+                folder,
+                solo_preview=False,
+                limite=limit,
             ).to_display()
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            return f"Error applying replacement: {e}"
+
+    @register_tool(mcp, "quick_capture")
+    def quick_capture(text: str, tags: str = "") -> str:
+        """Capture an inbox note in the personal vault profile."""
+        try:
+            result = quick_capture_logic(text, tags).to_display()
             return enrich_response(
-                tool_name="agregar_en_seccion",
+                tool_name="quick_capture",
                 result=result,
-                content=contenido,
+                title=text[:80],
+                content=text,
             )
         except Exception as e:  # pylint: disable=broad-exception-caught
-            return f"❌ Error al añadir a sección: {e}"
+            return f"Error creating quick capture: {e}"
 
-    @mcp.tool()
-    def obtener_frontmatter(nombre_archivo: str) -> str:
-        """
-        Retrieves only the frontmatter of a note as a JSON string.
-        Útil para inspeccionar metadatos rápidamente sin leer todo el contenido.
-
-        Args:
-            nombre_archivo: Nombre de la nota a leer.
-
-        Returns:
-            JSON string con el contenido del frontmatter.
-        """
+    @register_tool(mcp, "get_frontmatter")
+    def get_frontmatter(note_path: str) -> str:
+        """Return only a note frontmatter block as JSON."""
         try:
-            return get_frontmatter_logic(nombre_archivo).to_display()
+            return get_frontmatter_logic(note_path).to_display()
         except Exception as e:  # pylint: disable=broad-exception-caught
-            return f"❌ Error al obtener frontmatter: {e}"
+            return f"Error reading frontmatter: {e}"
 
-    @mcp.tool()
-    def actualizar_frontmatter(
-        nombre_archivo: str,
+    @register_tool(mcp, "update_frontmatter")
+    def update_frontmatter(
+        note_path: str,
         frontmatter_updates: str,
         merge: bool = True,
     ) -> str:
-        """
-        Updates the frontmatter of a note without altering the body formatting.
-
-        Args:
-            nombre_archivo: Nombre de la nota a modificar.
-            frontmatter_updates: JSON string con un diccionario de actualizaciones.
-            merge: Si True, fusiona con el frontmatter existente.
-                   Si False, lo reemplaza por completo.
-
-        Returns:
-            Mensaje de confirmación.
-        """
+        """Update a note frontmatter without changing the note body."""
         try:
             result = update_frontmatter_logic(
-                nombre_archivo, frontmatter_updates, merge
-            ).to_display(success_prefix="✅")
-            import json as _json
+                note_path,
+                frontmatter_updates,
+                merge,
+            ).to_display(success_prefix="OK")
 
             try:
-                fm = _json.loads(frontmatter_updates)
+                frontmatter = json.loads(frontmatter_updates)
             except (ValueError, TypeError):
-                fm = {}
+                frontmatter = {}
+
             return enrich_response(
-                tool_name="actualizar_frontmatter",
+                tool_name="update_frontmatter",
                 result=result,
-                frontmatter=fm,
+                frontmatter=frontmatter,
             )
         except Exception as e:  # pylint: disable=broad-exception-caught
-            return f"❌ Error al actualizar frontmatter: {e}"
+            return f"Error updating frontmatter: {e}"
 
-    @mcp.tool()
-    def gestionar_etiquetas(
-        nombre_archivo: str,
-        operacion: str,
-        etiquetas: str = "",
-    ) -> str:
-        """
-        Añade, elimina o lista etiquetas del frontmatter de una nota de forma segura.
-
-        Args:
-            nombre_archivo: Nombre de la nota a modificar.
-            operacion: 'add' (añadir), 'remove' (eliminar), o 'list' (listar).
-            etiquetas: Etiquetas separadas por comas (para 'add' o 'remove').
-
-        Returns:
-            Mensaje confirmando los cambios o la lista de etiquetas de la nota.
-        """
+    @register_tool(mcp, "update_note_tags")
+    def update_note_tags(note_path: str, operation: str, tags: str = "") -> str:
+        """Add, remove, or set YAML tags on a note."""
         try:
-            return manage_tags_logic(nombre_archivo, operacion, etiquetas).to_display(
-                success_prefix="✅"
-            )
+            normalized_operation = operation.strip().lower()
+            if normalized_operation in {"add", "remove"}:
+                return manage_tags_logic(
+                    note_path,
+                    normalized_operation,
+                    tags,
+                ).to_display(success_prefix="OK")
+            if normalized_operation == "set":
+                tags_json = json.dumps(
+                    {"tags": _parse_tags(tags)},
+                    ensure_ascii=False,
+                )
+                result = update_frontmatter_logic(note_path, tags_json, merge=True)
+                return result.to_display(success_prefix="OK")
+
+            return "Error: operation must be 'add', 'remove', or 'set'."
         except Exception as e:  # pylint: disable=broad-exception-caught
-            return f"❌ Error al gestionar etiquetas: {e}"
+            return f"Error updating note tags: {e}"

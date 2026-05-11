@@ -17,6 +17,7 @@ from fastmcp import FastMCP
 from ..config import get_vault_path
 from ..result import Result
 from ..vault_config import get_vault_config
+from .registry import enabled_tool_sets, register_tool
 
 DEFAULT_API_URL = "http://127.0.0.1:8000"
 
@@ -26,7 +27,7 @@ def register_obsidianrag_tools(mcp: FastMCP) -> None:
     if not _is_obsidianrag_enabled():
         return
 
-    @mcp.tool()
+    @register_tool(mcp, "rag_setup_status")
     def rag_setup_status() -> str:
         """
         Inspect local ObsidianRAG setup status.
@@ -36,14 +37,14 @@ def register_obsidianrag_tools(mcp: FastMCP) -> None:
         """
         return get_rag_setup_status().to_display()
 
-    @mcp.tool()
+    @register_tool(mcp, "rag_health")
     def rag_health() -> str:
         """
         Check whether the ObsidianRAG backend is reachable and ready.
         """
         return check_rag_health().to_display()
 
-    @mcp.tool()
+    @register_tool(mcp, "ask_vault")
     def ask_vault(question: str, session_id: str | None = None) -> str:
         """
         Ask a natural-language question against the Obsidian vault via ObsidianRAG.
@@ -54,7 +55,7 @@ def register_obsidianrag_tools(mcp: FastMCP) -> None:
         """
         return ask_rag(question, session_id).to_display()
 
-    @mcp.tool()
+    @register_tool(mcp, "rebuild_rag_index")
     def rebuild_rag_index() -> str:
         """
         Rebuild the ObsidianRAG index after large vault changes.
@@ -72,7 +73,7 @@ def get_rag_setup_status() -> Result[str]:
     project_path = Path(str(data.get("project_path") or ""))
     backend_path = project_path / "backend"
     checks = [
-        ("pack_enabled", _is_obsidianrag_enabled(), "prompt_sets includes obsidianrag"),
+        ("pack_enabled", _is_obsidianrag_enabled(), "tool_sets includes obsidianrag"),
         (
             "integration_declared",
             bool(data),
@@ -277,9 +278,9 @@ def _get_integration_config() -> Result[dict[str, Any]]:
         return Result.fail("Vault path is not configured.")
 
     config = get_vault_config(vault_path)
-    if not config or "obsidianrag" not in config.profile.prompt_sets:
+    if not config or "obsidianrag" not in enabled_tool_sets():
         return Result.fail(
-            "ObsidianRAG prompt set is not enabled in `.agents/vault.yaml`."
+            "ObsidianRAG tool set is not enabled in `.agents/vault.yaml`."
         )
 
     integration = config.profile.integrations.get("obsidianrag")
@@ -312,11 +313,7 @@ def _get_integration_config() -> Result[dict[str, Any]]:
 
 
 def _is_obsidianrag_enabled() -> bool:
-    vault_path = get_vault_path()
-    if not vault_path:
-        return False
-    config = get_vault_config(vault_path)
-    return bool(config and "obsidianrag" in config.profile.prompt_sets)
+    return "obsidianrag" in enabled_tool_sets()
 
 
 def _is_loopback_http_url(url: str) -> bool:

@@ -34,7 +34,7 @@ CARPETAS_EXCLUIDAS = list(DEFAULT_EXCLUDED_FOLDERS)
 PATRONES_EXCLUIDOS = list(DEFAULT_EXCLUDED_PATTERNS)
 
 # Deprecated, kept for backward compatibility
-CARPETAS_CONTENIDO = []
+CARPETAS_CONTENIDO: list[str] = []
 
 
 class SemanticService:

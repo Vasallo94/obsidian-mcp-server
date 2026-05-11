@@ -1,129 +1,84 @@
-"""
-Semantic search tools for the Obsidian MCP server.
-Provides tools for RAG (Retrieval-Augmented Generation) based knowledge retrieval.
-"""
+"""Legacy in-process semantic search tools."""
 
 import asyncio
 from typing import Any, Dict, Optional
 
 from fastmcp import FastMCP
 
-from ..config import get_vault_path
 from ..utils import get_logger
-from ..vault_config import get_vault_config
+from .registry import enabled_tool_sets, register_tool
 
 logger = get_logger(__name__)
 
 
 def register_semantic_tools(mcp: FastMCP) -> None:
-    """
-    Registers legacy in-process semantic RAG tools only when explicitly enabled.
-    """
-    if "legacy_semantic" not in _enabled_prompt_sets():
+    """Register legacy semantic tools only when the pack is explicitly enabled."""
+    if "legacy_semantic" not in enabled_tool_sets():
         logger.info(
-            "Legacy semantic tools omitted. Enable prompt set 'legacy_semantic' "
+            "Legacy semantic tools omitted. Enable tool set 'legacy_semantic' "
             "or use the ObsidianRAG pack for RAG."
         )
         return
 
     try:
-        # Check for core dependencies locally to decide whether to register
         # pylint: disable-next=import-outside-toplevel,unused-import
         import chromadb  # noqa: F401
 
         # pylint: disable-next=import-outside-toplevel,unused-import
         import langchain  # noqa: F401
 
-        @mcp.tool()
-        async def preguntar_al_conocimiento(
-            pregunta: str, metadata_filter: Optional[Dict[str, Any]] = None
+        @register_tool(mcp, "semantic_search")
+        async def semantic_search(
+            query: str,
+            metadata_filter: Optional[Dict[str, Any]] = None,
         ) -> str:
-            """
-            Realiza una búsqueda semántica en todo el vault de Obsidian para responder
-            preguntas basadas en el significado y contexto, no solo en palabras clave.
-            Útil para recuperar conceptos relacionados, resúmenes o dudas generales.
-
-            Args:
-                pregunta: La pregunta o tema sobre el que quieres consultar.
-                metadata_filter: Opcional. Filtro de metadatos (ej: {"type": "poesia"}).
-            """
-            # pylint: disable-next=import-outside-toplevel
+            """Run a semantic vault question through the legacy local RAG stack."""
             from .semantic_logic import ask_knowledge
 
             try:
-                return ask_knowledge(pregunta, metadata_filter).to_display()
+                return ask_knowledge(query, metadata_filter).to_display()
             except Exception as e:  # pylint: disable=broad-exception-caught
-                return f"❌ Error en búsqueda semántica: {e}"
+                return f"Error running semantic search: {e}"
 
-        @mcp.tool()
-        async def indexar_vault_semantico(ctx, forzar: bool = False) -> str:
-            """
-            Actualiza el índice semántico del vault. Realiza un rastreo de todas las
-            notas para que las nuevas búsquedas semánticas estén actualizadas.
-
-            Args:
-                forzar: Si es True, borra el índice anterior y lo crea desde cero.
-            """
-            # pylint: disable-next=import-outside-toplevel
+        @register_tool(mcp, "index_vault_semantic")
+        async def index_vault_semantic(ctx, force: bool = False) -> str:
+            """Update the legacy semantic index for the vault."""
             from .semantic_logic import index_semantic_vault
 
             try:
-                await ctx.report_progress(0, 1, "Indexando vault semántico...")
-                result = await asyncio.to_thread(index_semantic_vault, forzar)
-                await ctx.report_progress(1, 1, "Indexación completada")
+                await ctx.report_progress(0, 1, "Indexing semantic vault...")
+                result = await asyncio.to_thread(index_semantic_vault, force)
+                await ctx.report_progress(1, 1, "Semantic indexing complete")
                 return result.to_display()
             except Exception as e:  # pylint: disable=broad-exception-caught
-                return f"❌ Error al actualizar el índice: {e}"
+                return f"Error updating semantic index: {e}"
 
-        @mcp.tool()
-        async def encontrar_conexiones_sugeridas(
+        @register_tool(mcp, "suggest_semantic_connections")
+        async def suggest_semantic_connections(
             threshold: float = 0.70,
-            limite: int = 5,
-            carpetas_incluir: Optional[list[str]] = None,
-            excluir_mocs: bool = True,
-            min_palabras: int = 150,
+            limit: int = 5,
+            include_folders: Optional[list[str]] = None,
+            exclude_mocs: bool = True,
+            min_words: int = 150,
         ) -> str:
-            """
-            Analiza el vault para encontrar notas que tratan temas muy similares
-            pero que NO están enlazadas entre sí.
-
-            Args:
-                threshold: Nivel de similitud mínima (0.7 a 1.0). Default 0.82.
-                limite: Máximo de sugerencias.
-                carpetas_incluir: Lista de carpetas donde buscar (e.g. ["03_Notas"]).
-                                  Si se omite, busca en todo excepto exclusiones.
-                excluir_mocs: Ignorar MOC, Home, Inbox y sistema. (Default: True).
-                min_palabras: Ignorar notas con menos de X palabras. (Default: 150).
-            """
-            # pylint: disable-next=import-outside-toplevel
+            """Find semantically similar notes that are not linked together."""
             from .semantic_logic import find_suggested_connections
 
             try:
                 return find_suggested_connections(
-                    threshold, limite, carpetas_incluir, excluir_mocs, min_palabras
+                    threshold,
+                    limit,
+                    include_folders,
+                    exclude_mocs,
+                    min_words,
                 ).to_display()
             except ValueError as e:
-                return f"❌ Error al buscar conexiones: {e}"
+                return f"Error finding semantic connections: {e}"
 
-        logger.info("✅ Herramientas semánticas registradas correctamente")
+        logger.info("Legacy semantic tools registered")
 
     except ImportError:
         logger.warning(
-            "⚠️ Herramientas semánticas omitidas: Instala dependencias con "
-            "'pip install obsidian-mcp-server[rag]'"
+            "Legacy semantic tools omitted: install optional RAG dependencies "
+            "or use the ObsidianRAG integration."
         )
-
-
-def _enabled_prompt_sets() -> set[str]:
-    vault_path = get_vault_path()
-    if not vault_path:
-        return set()
-    config = get_vault_config(vault_path)
-    if not config:
-        return set()
-    return set(config.profile.prompt_sets)
-
-
-def register_agent_tools(_mcp: FastMCP) -> None:
-    # Placeholder for agent tools
-    pass

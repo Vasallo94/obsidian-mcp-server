@@ -43,8 +43,8 @@ SKILL_TEMPLATE = dedent("""
     {instructions}
 
     ## REGLA DE ORO DE EDICION
-    Cuando uses `editar_nota`, envia operaciones old->new:
-    - Lee la nota primero con `leer_nota`.
+    Cuando uses `patch_note`, envia operaciones old->new:
+    - Lee la nota primero con `read_note`.
     - old debe ser texto EXACTO de la nota (incluyendo saltos de linea).
     - old debe ser UNICO. Si aparece mas de una vez, incluye mas contexto.
     - Para reemplazo total: [{{"old": "", "new": "contenido completo"}}]
@@ -72,12 +72,12 @@ def generate_skill(
     """
     vault_path = get_vault_path()
     if not vault_path:
-        return Result.fail("La ruta del vault no está configurada.")
+        return Result.fail("Vault path is not configured.")
 
     # Validate name
     nombre_limpio = nombre.lower().strip().replace(" ", "-")
     if not nombre_limpio:
-        return Result.fail("El nombre de la skill no puede estar vacío.")
+        return Result.fail("Skill name cannot be empty.")
 
     # Check if skill already exists
     skills_path = vault_path / ".agents" / "skills"
@@ -86,8 +86,8 @@ def generate_skill(
 
     if skill_file.exists():
         return Result.fail(
-            f"Ya existe una skill llamada '{nombre_limpio}'. "
-            "Usa `editar_nota` para modificarla."
+            f"A skill named '{nombre_limpio}' already exists. "
+            "Use `patch_note` to modify it."
         )
 
     # Prepare template values
@@ -126,12 +126,12 @@ def generate_skill(
 
     return Result.ok(
         f"Skill creada: **{titulo}**\n"
-        f"📍 Ubicación: `.agents/skills/{nombre_limpio}/SKILL.md`\n\n"
-        "La skill ya está disponible. Usa `listar_agentes()` para verla."
+        f"Location: `.agents/skills/{nombre_limpio}/SKILL.md`\n\n"
+        "The skill is now available. Use `list_skills()` to see it."
     )
 
 
-def suggest_skills_for_vault() -> Result[str]:
+def suggest_skills_for_vault() -> Result[str]:  # pylint: disable=too-many-locals,too-many-branches,broad-exception-caught
     """Analyze vault and suggest personalized skills.
 
     Returns:
@@ -139,7 +139,7 @@ def suggest_skills_for_vault() -> Result[str]:
     """
     vault_path = get_vault_path()
     if not vault_path:
-        return Result.fail("La ruta del vault no está configurada.")
+        return Result.fail("Vault path is not configured.")
 
     # Collect statistics
     tag_counts: dict[str, int] = {}
@@ -188,7 +188,7 @@ def suggest_skills_for_vault() -> Result[str]:
                         ]
                         for tag in yaml_tags:
                             tag_counts[tag] = tag_counts.get(tag, 0) + 1
-        except Exception:  # nosec B112
+        except Exception:  # pylint: disable=broad-exception-caught # nosec B112
             continue
 
     # Analyze patterns and suggest skills
@@ -364,8 +364,8 @@ def sync_skills(actualizar: bool = False) -> Result[str]:
                 golden_rule = dedent("""
 
                     ## REGLA DE ORO DE EDICION
-                    Cuando uses `editar_nota`, envia operaciones old->new:
-                    - Lee la nota primero con `leer_nota`.
+                    Cuando uses `patch_note`, envia operaciones old->new:
+                    - Lee la nota primero con `read_note`.
                     - old debe ser texto EXACTO de la nota.
                     - old debe ser UNICO. Si aparece mas de una vez, incluye mas contexto.
                 """).strip()
@@ -386,9 +386,6 @@ def sync_skills(actualizar: bool = False) -> Result[str]:
     if actualizar and fixed:
         output += f"\n✅ Corregidas: {', '.join(fixed)}"
     elif not actualizar and any(i.get("fixable") for i in issues):
-        output += (
-            "\n💡 Ejecuta `sincronizar_skills(actualizar=True)` "
-            "para aplicar correcciones."
-        )
+        output += "\nRun `sync_skills(update=True)` to apply fixes."
 
     return Result.ok(output)

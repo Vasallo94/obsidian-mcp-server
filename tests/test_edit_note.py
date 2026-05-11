@@ -46,7 +46,9 @@ class TestEditNoteHappyPath:
     def test_single_replace(self, temp_vault, sample_note, monkeypatch):
         """Single old->new replacement."""
         _patch_vault(monkeypatch, temp_vault)
-        result = edit_note("test_note.md", [{"old": "First paragraph.", "new": "Updated paragraph."}])
+        result = edit_note(
+            "test_note.md", [{"old": "First paragraph.", "new": "Updated paragraph."}]
+        )
         assert result.success
         content = sample_note.read_text(encoding="utf-8")
         assert "Updated paragraph." in content
@@ -56,10 +58,13 @@ class TestEditNoteHappyPath:
     def test_multiple_operations(self, temp_vault, sample_note, monkeypatch):
         """Multiple operations applied atomically."""
         _patch_vault(monkeypatch, temp_vault)
-        result = edit_note("test_note.md", [
-            {"old": "First paragraph.", "new": "Replaced first."},
-            {"old": "Third paragraph.", "new": "Replaced third."},
-        ])
+        result = edit_note(
+            "test_note.md",
+            [
+                {"old": "First paragraph.", "new": "Replaced first."},
+                {"old": "Third paragraph.", "new": "Replaced third."},
+            ],
+        )
         assert result.success
         content = sample_note.read_text(encoding="utf-8")
         assert "Replaced first." in content
@@ -69,9 +74,15 @@ class TestEditNoteHappyPath:
     def test_insert_after_anchor(self, temp_vault, sample_note, monkeypatch):
         """Insert text after an anchor by including anchor in new."""
         _patch_vault(monkeypatch, temp_vault)
-        result = edit_note("test_note.md", [
-            {"old": "First paragraph.", "new": "First paragraph.\n\nInserted paragraph."},
-        ])
+        result = edit_note(
+            "test_note.md",
+            [
+                {
+                    "old": "First paragraph.",
+                    "new": "First paragraph.\n\nInserted paragraph.",
+                },
+            ],
+        )
         assert result.success
         content = sample_note.read_text(encoding="utf-8")
         assert "First paragraph.\n\nInserted paragraph." in content
@@ -79,9 +90,12 @@ class TestEditNoteHappyPath:
     def test_delete_fragment(self, temp_vault, sample_note, monkeypatch):
         """Delete a fragment by setting new to empty string."""
         _patch_vault(monkeypatch, temp_vault)
-        result = edit_note("test_note.md", [
-            {"old": "Second paragraph.\n\n", "new": ""},
-        ])
+        result = edit_note(
+            "test_note.md",
+            [
+                {"old": "Second paragraph.\n\n", "new": ""},
+            ],
+        )
         assert result.success
         content = sample_note.read_text(encoding="utf-8")
         assert "Second paragraph." not in content
@@ -99,9 +113,12 @@ class TestEditNoteHappyPath:
     def test_noop_old_equals_new(self, temp_vault, sample_note, monkeypatch):
         """old == new is accepted silently as a no-op."""
         _patch_vault(monkeypatch, temp_vault)
-        result = edit_note("test_note.md", [
-            {"old": "First paragraph.", "new": "First paragraph."},
-        ])
+        result = edit_note(
+            "test_note.md",
+            [
+                {"old": "First paragraph.", "new": "First paragraph."},
+            ],
+        )
         assert result.success
         content = sample_note.read_text(encoding="utf-8")
         assert "First paragraph." in content
@@ -116,17 +133,22 @@ class TestEditNoteHappyPath:
     def test_success_message_format(self, temp_vault, sample_note, monkeypatch):
         """Success message includes operation count."""
         _patch_vault(monkeypatch, temp_vault)
-        result = edit_note("test_note.md", [
-            {"old": "First paragraph.", "new": "A."},
-            {"old": "Third paragraph.", "new": "B."},
-        ])
+        result = edit_note(
+            "test_note.md",
+            [
+                {"old": "First paragraph.", "new": "A."},
+                {"old": "Third paragraph.", "new": "B."},
+            ],
+        )
         assert result.success
         assert "2 operaciones" in result.data
 
     def test_full_replace_message(self, temp_vault, sample_note, monkeypatch):
         """Full replace success message says 'reemplazo total'."""
         _patch_vault(monkeypatch, temp_vault)
-        result = edit_note("test_note.md", [{"old": "", "new": "---\ntitle: X\n---\n\nBody\n"}])
+        result = edit_note(
+            "test_note.md", [{"old": "", "new": "---\ntitle: X\n---\n\nBody\n"}]
+        )
         assert result.success
         assert "reemplazo total" in result.data
 
@@ -162,10 +184,13 @@ class TestEditNoteAtomicFailure:
         """Fail if two operations affect overlapping text."""
         _patch_vault(monkeypatch, temp_vault)
         original = sample_note.read_text(encoding="utf-8")
-        result = edit_note("test_note.md", [
-            {"old": "First paragraph.\n\nSecond", "new": "A"},
-            {"old": "Second paragraph.", "new": "B"},
-        ])
+        result = edit_note(
+            "test_note.md",
+            [
+                {"old": "First paragraph.\n\nSecond", "new": "A"},
+                {"old": "Second paragraph.", "new": "B"},
+            ],
+        )
         assert not result.success
         assert "mismo fragmento" in result.error
         assert sample_note.read_text(encoding="utf-8") == original
@@ -174,10 +199,13 @@ class TestEditNoteAtomicFailure:
         """Fail if full-replace (old='') is combined with other operations."""
         _patch_vault(monkeypatch, temp_vault)
         original = sample_note.read_text(encoding="utf-8")
-        result = edit_note("test_note.md", [
-            {"old": "", "new": "full content"},
-            {"old": "First paragraph.", "new": "x"},
-        ])
+        result = edit_note(
+            "test_note.md",
+            [
+                {"old": "", "new": "full content"},
+                {"old": "First paragraph.", "new": "x"},
+            ],
+        )
         assert not result.success
         assert "unica operacion" in result.error
         assert sample_note.read_text(encoding="utf-8") == original
@@ -210,10 +238,13 @@ class TestEditNoteAtomicFailure:
         """If one op in a batch fails, no ops are applied."""
         _patch_vault(monkeypatch, temp_vault)
         original = sample_note.read_text(encoding="utf-8")
-        result = edit_note("test_note.md", [
-            {"old": "First paragraph.", "new": "Changed."},  # would succeed
-            {"old": "nonexistent text", "new": "x"},  # fails
-        ])
+        result = edit_note(
+            "test_note.md",
+            [
+                {"old": "First paragraph.", "new": "Changed."},  # would succeed
+                {"old": "nonexistent text", "new": "x"},  # fails
+            ],
+        )
         assert not result.success
         assert sample_note.read_text(encoding="utf-8") == original  # nothing changed
 
@@ -245,7 +276,9 @@ class TestEditNoteEdgeCases:
         note = temp_vault / "empty.md"
         note.write_text("", encoding="utf-8")
         _patch_vault(monkeypatch, temp_vault)
-        result = edit_note("empty.md", [{"old": "", "new": "---\ntitle: New\n---\n\nContent\n"}])
+        result = edit_note(
+            "empty.md", [{"old": "", "new": "---\ntitle: New\n---\n\nContent\n"}]
+        )
         assert result.success
         assert "Content" in note.read_text(encoding="utf-8")
 
@@ -266,9 +299,12 @@ class TestEditNoteEdgeCases:
             encoding="utf-8",
         )
         _patch_vault(monkeypatch, temp_vault)
-        result = edit_note("fm_edit.md", [
-            {"old": "title: Old Title", "new": "title: New Title"},
-        ])
+        result = edit_note(
+            "fm_edit.md",
+            [
+                {"old": "title: Old Title", "new": "title: New Title"},
+            ],
+        )
         assert result.success
         content = note.read_text(encoding="utf-8")
         assert "title: New Title" in content
@@ -282,9 +318,12 @@ class TestEditNoteEdgeCases:
             encoding="utf-8",
         )
         _patch_vault(monkeypatch, temp_vault)
-        result = edit_note("fm.md", [
-            {"old": "updated: 2026-01-01", "new": "updated: 2099-12-31"},
-        ])
+        result = edit_note(
+            "fm.md",
+            [
+                {"old": "updated: 2026-01-01", "new": "updated: 2099-12-31"},
+            ],
+        )
         assert result.success
         content = note.read_text(encoding="utf-8")
         assert "updated: 2099-12-31" in content

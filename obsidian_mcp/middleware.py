@@ -168,17 +168,15 @@ def _check_allowed_values(rule: dict[str, Any], fm: dict[str, Any]) -> str | Non
 
 # --- Response Enrichment ---
 
-CONTENT_CREATION_TOOLS = frozenset(
-    {"crear_nota", "agregar_a_nota", "agregar_en_seccion"}
-)
+CONTENT_CREATION_TOOLS = frozenset({"create_note", "append_to_note"})
 
 TOOL_MODE_MAP: dict[str, str] = {
-    "crear_nota": "create",
-    "captura_rapida": "create",
-    "agregar_a_nota": "append",
-    "agregar_en_seccion": "append",
-    "editar_nota": "edit",
-    "actualizar_frontmatter": "edit",
+    "create_note": "create",
+    "quick_capture": "create",
+    "append_to_note": "append",
+    "patch_note": "edit",
+    "replace_note": "edit",
+    "update_frontmatter": "edit",
 }
 
 

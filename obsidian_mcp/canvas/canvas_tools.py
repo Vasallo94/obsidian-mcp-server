@@ -8,6 +8,7 @@ No workflow assumptions — these tools work with any canvas
 
 from fastmcp import FastMCP
 
+from ..tools.registry import register_tool
 from ..utils import get_logger
 from .canvas_logic import (
     add_canvas_edge,
@@ -26,7 +27,7 @@ logger = get_logger(__name__)
 def register_canvas_tools(mcp: FastMCP) -> None:
     """Register generic canvas tools with the MCP server."""
 
-    @mcp.tool()
+    @register_tool(mcp, "canvas_read")
     def canvas_read(canvas_path: str) -> str:
         """Read a canvas file and return a human-readable summary of its nodes, edges, and groups.
 
@@ -41,7 +42,7 @@ def register_canvas_tools(mcp: FastMCP) -> None:
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error reading canvas: {e}"
 
-    @mcp.tool()
+    @register_tool(mcp, "canvas_list")
     def canvas_list(folder: str = "") -> str:
         """List all .canvas files in the vault or in a specific folder.
 
@@ -56,7 +57,7 @@ def register_canvas_tools(mcp: FastMCP) -> None:
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error listing canvases: {e}"
 
-    @mcp.tool()
+    @register_tool(mcp, "canvas_add_card")
     def canvas_add_card(
         canvas_path: str,
         text: str,
@@ -83,7 +84,7 @@ def register_canvas_tools(mcp: FastMCP) -> None:
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error adding card: {e}"
 
-    @mcp.tool()
+    @register_tool(mcp, "canvas_add_group")
     def canvas_add_group(canvas_path: str, label: str) -> str:
         """Create a new group/area in a canvas file.
 
@@ -99,7 +100,7 @@ def register_canvas_tools(mcp: FastMCP) -> None:
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error adding group: {e}"
 
-    @mcp.tool()
+    @register_tool(mcp, "canvas_add_edge")
     def canvas_add_edge(
         canvas_path: str,
         from_id: str,
@@ -122,7 +123,7 @@ def register_canvas_tools(mcp: FastMCP) -> None:
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error adding edge: {e}"
 
-    @mcp.tool()
+    @register_tool(mcp, "canvas_update_card")
     def canvas_update_card(
         canvas_path: str,
         node_id: str,
@@ -145,7 +146,7 @@ def register_canvas_tools(mcp: FastMCP) -> None:
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error updating card: {e}"
 
-    @mcp.tool()
+    @register_tool(mcp, "canvas_remove_card")
     def canvas_remove_card(canvas_path: str, node_id: str) -> str:
         """Delete a card and all its connected edges from a canvas.
 
@@ -161,7 +162,7 @@ def register_canvas_tools(mcp: FastMCP) -> None:
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error removing card: {e}"
 
-    @mcp.tool()
+    @register_tool(mcp, "canvas_remove_edge")
     def canvas_remove_edge(canvas_path: str, edge_id: str) -> str:
         """Delete a connection between two nodes.
 

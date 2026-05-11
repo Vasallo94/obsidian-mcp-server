@@ -55,6 +55,10 @@ class VaultProfileConfig(BaseModel):
         default_factory=list,
         description="Enabled prompt sets or individual profile prompts",
     )
+    tool_sets: list[str] = Field(
+        default_factory=list,
+        description="Enabled optional MCP tool sets",
+    )
     standards: dict[str, str] = Field(
         default_factory=dict,
         description="Named standard documents exposed as MCP resources",

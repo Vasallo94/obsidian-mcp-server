@@ -1,76 +1,49 @@
-"""
-Herramientas de contexto para el vault de Obsidian.
-
-Estas herramientas permiten al agente entender la estructura y organización
-del vault para tomar mejores decisiones sobre dónde guardar notas y qué etiquetas usar.
-"""
+"""MCP context and routing tools for the active Obsidian vault."""
 
 from fastmcp import FastMCP
 
 from .context_logic import (
     build_vault_health_report,
     diagnose_vault_setup_report,
-    read_vault_context,
     route_task_request,
 )
+from .context_logic import (
+    read_vault_context as read_vault_context_logic,
+)
+from .registry import register_tool
 
 
 def register_context_tools(mcp: FastMCP) -> None:
-    """
-    Registra las herramientas de contexto en el servidor MCP.
-    """
+    """Register vault context tools."""
 
-    @mcp.tool()
-    def leer_contexto_vault() -> str:
-        """
-        Lee la estructura general del vault y estadísticas clave.
-
-        ⚠️ OBLIGATORIO PARA AGENTES DE IA: ⚠️
-        Esta debe ser SIEMPRE la PRIMERA herramienta que ejecutes al comenzar
-        cualquier tarea con el vault. Te informa de:
-        1. Estructura de carpetas válida.
-        2. Plantillas disponibles.
-        3. Estado de la configuración de Agentes (.agents).
-
-        Devuelve un resumen de carpetas, plantillas y etiquetas comunes.
-        """
+    @register_tool(mcp, "read_vault_context")
+    def read_vault_context() -> str:
+        """Read the vault structure, templates, and common metadata."""
         try:
-            return read_vault_context().to_display()
+            return read_vault_context_logic().to_display()
         except Exception as e:  # pylint: disable=broad-exception-caught
-            return f"❌ Error al leer contexto: {e}"
+            return f"Error reading vault context: {e}"
 
-    @mcp.tool()
+    @register_tool(mcp, "health_check")
     def health_check() -> str:
-        """
-        Validate the active vault and MCP profile configuration.
-
-        Checks vault path, .agents/vault.yaml, templates, skills, standards,
-        and local docs declared by the active profile.
-        """
+        """Validate the active vault and MCP profile configuration."""
         try:
             return build_vault_health_report().to_display()
         except Exception as e:  # pylint: disable=broad-exception-caught
-            return f"❌ Error running health check: {e}"
+            return f"Error running health check: {e}"
 
-    @mcp.tool()
+    @register_tool(mcp, "diagnose_vault_setup")
     def diagnose_vault_setup() -> str:
-        """
-        Diagnose vault setup issues and return actionable recommendations.
-        """
+        """Diagnose vault setup issues and return actionable recommendations."""
         try:
             return diagnose_vault_setup_report().to_display()
         except Exception as e:  # pylint: disable=broad-exception-caught
-            return f"❌ Error diagnosing vault setup: {e}"
+            return f"Error diagnosing vault setup: {e}"
 
-    @mcp.tool()
+    @register_tool(mcp, "route_task")
     def route_task(request: str) -> str:
-        """
-        Recommend which prompt, skill, resources, and tools to use for a task.
-
-        Args:
-            request: User request or task description to route.
-        """
+        """Recommend prompts, skills, resources, and tools for a task."""
         try:
             return route_task_request(request).to_display()
         except Exception as e:  # pylint: disable=broad-exception-caught
-            return f"❌ Error routing task: {e}"
+            return f"Error routing task: {e}"

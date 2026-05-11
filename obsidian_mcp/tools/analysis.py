@@ -1,106 +1,84 @@
-"""
-Herramientas de análisis y estadísticas para el vault de Obsidian.
-
-Estas herramientas permiten generar estadísticas y análisis del vault,
-facilitando la gestión y organización desde un cliente MCP.
-"""
+"""MCP vault analysis tools."""
 
 from fastmcp import FastMCP
 
 from .analysis_logic import (
-    analyze_links,
-    analyze_tags,
-    get_canonical_tags,
-    get_recent_activity,
-    get_vault_stats,
-    list_all_tags,
-    sync_tag_registry,
+    analyze_links as analyze_links_logic,
 )
+from .analysis_logic import (
+    analyze_tags as analyze_tags_logic,
+)
+from .analysis_logic import (
+    get_canonical_tags as get_canonical_tags_logic,
+)
+from .analysis_logic import (
+    get_recent_activity,
+    list_all_tags,
+)
+from .analysis_logic import (
+    get_vault_stats as get_vault_stats_logic,
+)
+from .analysis_logic import (
+    sync_tag_registry as sync_tag_registry_logic,
+)
+from .registry import register_tool
 
 
 def register_analysis_tools(mcp: FastMCP) -> None:
-    """
-    Registra todas las herramientas de análisis en el servidor MCP.
+    """Register vault analysis tools."""
 
-    Args:
-        mcp: Instancia del servidor FastMCP.
-    """
-
-    @mcp.tool()
-    def estadisticas_vault() -> str:
-        """Genera estadísticas completas del vault de Obsidian"""
+    @register_tool(mcp, "get_vault_stats")
+    def get_vault_stats() -> str:
+        """Generate vault statistics."""
         try:
-            return get_vault_stats().to_display()
+            return get_vault_stats_logic().to_display()
         except (OSError, ValueError) as e:
-            return f"Error al generar estadísticas: {e}"
+            return f"Error generating vault stats: {e}"
 
-    @mcp.tool()
-    def obtener_tags_canonicas() -> str:
-        """
-        Obtiene la lista de tags oficiales/canónicas definidas en el
-        archivo 'Registro de Tags del Vault.md'.
-
-        Returns:
-            Lista de tags categorizadas según el registro oficial.
-        """
+    @register_tool(mcp, "get_canonical_tags")
+    def get_canonical_tags() -> str:
+        """Read the canonical tag registry."""
         try:
-            return get_canonical_tags().to_display()
+            return get_canonical_tags_logic().to_display()
         except (OSError, ValueError) as e:
-            return f"Error al obtener tags canónicas: {e}"
+            return f"Error reading canonical tags: {e}"
 
-    @mcp.tool()
-    def analizar_etiquetas() -> str:
-        """Analiza el uso de etiquetas en el vault."""
+    @register_tool(mcp, "analyze_tags")
+    def analyze_tags() -> str:
+        """Analyze tag usage in the vault."""
         try:
-            return analyze_tags().to_display()
+            return analyze_tags_logic().to_display()
         except (OSError, ValueError) as e:
-            return f"Error al analizar etiquetas: {e}"
+            return f"Error analyzing tags: {e}"
 
-    @mcp.tool()
-    def sincronizar_registro_tags(actualizar: bool = False) -> str:
-        """
-        Sincroniza el uso de tags en el vault con el registro oficial.
-
-        Args:
-            actualizar: Si es True, intenta actualizar la tabla de
-                       estadísticas en el archivo de registro.
-        """
+    @register_tool(mcp, "sync_tag_registry")
+    def sync_tag_registry(update: bool = False) -> str:
+        """Sync vault tag usage with the canonical tag registry."""
         try:
-            return sync_tag_registry(actualizar).to_display()
+            return sync_tag_registry_logic(update).to_display()
         except (OSError, ValueError) as e:
-            return f"Error en sincronización: {e}"
+            return f"Error syncing tag registry: {e}"
 
-    @mcp.tool()
-    def obtener_lista_etiquetas() -> str:
-        """
-        Obtiene una lista simple de las etiquetas existentes en el vault.
-        Útil para ver qué etiquetas ya existen antes de crear nuevas.
-
-        Returns:
-            Lista de etiquetas formateada como string.
-        """
+    @register_tool(mcp, "list_tags")
+    def list_tags() -> str:
+        """List all tags currently used in the vault."""
         try:
             return list_all_tags().to_display()
         except (OSError, ValueError) as e:
-            return f"Error al obtener lista de etiquetas: {e}"
+            return f"Error listing tags: {e}"
 
-    @mcp.tool()
-    def analizar_enlaces() -> str:
-        """Analiza los enlaces internos en el vault"""
+    @register_tool(mcp, "analyze_links")
+    def analyze_links() -> str:
+        """Analyze internal links in the vault."""
         try:
-            return analyze_links().to_display()
+            return analyze_links_logic().to_display()
         except (OSError, ValueError) as e:
-            return f"Error al analizar enlaces: {e}"
+            return f"Error analyzing links: {e}"
 
-    @mcp.tool()
-    def resumen_actividad_reciente(dias: int = 7) -> str:
-        """
-        Genera un resumen de la actividad reciente en el vault
-
-        Args:
-            dias: Número de días hacia atrás para analizar (por defecto 7)
-        """
+    @register_tool(mcp, "summarize_recent_activity")
+    def summarize_recent_activity(days: int = 7) -> str:
+        """Summarize recent vault activity."""
         try:
-            return get_recent_activity(dias).to_display()
+            return get_recent_activity(days).to_display()
         except (OSError, ValueError) as e:
-            return f"Error al generar resumen de actividad: {e}"
+            return f"Error summarizing recent activity: {e}"

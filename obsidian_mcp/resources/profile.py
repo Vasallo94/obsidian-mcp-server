@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 from fastmcp import FastMCP
 
@@ -13,6 +14,7 @@ from ..tools.obsidianrag import (
     build_obsidianrag_config_resource,
     build_obsidianrag_setup_resource,
 )
+from ..tools.registry import available_tool_sets, enabled_tool_sets
 from ..utils.security import check_path_access
 from ..vault_config import get_vault_config
 
@@ -34,7 +36,7 @@ def register_profile_resources(mcp: FastMCP) -> None:
                 if result.success and result.data
             )
 
-        payload = {
+        payload: dict[str, Any] = {
             "core_prompts": [
                 "assistant_overview",
                 "create_structured_note",
@@ -43,7 +45,11 @@ def register_profile_resources(mcp: FastMCP) -> None:
             ],
             "optional_prompt_packs": {
                 "enabled": profile.prompt_sets if profile else [],
-                "available": ["mermaid", "obsidianrag", "legacy_semantic"],
+                "available": ["mermaid"],
+            },
+            "tool_sets": {
+                "enabled": sorted(enabled_tool_sets()),
+                "available": sorted(available_tool_sets()),
             },
             "profile": {
                 "name": profile.name if profile else None,
@@ -63,11 +69,11 @@ def register_profile_resources(mcp: FastMCP) -> None:
             "diagnostics": ["health_check", "diagnose_vault_setup", "route_task"],
             "obsidianrag_tools": (
                 ["rag_setup_status", "rag_health", "ask_vault", "rebuild_rag_index"]
-                if profile and "obsidianrag" in profile.prompt_sets
+                if _is_tool_set_enabled("obsidianrag")
                 else []
             ),
         }
-        if profile and "obsidianrag" in profile.prompt_sets:
+        if _is_tool_set_enabled("obsidianrag"):
             payload["resources"].extend(
                 [
                     "obsidian://integrations/obsidianrag/setup",
@@ -89,6 +95,7 @@ def register_profile_resources(mcp: FastMCP) -> None:
             "vault": vault_path.name,
             "profile": profile.name if profile else None,
             "prompt_sets": profile.prompt_sets if profile else [],
+            "tool_sets": sorted(enabled_tool_sets()),
             "standards": sorted(profile.standards) if profile else [],
             "local_docs": sorted(profile.local_docs) if profile else [],
             "integrations": sorted(profile.integrations) if profile else [],
@@ -191,7 +198,7 @@ def register_profile_resources(mcp: FastMCP) -> None:
             vault_path, config.profile.local_docs[name], "Local doc"
         )
 
-    if _is_prompt_set_enabled("obsidianrag"):
+    if _is_tool_set_enabled("obsidianrag"):
 
         @mcp.resource("obsidian://integrations/obsidianrag/setup")
         def obsidianrag_setup_resource() -> str:
@@ -215,12 +222,8 @@ def _read_declared_file(vault_path: Path, relative_value: str, label: str) -> st
     return target_path.read_text(encoding="utf-8")
 
 
-def _is_prompt_set_enabled(prompt_set: str) -> bool:
-    vault_path = get_vault_path()
-    if not vault_path:
-        return False
-    config = get_vault_config(vault_path)
-    return bool(config and prompt_set in config.profile.prompt_sets)
+def _is_tool_set_enabled(tool_set: str) -> bool:
+    return tool_set in enabled_tool_sets()
 
 
 def _extract_skill_section(body: str, headings: list[str]) -> list[str]:

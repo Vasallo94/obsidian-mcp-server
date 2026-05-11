@@ -13,6 +13,7 @@ from ..result import Result
 from ..utils import extract_tags_from_content, get_logger
 from ..vault_config import VaultConfig, get_vault_config
 from .agents_logic import get_cached_skills
+from .registry import enabled_tool_sets
 
 logger = get_logger(__name__)
 
@@ -291,7 +292,7 @@ def diagnose_vault_setup_report() -> Result[str]:
                 )
             elif "invalid_skills_found" in line:
                 recommendations.append(
-                    "Run `sincronizar_skills(actualizar=False)` to inspect invalid skills."
+                    "Run `sync_skills(update=False)` to inspect invalid skills."
                 )
             elif "standard:" in line:
                 recommendations.append(
@@ -321,6 +322,7 @@ def route_task_request(request: str) -> Result[str]:
 
         config = get_vault_config(vault_path)
         prompt_sets = set(config.profile.prompt_sets) if config else set()
+        tool_sets = enabled_tool_sets()
         standards = set(config.profile.standards) if config else set()
         integrations = set(config.profile.integrations) if config else set()
         skills = {
@@ -334,6 +336,7 @@ def route_task_request(request: str) -> Result[str]:
             skills=skills,
             standards=standards,
             prompt_sets=prompt_sets,
+            tool_sets=tool_sets,
             integrations=integrations,
         )
 
@@ -399,6 +402,7 @@ def _infer_route(
     skills: set[str],
     standards: set[str],
     prompt_sets: set[str],
+    tool_sets: set[str],
     integrations: set[str],
 ) -> TaskRoute:
     text = request.casefold()
@@ -425,7 +429,7 @@ def _infer_route(
         notes = (
             "Use text search and note reading unless an external RAG pack is enabled."
         )
-        if "obsidianrag" in integrations or "obsidianrag" in prompt_sets:
+        if "obsidianrag" in integrations or "obsidianrag" in tool_sets:
             tools.extend(["rag_health", "ask_vault", "ObsidianRAG"])
             notes = (
                 "Use ObsidianRAG for natural-language vault QA. Run `rag_health` first; "
@@ -476,7 +480,7 @@ def _infer_route(
         return _route(
             "create_moc",
             "explorador" if "explorador" in skills else "none",
-            ["obsidian://skills/explorador", "obtener_grafo_local"],
+            ["obsidian://skills/explorador", "get_local_graph"],
             [
                 "Read the explorer skill.",
                 "Find relevant notes and graph context.",
@@ -521,7 +525,7 @@ def _infer_route(
     return _route(
         "assistant_overview",
         "none",
-        ["obsidian://capabilities", "leer_contexto_vault"],
+        ["obsidian://capabilities", "read_vault_context"],
         [
             "Read capabilities.",
             "Read vault context.",

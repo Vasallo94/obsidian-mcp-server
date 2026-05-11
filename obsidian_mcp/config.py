@@ -1,9 +1,4 @@
-"""
-Configuración centralizada usando Pydantic Settings.
-
-Este módulo carga la configuración desde variables de entorno y archivos .env,
-proporcionando validación tipada y valores por defecto sensatos.
-"""
+"""Centralized Pydantic settings for the MCP server."""
 
 from pathlib import Path
 from typing import Optional, Tuple
@@ -84,13 +79,14 @@ class AppSettings(BaseSettings):
 
 
 # Singleton instances for caching
+# pylint: disable=invalid-name
 _vault_settings: Optional[VaultSettings] = None
 _app_settings: Optional[AppSettings] = None
 
 
 def get_vault_settings() -> VaultSettings:
     """Get or create VaultSettings singleton."""
-    global _vault_settings
+    global _vault_settings  # pylint: disable=global-statement
     if _vault_settings is None:
         _vault_settings = VaultSettings()
     return _vault_settings
@@ -98,7 +94,7 @@ def get_vault_settings() -> VaultSettings:
 
 def get_app_settings() -> AppSettings:
     """Get or create AppSettings singleton."""
-    global _app_settings
+    global _app_settings  # pylint: disable=global-statement
     if _app_settings is None:
         _app_settings = AppSettings()
     return _app_settings
@@ -106,7 +102,7 @@ def get_app_settings() -> AppSettings:
 
 def reset_settings() -> None:
     """Reset settings singletons (useful for testing)."""
-    global _vault_settings, _app_settings
+    global _vault_settings, _app_settings  # pylint: disable=global-statement
     _vault_settings = None
     _app_settings = None
 
@@ -121,50 +117,31 @@ PROMPT_LIBRARY_DIR: str = "Prompt Library"
 
 
 def get_vault_path() -> Optional[Path]:
-    """
-    Obtiene la ruta al vault de Obsidian desde la configuración.
-
-    Returns:
-        Un objeto Path si está definido, de lo contrario None.
-    """
+    """Return the configured Obsidian vault path."""
     return get_vault_settings().vault_path
 
 
 def validate_vault_path(vault_path: Optional[Path]) -> Tuple[bool, str]:
-    """
-    Valida que la ruta del vault de Obsidian sea válida.
-
-    Args:
-        vault_path: La ruta al vault a validar.
-
-    Returns:
-        Una tupla con un booleano indicando si la validación fue exitosa
-        y un mensaje de error si no lo fue.
-    """
+    """Validate that the configured vault path exists and is a directory."""
     if not vault_path:
         return (
             False,
-            "La variable de entorno OBSIDIAN_VAULT_PATH no está definida.",
+            "OBSIDIAN_VAULT_PATH is not set.",
         )
     if not vault_path.exists():
         return (
             False,
-            f"La ruta del vault especificada no existe: {vault_path}",
+            f"The configured vault path does not exist: {vault_path}",
         )
     if not vault_path.is_dir():
         return (
             False,
-            f"La ruta del vault especificada no es un directorio: {vault_path}",
+            f"The configured vault path is not a directory: {vault_path}",
         )
     return True, ""
 
 
 def validate_configuration() -> Tuple[bool, str]:
-    """
-    Valida toda la configuración de la aplicación.
-
-    Returns:
-        Una tupla con un booleano (éxito) y un mensaje de error (si falla).
-    """
+    """Validate application configuration."""
     vault_path = get_vault_path()
     return validate_vault_path(vault_path)

@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "obsidian-mcp-server"
 version = "1.0.0"
-description = "Servidor MCP para interactuar con tu vault de Obsidian desde Claude"
+description = "MCP server for working with Obsidian vaults"
 readme = "README.md"
 requires-python = ">=3.11"
 keywords = ["obsidian", "mcp", "claude", "knowledge-management", "notes"]
@@ -92,7 +92,18 @@ python_files = ["test_*.py"]
 addopts = "-v"
 
 [[tool.mypy.overrides]]
-module = ["chromadb", "langchain", "numpy"]
+module = [
+    "chromadb",
+    "langchain",
+    "langchain_chroma",
+    "langchain_classic.*",
+    "langchain_community.*",
+    "langchain_core.*",
+    "langchain_huggingface",
+    "langchain_ollama",
+    "langchain_text_splitters",
+    "numpy",
+]
 ignore_missing_imports = true
 
 [tool.pyright]
