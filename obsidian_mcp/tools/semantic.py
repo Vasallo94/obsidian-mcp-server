@@ -8,15 +8,24 @@ from typing import Any, Dict, Optional
 
 from fastmcp import FastMCP
 
+from ..config import get_vault_path
 from ..utils import get_logger
+from ..vault_config import get_vault_config
 
 logger = get_logger(__name__)
 
 
 def register_semantic_tools(mcp: FastMCP) -> None:
     """
-    Registers the semantic RAG tools if the required dependencies are available.
+    Registers legacy in-process semantic RAG tools only when explicitly enabled.
     """
+    if "legacy_semantic" not in _enabled_prompt_sets():
+        logger.info(
+            "Legacy semantic tools omitted. Enable prompt set 'legacy_semantic' "
+            "or use the ObsidianRAG pack for RAG."
+        )
+        return
+
     try:
         # Check for core dependencies locally to decide whether to register
         # pylint: disable-next=import-outside-toplevel,unused-import
@@ -103,6 +112,16 @@ def register_semantic_tools(mcp: FastMCP) -> None:
             "⚠️ Herramientas semánticas omitidas: Instala dependencias con "
             "'pip install obsidian-mcp-server[rag]'"
         )
+
+
+def _enabled_prompt_sets() -> set[str]:
+    vault_path = get_vault_path()
+    if not vault_path:
+        return set()
+    config = get_vault_config(vault_path)
+    if not config:
+        return set()
+    return set(config.profile.prompt_sets)
 
 
 def register_agent_tools(_mcp: FastMCP) -> None:

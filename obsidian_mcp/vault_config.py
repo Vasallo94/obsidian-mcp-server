@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import yaml
 from pydantic import BaseModel, Field
@@ -47,6 +47,28 @@ DEFAULT_EXCLUDED_PATTERNS: tuple[str, ...] = (
 )
 
 
+class VaultProfileConfig(BaseModel):
+    """Optional user/vault profile configuration."""
+
+    name: Optional[str] = Field(default=None, description="Profile identifier")
+    prompt_sets: list[str] = Field(
+        default_factory=list,
+        description="Enabled prompt sets or individual profile prompts",
+    )
+    standards: dict[str, str] = Field(
+        default_factory=dict,
+        description="Named standard documents exposed as MCP resources",
+    )
+    local_docs: dict[str, str] = Field(
+        default_factory=dict,
+        description="Named local documentation notes for this profile",
+    )
+    integrations: dict[str, dict[str, Any]] = Field(
+        default_factory=dict,
+        description="Named external integrations declared by this profile",
+    )
+
+
 class VaultConfig(BaseModel):
     """
     Minimal vault configuration schema.
@@ -69,6 +91,10 @@ class VaultConfig(BaseModel):
     excluded_patterns: list[str] = Field(
         default_factory=lambda: list(DEFAULT_EXCLUDED_PATTERNS),
         description="Regex patterns for files to exclude from search",
+    )
+    profile: VaultProfileConfig = Field(
+        default_factory=VaultProfileConfig,
+        description="Optional vault-specific profile configuration",
     )
 
 

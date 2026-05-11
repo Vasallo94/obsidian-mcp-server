@@ -8,6 +8,7 @@ from .context import register_context_tools
 from .creation import register_creation_tools
 from .graph import register_graph_tools
 from .navigation import register_navigation_tools
+from .obsidianrag import register_obsidianrag_tools
 from .semantic import register_semantic_tools
 from .youtube import register_youtube_tools
 
@@ -20,4 +21,5 @@ __all__ = [
     "register_context_tools",
     "register_agent_tools",
     "register_semantic_tools",
+    "register_obsidianrag_tools",
 ]

@@ -593,7 +593,7 @@ def init_project(
     if not resolved.success:
         return Result.fail(resolved.error)  # type: ignore[arg-type]
 
-    resolved_path = resolved.data  # type: ignore[assignment]
+    resolved_path = resolved.unwrap()
 
     if Path(resolved_path).exists():
         return Result.fail(f"Canvas already exists: {canvas_path}")

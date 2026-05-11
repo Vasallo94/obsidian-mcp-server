@@ -282,9 +282,7 @@ def delete_note(nombre_archivo: str, confirmar: bool = False) -> Result[str]:
     return Result.ok(f"Nota eliminada: {ruta_relativa}")
 
 
-def _update_frontmatter_date(
-    content: str, user_set_updated: bool = False
-) -> str:
+def _update_frontmatter_date(content: str, user_set_updated: bool = False) -> str:
     """Update the 'updated' field in frontmatter to today's date.
 
     Args:
@@ -323,8 +321,9 @@ def _update_frontmatter_date(
     return content.replace("\n---\n", f"\nupdated: {ahora}\n---\n", 1)
 
 
-def edit_note(
-    nombre_archivo: str, operaciones: list[dict[str, str]]
+def edit_note(  # pylint: disable=too-many-locals,too-many-return-statements,too-many-branches
+    nombre_archivo: str,
+    operaciones: list[dict[str, str]],
 ) -> Result[str]:
     """Edit an existing note by applying a list of old->new operations.
 
@@ -353,9 +352,7 @@ def edit_note(
         return Result.fail("Debe incluir al menos una operacion.")
 
     if len(operaciones) > 50:
-        return Result.fail(
-            "Maximo 50 operaciones por llamada."
-        )
+        return Result.fail("Maximo 50 operaciones por llamada.")
 
     with open(nota_path, "r", encoding="utf-8") as f:
         contenido_actual = f.read()
@@ -375,7 +372,9 @@ def edit_note(
             )
         contenido_final = _process_date_placeholders(op["new"])
         has_updated = bool(re.search(r"^updated:", op["new"], re.MULTILINE))
-        contenido_final = _update_frontmatter_date(contenido_final, user_set_updated=has_updated)
+        contenido_final = _update_frontmatter_date(
+            contenido_final, user_set_updated=has_updated
+        )
         with open(nota_path, "w", encoding="utf-8") as f:
             f.write(contenido_final)
         return Result.ok(f"Nota editada: {ruta_relativa} (reemplazo total)")
@@ -383,7 +382,7 @@ def edit_note(
     # --- Partial edit mode: validate all operations ---
     matches: list[tuple[int, int, str]] = []  # (start, end, new_text)
 
-    for i, op in enumerate(operaciones):
+    for op in operaciones:
         old_text = op["old"]
         new_text = op["new"]
 

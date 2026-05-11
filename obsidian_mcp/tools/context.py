@@ -7,7 +7,12 @@ del vault para tomar mejores decisiones sobre dónde guardar notas y qué etique
 
 from fastmcp import FastMCP
 
-from .context_logic import read_vault_context
+from .context_logic import (
+    build_vault_health_report,
+    diagnose_vault_setup_report,
+    read_vault_context,
+    route_task_request,
+)
 
 
 def register_context_tools(mcp: FastMCP) -> None:
@@ -33,3 +38,39 @@ def register_context_tools(mcp: FastMCP) -> None:
             return read_vault_context().to_display()
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"❌ Error al leer contexto: {e}"
+
+    @mcp.tool()
+    def health_check() -> str:
+        """
+        Validate the active vault and MCP profile configuration.
+
+        Checks vault path, .agents/vault.yaml, templates, skills, standards,
+        and local docs declared by the active profile.
+        """
+        try:
+            return build_vault_health_report().to_display()
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            return f"❌ Error running health check: {e}"
+
+    @mcp.tool()
+    def diagnose_vault_setup() -> str:
+        """
+        Diagnose vault setup issues and return actionable recommendations.
+        """
+        try:
+            return diagnose_vault_setup_report().to_display()
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            return f"❌ Error diagnosing vault setup: {e}"
+
+    @mcp.tool()
+    def route_task(request: str) -> str:
+        """
+        Recommend which prompt, skill, resources, and tools to use for a task.
+
+        Args:
+            request: User request or task description to route.
+        """
+        try:
+            return route_task_request(request).to_display()
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            return f"❌ Error routing task: {e}"
