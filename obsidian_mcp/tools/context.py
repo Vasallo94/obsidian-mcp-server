@@ -1,6 +1,9 @@
 """MCP context and routing tools for the active Obsidian vault."""
 
-from fastmcp import FastMCP
+import json
+from typing import Any
+
+from fastmcp import Context, FastMCP
 
 from .context_logic import (
     build_vault_health_report,
@@ -39,6 +42,34 @@ def register_context_tools(mcp: FastMCP) -> None:
             return diagnose_vault_setup_report().to_display()
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error diagnosing vault setup: {e}"
+
+    @register_tool(mcp, "list_client_roots")
+    async def list_client_roots(ctx: Context) -> str:
+        """List filesystem roots advertised by the connected MCP client."""
+        try:
+            roots = await ctx.list_roots()
+            payload: dict[str, Any] = {
+                "supported": True,
+                "roots": [
+                    {
+                        "uri": str(root.uri),
+                        "name": getattr(root, "name", None),
+                    }
+                    for root in roots
+                ],
+            }
+            return json.dumps(payload, ensure_ascii=False, indent=2)
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            payload = {
+                "supported": False,
+                "roots": [],
+                "error": str(e),
+                "hint": (
+                    "The connected client may not support MCP roots/list, or this "
+                    "tool was executed outside an active MCP client session."
+                ),
+            }
+            return json.dumps(payload, ensure_ascii=False, indent=2)
 
     @register_tool(mcp, "route_task")
     def route_task(request: str) -> str:

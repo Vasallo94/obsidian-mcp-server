@@ -66,7 +66,21 @@ def register_profile_resources(mcp: FastMCP) -> None:
                 "obsidian://standards/{name}",
                 "obsidian://local_docs/{name}",
             ],
-            "diagnostics": ["health_check", "diagnose_vault_setup", "route_task"],
+            "diagnostics": [
+                "health_check",
+                "diagnose_vault_setup",
+                "list_client_roots",
+                "route_task",
+            ],
+            "client_capabilities": {
+                "roots": {
+                    "tool": "list_client_roots",
+                    "purpose": (
+                        "Inspect roots advertised by the MCP client so agents can "
+                        "confirm workspace/vault access before setup work."
+                    ),
+                }
+            },
             "obsidianrag_tools": (
                 ["rag_setup_status", "rag_health", "ask_vault", "rebuild_rag_index"]
                 if _is_tool_set_enabled("obsidianrag")

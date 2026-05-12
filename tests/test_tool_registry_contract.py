@@ -18,6 +18,7 @@ def test_tool_sets_gate_optional_tools(tmp_path, monkeypatch):
     tool_names = {tool.name for tool in asyncio.run(mcp.list_tools())}
 
     assert "read_note" in tool_names
+    assert "list_client_roots" in tool_names
     assert "create_note" not in tool_names
     assert "get_vault_stats" not in tool_names
     assert "ask_vault" not in tool_names

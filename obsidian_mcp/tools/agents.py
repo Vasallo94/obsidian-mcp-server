@@ -21,11 +21,6 @@ from .registry import register_tool
 def register_agent_tools(mcp: FastMCP) -> None:
     """Register vault skill tools and resources."""
 
-    @mcp.resource("obsidian://skills/list")
-    def resource_list_skills() -> str:
-        """Return the list of skills available in the vault."""
-        return list_available_skills().to_display()
-
     @register_tool(mcp, "list_skills")
     def list_skills() -> str:
         """List skills available in the vault."""

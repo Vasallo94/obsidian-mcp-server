@@ -1,61 +1,91 @@
 # Tool Reference
 
-This guide details all the tools available in the Obsidian MCP server, organized by their functional domain.
+This guide lists the public MCP tools exposed by Obsidian MCP Server. Tool
+names and argument names are intentionally English, even when a vault profile
+contains local Spanish documentation.
 
-## Navigation and Inspection
-Tools to explore and read the vault's content.
+## Core Tools
 
-- **`listar_notas(carpeta, incluir_subcarpetas)`**: Returns a list of `.md` files. Allows filtering by subfolder.
-- **`leer_nota(nombre_archivo)`**: Returns the complete content of a note, including its YAML frontmatter.
-- **`buscar_en_notas(texto, carpeta, solo_titulos)`**: Performs a full-text search or title-only search.
-- **`buscar_notas_por_fecha(fecha_desde, fecha_hasta)`**: Finds notes modified within a time range.
-- **`leer_contexto_vault()`**: Provides a summary of the structure, common tags, and available templates.
+Always enabled.
 
-## Creation and Editing
-Tools to manipulate information.
+- `health_check()`: Validate the active vault and profile configuration.
+- `diagnose_vault_setup()`: Return actionable setup recommendations.
+- `list_client_roots()`: Inspect MCP client roots advertised through `roots/list`.
+- `route_task(request)`: Recommend prompts, skills, resources, and tools for a task.
+- `read_vault_context()`: Summarize folders, templates, common tags, and `.agents`.
+- `list_notes(folder, include_subfolders)`: List Markdown notes.
+- `read_note(note_path)`: Read one note, with path checks and output limits.
+- `search_notes(query, folder, titles_only)`: Search titles or Markdown content.
+- `search_notes_by_date(date_from, date_to)`: Find recently modified notes.
+- `read_notes(paths)`: Batch-read notes with a response-size guard.
+- `get_note_info(paths)`: Return metadata without full note content.
+- `list_templates()`: List available vault templates.
+- `get_frontmatter(note_path)`: Read YAML frontmatter.
+- `list_skills()`: List valid vault skills from `.agents/skills`.
+- `read_skill(name)`: Read a declared vault skill.
+- `get_global_rules()`: Read vault-level global agent rules.
 
-- **`crear_nota(titulo, contenido, carpeta, etiquetas, plantilla, agente_creador)`**: Creates a new note. Supports templates from the templates folder (auto-detected or configured in `vault.yaml`).
-- **`editar_nota(nombre_archivo, operaciones)`**: Edits a note by applying a list of `old->new` text operations. Atomic: all operations succeed or none are applied. Supports partial edits, insertions, deletions, and full replace.
-- **`agregar_a_nota(nombre_archivo, contenido, al_final)`**: Appends or prepends text to an existing note.
-- **`sugerir_ubicacion(titulo, contenido, etiquetas)`**: Suggests folders using **RAG semantic search**. Finds similar notes whose folders "vote" for the best location. Returns multiple candidates with confidence scores. See [Semantic Search](semantic-search.md#4-sugerir_ubicacion-folder-recommendation) for details.
-- **`mover_nota(origen, destino, crear_carpetas)`**: Renames or moves files, managing directory creation if necessary.
-- **`eliminar_nota(nombre_archivo, confirmar)`**: Deletes a note upon confirmation.
+## Optional Tool Sets
 
-## Analysis and Quality
-Tools to maintain vault consistency.
+Optional tools are enabled from `.agents/vault.yaml` with
+`profile.tool_sets`, or from `OBSIDIAN_MCP_TOOL_SETS`.
 
-- **`estadisticas_vault()`**: Detailed report on the number of notes, tags, links, and vault size.
-- **`obtener_tags_canonicas()`**: Reads allowed tags from the official registry file.
-- **`analizar_etiquetas()`**: Compares tags used in notes against the official ones.
-- **`sincronizar_registro_tags(actualizar)`**: Updates statistics in the tag registry file.
-- **`obtener_lista_etiquetas()`**: Simple list of all unique tags present in the vault.
-- **`resumen_actividad_reciente(dias)`**: Summary of changes made to the vault in the last week.
+### `notes_write`
 
-## Graphs and Connections
-Tools to navigate the knowledge network.
+- `suggest_note_location(title, content, tags)`: Suggest a vault folder.
+- `create_note(title, content, folder, tags, template, created_by)`: Create a note.
+- `append_to_note(note_path, content, at_end)`: Append or prepend content.
+- `patch_note(note_path, operations)`: Apply atomic `old` to `new` edits.
+- `replace_note(note_path, content)`: Replace a full note.
+- `update_frontmatter(note_path, updates)`: Update YAML frontmatter.
+- `update_note_tags(note_path, tags)`: Update tag metadata.
+- `move_note(source, destination, create_folders)`: Move or rename a note.
+- `delete_note(note_path, confirm)`: Delete a note after explicit confirmation.
+- `preview_replace_in_notes(...)`: Preview global replacements.
+- `apply_replace_in_notes(...)`: Apply global replacements.
 
-- **`obtener_backlinks(nombre_nota)`**: Lists all notes mentioning the current note.
-- **`obtener_notas_por_tag(tag)`**: Filters notes by a specific tag.
-- **`obtener_grafo_local(nombre_nota, profundidad)`**: Explores direct and indirect connections of a note.
-- **`encontrar_notas_huerfanas()`**: Identifies notes with no incoming or outgoing links.
+### `vault_analysis`
 
-## Semantic Search (RAG)
-Tools based on AI and embeddings.
+- `get_vault_stats()`: Count notes, tags, links, and vault size.
+- `get_canonical_tags()`: Read the canonical tag registry.
+- `analyze_tags()`: Compare used tags against canonical tags.
+- `sync_tag_registry(update)`: Update tag registry statistics.
+- `list_tags()`: List tags currently used in the vault.
+- `analyze_links()`: Inspect internal link health.
+- `summarize_recent_activity(days)`: Summarize recent vault changes.
+- `get_backlinks(note_path)`: Find backlinks for a note.
+- `get_notes_by_tag(tag)`: Find notes with a tag.
+- `get_local_graph(note_path, depth)`: Explore local graph connections.
+- `find_orphan_notes()`: Find notes without incoming or outgoing links.
 
-- **`preguntar_al_conocimiento(pregunta, metadata_filter)`**: Natural language search over the vault's content.
-- **`indexar_vault_semantico(forzar)`**: Updates the vector index (ChromaDB) with the latest changes.
-- **`encontrar_conexiones_sugeridas(threshold, limit)`**: Finds similar notes that are not yet linked.
+### `obsidianrag`
 
-## YouTube
-- **`get_youtube_transcript(url, language)`**: Downloads a video's transcript to process it like any other note.
+This pack delegates advanced semantic search to the external ObsidianRAG
+project instead of embedding a second RAG stack inside this MCP server.
 
-## Skills (Agents)
+- `rag_setup_status()`: Diagnose the local ObsidianRAG setup.
+- `rag_health()`: Check whether the ObsidianRAG HTTP API is reachable.
+- `ask_vault(question, session_id)`: Ask a semantic question through ObsidianRAG.
+- `rebuild_rag_index()`: Trigger ObsidianRAG index rebuild.
 
-Skills are specialized personalities or roles defined in **your Obsidian vault** (not in the MCP repository). They are stored in the `.agents/skills/` folder within your vault.
+### Other Packs
 
-> **Important**: These tools read files from your vault, not from the MCP server configuration.
+- `agents_admin`: `refresh_skills_cache`, `create_skill`, `suggest_vault_skills`,
+  `sync_skills`.
+- `youtube`: `get_youtube_transcript`.
+- `legacy_semantic`: legacy in-process semantic tools, disabled by default.
+- `canvas`: Obsidian Canvas read/write tools.
+- `kanvas`: workflow/task-board tools.
+- `secundo_selebro`: personal profile tools such as `quick_capture`.
 
-- **`listar_agentes()`**: Lists available skills in `{your_vault}/.agents/skills/`.
-- **`obtener_instrucciones_agente(nombre)`**: Reads the content of a specific skill (`SKILL.md`).
-- **`obtener_reglas_globales()`**: Reads global rules from `{your_vault}/.agents/GLOBAL_RULES.md`.
-- **`refrescar_cache_skills()`**: Invalidates the skills cache (useful after editing files).
+## Resources
+
+- `obsidian://capabilities`: Active prompts, tool sets, resources, and integrations.
+- `obsidian://profile`: Safe active profile summary.
+- `obsidian://skills/list`: Valid and invalid vault skills.
+- `obsidian://skills/catalog`: Skills with use-case hints.
+- `obsidian://skills/{name}`: A specific skill file.
+- `obsidian://standards/{name}`: A declared profile standard.
+- `obsidian://local_docs/{name}`: A declared local document.
+- `obsidian://integrations/obsidianrag/setup`: Guided ObsidianRAG setup playbook.
+- `obsidian://integrations/obsidianrag/config`: Safe ObsidianRAG integration config.

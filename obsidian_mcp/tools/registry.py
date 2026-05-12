@@ -40,6 +40,7 @@ TOOL_SPECS: dict[str, ToolSpec] = {
     # Core diagnostics and routing
     "health_check": ToolSpec("Health Check"),
     "diagnose_vault_setup": ToolSpec("Diagnose Vault Setup"),
+    "list_client_roots": ToolSpec("List Client Roots"),
     "route_task": ToolSpec("Route Task"),
     "read_vault_context": ToolSpec("Read Vault Context"),
     # Core navigation

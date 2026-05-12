@@ -9,11 +9,13 @@ The `.env` file at the root of the project is essential:
 | Variable | Required | Description |
 | :--- | :---: | :--- |
 | `OBSIDIAN_VAULT_PATH` | Yes | **Absolute** path to the root folder of your Obsidian vault. |
+| `OBSIDIAN_MCP_TOOL_SETS` | No | Comma-separated optional tool sets, for example `notes_write,vault_analysis`. |
 | `LOG_LEVEL` | No | Log detail level (`INFO`, `DEBUG`, `ERROR`). Defaults to `INFO`. |
 
 Example `.env`:
 ```ini
 OBSIDIAN_VAULT_PATH="/Users/enrique/Documents/MyDigitalBrain"
+OBSIDIAN_MCP_TOOL_SETS="notes_write,vault_analysis"
 LOG_LEVEL="DEBUG"
 ```
 
@@ -49,6 +51,24 @@ templates_folder: "MySpecialTemplatesFolder"
 private_paths:
   - "**/Private/*"
   - "**/secrets.md"
+
+profile:
+  name: "my_profile"
+  prompt_sets:
+    - "mermaid"
+  tool_sets:
+    - "notes_write"
+    - "vault_analysis"
+  standards:
+    writing: "Standards/Writing.md"
+  local_docs:
+    index: "README.md"
+  integrations:
+    obsidianrag:
+      project_path: "/path/to/ObsidianRAG"
+      api_url: "http://127.0.0.1:8000"
+      env:
+        OBSIDIANRAG_LLM_MODEL: "gemma3"
 ```
 
 For a detailed guide on how to configure the `.agents/` folder, refer to the [Agent Folder Setup Guide](agent-folder-setup.md).
@@ -145,6 +165,39 @@ On Windows, if you use `npx` or scripts that require a shell, use the `cmd /c` p
 }
 ```
 
+## Tool Sets and Client Roots
+
+The MCP server exposes a small core by default. Extra capabilities are explicit
+opt-ins:
+
+- `notes_write`: note creation and mutation.
+- `vault_analysis`: stats, tags, links, backlinks, and graph helpers.
+- `agents_admin`: skill creation and validation.
+- `youtube`: transcript import.
+- `obsidianrag`: semantic search through the external ObsidianRAG backend.
+- `canvas` and `kanvas`: visual canvas and workflow helpers.
+
+Use `list_client_roots()` to inspect roots advertised by clients that support
+the MCP `roots/list` capability. This is useful during setup because an agent
+can confirm which workspaces or vault folders the client has made visible.
+
+## ObsidianRAG Guided Setup
+
+This project does not embed a second advanced RAG implementation. When semantic
+search is needed, enable the `obsidianrag` tool set and declare the local
+ObsidianRAG integration in `.agents/vault.yaml`.
+
+The server then exposes:
+
+- `rag_setup_status()`: detects the configured project, backend, `uv`, Ollama
+  CLI/API, and ObsidianRAG API health.
+- `obsidian://integrations/obsidianrag/setup`: a setup playbook with exact
+  commands, safe shell quoting, and optional environment variables.
+- `rag_health()` and `rebuild_rag_index()` for readiness and first indexing.
+
+Agents must ask for consent before installing dependencies, pulling models,
+starting local services, or rebuilding a large index.
+
 ## Skills and Global Rules (in your Vault)
 
 The MCP server can read **skills** (AI personalities/roles) and **global rules** directly from your Obsidian vault. These files **are not in the MCP repository**, but in your personal vault.
@@ -173,9 +226,9 @@ Each skill is defined with a `SKILL.md` file containing YAML frontmatter and the
 name: Technical Writer
 description: Specialist in clear and concise documentation
 tools:
-  - crear_nota
-  - editar_nota
-  - buscar_en_notas
+  - create_note
+  - patch_note
+  - search_notes
 ---
 
 # Instructions

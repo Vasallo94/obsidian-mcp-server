@@ -8,29 +8,40 @@
 [![Claude Desktop](https://img.shields.io/badge/Claude-Desktop-D97757?style=flat&logo=anthropic&logoColor=white)](https://claude.ai/)
 [![Custom Skills](https://img.shields.io/badge/AI-Skills-10A37F?style=flat)](https://github.com/Vasallo94/obsidian-mcp-server/blob/main/docs/agent-folder-setup.md)
 
-An advanced **MCP (Model Context Protocol)** server that turns your Obsidian vault into a dynamic brain for your AI (Claude Desktop, Cursor, Claude Code, Cline, etc.). Much more than a file reader: it is an ecosystem of tools for knowledge management, workflow automation, and semantic analysis.
+An **MCP (Model Context Protocol)** server that makes an Obsidian vault useful to AI clients such as Claude Desktop, Claude Code, Cursor, and Cline. It is designed as a public, reusable core with optional tool sets and vault-specific profiles layered on top.
 
 ---
 
 ## Features
 
-### Tool Ecosystem (30+)
+### Public Core
 
-The server exposes a wide variety of tools categorized by function:
+The core tool set is always available and stays vault-agnostic:
 
-- **Navigation**: Intelligent listing, recursive reading, and advanced searching.
-- **Creation and Editing**: Automatic template usage, location suggestions, and non-destructive editing preserving metadata (frontmatter/YAML).
-- **Analysis and Quality**: Vault statistics, tag synchronization with the official registry, and integrity checks.
-- **Graphs and Connections**: Backlink analysis, orphan note detection, and local graph visualization.
-- **Skills (Agents)**: Dynamic loading of AI personalities/roles from your vault (`{vault}/.agents/skills/`).
-- **Semantic Search (RAG)**: Meaning-based searches, suggestions for non-obvious connections, and vector indexing.
-- **YouTube**: Extraction of transcripts to feed your knowledge base.
+- Vault diagnostics, task routing, and MCP client root inspection.
+- Note listing, reading, metadata inspection, and search.
+- Vault context resources for profiles, skills, standards, and local docs.
+- Core prompts for structured notes, template usage, and context exploration.
 
-### Built-in Intelligence
+### Optional Tool Sets
 
-- **Vault-Agnostic Architecture**: Independent of your folder structure; it uses intelligent auto-detection to find templates and resources.
-- **Security**: Strict protection of sensitive folders via `.forbidden_paths` and vault privacy configurations.
-- **Customizable Skills**: Define specific AI roles directly within your vault (`.agents/skills/`) for specialized tasks.
+Optional packs are enabled explicitly from `.agents/vault.yaml` or
+`OBSIDIAN_MCP_TOOL_SETS`:
+
+- **`notes_write`**: Create, patch, move, and delete notes.
+- **`vault_analysis`**: Vault statistics, tags, links, backlinks, and graph tools.
+- **`agents_admin`**: Skill creation, validation, and cache management.
+- **`youtube`**: Transcript extraction.
+- **`obsidianrag`**: Semantic search through the external ObsidianRAG service.
+- **`canvas` / `kanvas`**: Canvas and workflow helpers.
+- **Profile packs**: Personal workflows only when a vault profile opts in.
+
+### Design Principles
+
+- **Public core, personal profiles**: The repository remains reusable; local workflows live in vault configuration and resources.
+- **English technical surface**: Tool names, prompt names, docs, and code identifiers are English.
+- **Safe by default**: Write tools are opt-in, protected paths are blocked, and large reads are capped.
+- **External RAG by integration**: Advanced semantic search delegates to ObsidianRAG instead of duplicating a RAG stack inside the MCP server.
 
 ## Quick Setup
 
@@ -52,7 +63,7 @@ The server exposes a wide variety of tools categorized by function:
 
    ```bash
    make install
-   # For semantic search capabilities (RAG):
+   # Optional legacy in-process semantic stack:
    pip install "obsidian-mcp-server[rag]"
    ```
 
@@ -86,6 +97,57 @@ Add the following to your `claude_desktop_config.json`:
   }
 }
 ```
+
+### Optional Tool Sets
+
+Enable optional tools from the client environment:
+
+```json
+{
+  "env": {
+    "OBSIDIAN_VAULT_PATH": "/Absolute/Path/To/Your/Vault",
+    "OBSIDIAN_MCP_TOOL_SETS": "notes_write,vault_analysis,obsidianrag"
+  }
+}
+```
+
+Or declare them in your vault profile:
+
+```yaml
+profile:
+  name: "my_profile"
+  prompt_sets:
+    - "mermaid"
+  tool_sets:
+    - "notes_write"
+    - "vault_analysis"
+  standards:
+    media: "Standards/Media.md"
+  local_docs:
+    index: "README.md"
+```
+
+### ObsidianRAG Integration
+
+For semantic vault search, enable the `obsidianrag` tool set and declare the
+integration:
+
+```yaml
+profile:
+  tool_sets:
+    - "obsidianrag"
+  integrations:
+    obsidianrag:
+      project_path: "/path/to/ObsidianRAG"
+      api_url: "http://127.0.0.1:8000"
+      env:
+        OBSIDIANRAG_LLM_MODEL: "gemma3"
+        OBSIDIANRAG_OLLAMA_EMBEDDING_MODEL: "embeddinggemma"
+```
+
+Then read `obsidian://integrations/obsidianrag/setup` or call
+`rag_setup_status`. Agents should show setup commands before installing
+dependencies, starting services, pulling models, or rebuilding the index.
 
 ### Cursor & Cline Integration
 

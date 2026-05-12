@@ -63,7 +63,7 @@ def load_forbidden_patterns(force_reload: bool = False) -> List[str]:
                             patterns.append(line)
                 break  # Use first found file
             except OSError as e:
-                logger.debug("No se pudo leer '%s': %s", location, e)
+                logger.debug("Could not read '%s': %s", location, e)
                 continue
 
     # Add private folders from vault config as fallback patterns
@@ -159,7 +159,7 @@ def is_path_forbidden(
 def check_path_access(
     path: Path | str,
     vault_path: Optional[Path] = None,
-    operation: str = "acceder a",
+    operation: str = "access",
 ) -> Tuple[bool, str]:
     """
     Centralized access check for all path operations.
@@ -181,12 +181,12 @@ def check_path_access(
     # First: validate path is within vault
     is_valid, error = validate_path_within_vault(path, vault_path)
     if not is_valid:
-        return False, f"⛔ Error de seguridad: {error}"
+        return False, f"Security error: {error}"
 
     # Second: check if path is forbidden
     is_forbidden, _ = is_path_forbidden(path, vault_path)
     if is_forbidden:
-        return False, f"⛔ ACCESO DENEGADO: No se permite {operation} rutas protegidas"
+        return False, f"Access denied: cannot {operation} protected paths"
 
     return True, ""
 

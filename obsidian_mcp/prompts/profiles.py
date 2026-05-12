@@ -39,23 +39,23 @@ def register_profile_prompts(mcp: FastMCP) -> None:
                 opinion: Personal notes to integrate without overwriting.
             """
             return f"""
-            Actualiza la biblioteca canónica de Media para: "{work}".
-            Tipo indicado: "{media_type}". Opinión/notas del usuario: "{opinion}".
+            Update the canonical Media library for: "{work}".
+            Requested type: "{media_type}". User opinion/notes: "{opinion}".
 
-            Reglas obligatorias:
-            1. Lee primero `obsidian://standards/media`.
-            2. Busca si ya existe nota en `05_Recursos/Media`.
-            3. Si falta identificador externo, búscalo antes de enriquecer:
-               - películas/series: IMDb ID correcto;
-               - libros: ISBN, autor, editorial, año, páginas y portada.
-            4. Para películas/series con `imdb_id`, usa el flujo de Cinemeta
-               documentado en el vault o el script de sistema disponible.
-            5. Completa YAML y `## Resumen` sin sobrescribir contenido humano.
-            6. Integra la opinión en `## Notas Personales`.
-            7. No sobrescribas `## Subrayados y Anotaciones` ni citas.
+            Required workflow:
+            1. Read `obsidian://standards/media` first.
+            2. Search for an existing note under `05_Recursos/Media`.
+            3. If the external identifier is missing, resolve it before enrichment:
+               - movies/series: correct IMDb ID;
+               - books: ISBN, author, publisher, year, pages, and cover.
+            4. For movies/series with `imdb_id`, use the Cinemeta workflow
+               documented in the vault or the available system script.
+            5. Complete YAML and `## Resumen` without overwriting human content.
+            6. Integrate the opinion into `## Notas Personales`.
+            7. Do not overwrite `## Subrayados y Anotaciones` or quotes.
 
-            Al terminar, informa qué nota se actualizó, qué identificadores se
-            confirmaron y qué campos quedaron pendientes.
+            When done, report which note was updated, which identifiers were
+            confirmed, and which fields still need manual review.
             """
 
     if prompt_enabled("import_kindle_highlights") and "media" in standards:
@@ -71,20 +71,20 @@ def register_profile_prompts(mcp: FastMCP) -> None:
                 clippings_path: Path to My Clippings.txt.
             """
             return f"""
-            Importa subrayados y notas desde Kindle USB usando:
+            Import highlights and notes from Kindle USB using:
             `{clippings_path}`.
 
-            No uses el plugin Kindle de Obsidian. El origen autorizado es el
-            filesystem local del Kindle.
+            Do not use the Obsidian Kindle plugin. The authorized source is the
+            Kindle's local filesystem.
 
-            Flujo obligatorio:
-            1. Lee `obsidian://standards/media`.
-            2. Comprueba que existe `{clippings_path}`.
-            3. Ejecuta primero dry-run:
+            Required workflow:
+            1. Read `obsidian://standards/media`.
+            2. Check that `{clippings_path}` exists.
+            3. Run a dry-run first:
                `00_Sistema/Scripts/media_library_maintenance.py kindle --clippings "{clippings_path}"`
-            4. Si el dry-run es correcto, ejecuta el mismo comando con `--apply`.
-            5. Revisa libros no emparejados y repórtalos.
-            6. Ejecutar dos veces la importación no debe duplicar citas.
+            4. If the dry-run is clean, run the same command with `--apply`.
+            5. Review and report unmatched books.
+            6. Running the import twice must not duplicate quotes.
             """
 
     if prompt_enabled("audit_vault") and "organizador" in skills:
@@ -93,14 +93,14 @@ def register_profile_prompts(mcp: FastMCP) -> None:
         def audit_vault(scope: str = "vault") -> str:
             """Audit vault health using the organizer skill."""
             return f"""
-            Audita la salud de "{scope}".
+            Audit the health of "{scope}".
 
-            Flujo obligatorio:
-            1. Lee `obsidian://skills/organizador`.
-            2. Lee reglas globales.
-            3. Revisa tags, frontmatter, duplicados, huérfanas y ubicación.
-            4. No borres ni muevas nada sin confirmación explícita.
-            5. Devuelve informe con problemas, impacto y acciones propuestas.
+            Required workflow:
+            1. Read `obsidian://skills/organizador`.
+            2. Read global rules.
+            3. Review tags, frontmatter, duplicates, orphan notes, and placement.
+            4. Do not delete or move anything without explicit confirmation.
+            5. Return a report with issues, impact, and proposed actions.
             """
 
     if prompt_enabled("create_moc") and "explorador" in skills:
@@ -109,14 +109,14 @@ def register_profile_prompts(mcp: FastMCP) -> None:
         def create_moc(topic: str) -> str:
             """Create or update a Map of Content using the explorer skill."""
             return f"""
-            Crea o actualiza un MOC sobre: "{topic}".
+            Create or update a MOC about: "{topic}".
 
-            Flujo obligatorio:
-            1. Lee `obsidian://skills/explorador`.
-            2. Busca notas relevantes y conexiones reales.
-            3. Usa backlinks/grafo local cuando aporte contexto.
-            4. Organiza enlaces por significado, no como lista plana.
-            5. Usa plantilla de MOC si existe.
+            Required workflow:
+            1. Read `obsidian://skills/explorador`.
+            2. Search for relevant notes and real connections.
+            3. Use backlinks/local graph when they add context.
+            4. Organize links by meaning, not as a flat list.
+            5. Use a MOC template if one exists.
             """
 
     if prompt_enabled("process_external_resource") and "procesador" in skills:
@@ -125,14 +125,14 @@ def register_profile_prompts(mcp: FastMCP) -> None:
         def process_external_resource(resource: str, source_type: str = "auto") -> str:
             """Process an external resource into the vault."""
             return f"""
-            Procesa este recurso externo: "{resource}".
-            Tipo indicado: "{source_type}".
+            Process this external resource: "{resource}".
+            Requested type: "{source_type}".
 
-            Flujo obligatorio:
-            1. Lee `obsidian://skills/procesador`.
-            2. Captura metadata mínima y fuente.
-            3. Resume sin inventar contenido.
-            4. Decide destino final según las reglas de la skill.
+            Required workflow:
+            1. Read `obsidian://skills/procesador`.
+            2. Capture minimal metadata and source.
+            3. Summarize without inventing content.
+            4. Choose the final destination according to the skill rules.
             """
 
     if prompt_enabled("daily_review") and "revision" in skills:
@@ -141,10 +141,11 @@ def register_profile_prompts(mcp: FastMCP) -> None:
         def daily_review(date: str = "today") -> str:
             """Create a daily review."""
             return f"""
-            Genera revisión diaria para: "{date}".
+            Create a daily review for: "{date}".
 
-            Lee `obsidian://skills/revision`, resume actividad reciente,
-            integra en el diario si existe y no sobrescribas contenido humano.
+            Read `obsidian://skills/revision`, summarize recent activity,
+            integrate into the daily note if it exists, and do not overwrite
+            human content.
             """
 
     if prompt_enabled("weekly_review") and "revision" in skills:
@@ -153,10 +154,10 @@ def register_profile_prompts(mcp: FastMCP) -> None:
         def weekly_review(week: str = "current") -> str:
             """Create a weekly review."""
             return f"""
-            Genera revisión semanal para: "{week}".
+            Create a weekly review for: "{week}".
 
-            Lee `obsidian://skills/revision`, revisa diarios/notas recientes,
-            sintetiza logros, aprendizajes y próximos objetivos.
+            Read `obsidian://skills/revision`, review recent daily notes/notes,
+            and synthesize wins, lessons, and next objectives.
             """
 
     if prompt_enabled("write_runbook") and "registrador" in skills:
@@ -165,10 +166,11 @@ def register_profile_prompts(mcp: FastMCP) -> None:
         def write_runbook(procedure: str) -> str:
             """Write an operational runbook."""
             return f"""
-            Documenta este procedimiento operativo: "{procedure}".
+            Document this operational procedure: "{procedure}".
 
-            Lee `obsidian://skills/registrador`, busca documentación existente
-            antes de crear nada, y escribe contexto, procedimiento y verificación.
+            Read `obsidian://skills/registrador`, search for existing
+            documentation before creating anything, and write context, procedure,
+            and verification steps.
             """
 
     if prompt_enabled("write_changelog") and "registrador" in skills:
@@ -177,10 +179,10 @@ def register_profile_prompts(mcp: FastMCP) -> None:
         def write_changelog(project: str) -> str:
             """Write a project changelog."""
             return f"""
-            Redacta changelog para: "{project}".
+            Write a changelog for: "{project}".
 
-            Lee `obsidian://skills/registrador`, agrupa cambios con formato
-            Keep a Changelog y enfoca las entradas en impacto para el usuario.
+            Read `obsidian://skills/registrador`, group changes using Keep a
+            Changelog style, and focus entries on user impact.
             """
 
     if prompt_enabled("document_repository") and "documentador" in skills:
@@ -189,10 +191,10 @@ def register_profile_prompts(mcp: FastMCP) -> None:
         def document_repository(repository_path: str) -> str:
             """Document a source-code repository."""
             return f"""
-            Documenta el repositorio: "{repository_path}".
+            Document the repository: "{repository_path}".
 
-            Lee `obsidian://skills/documentador`, documenta solo lo que existe
-            en el código, agrupa por componente y no inventes descripciones.
+            Read `obsidian://skills/documentador`, document only what exists
+            in the code, group by component, and do not invent descriptions.
             """
 
 

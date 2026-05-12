@@ -8,6 +8,7 @@ import socket
 import urllib.error
 import urllib.parse
 import urllib.request
+from collections.abc import Mapping
 from pathlib import Path
 from shutil import which
 from typing import Any
@@ -94,6 +95,10 @@ def get_rag_setup_status() -> Result[str]:
         ("ollama_cli_available", bool(which("ollama")), which("ollama") or "not found"),
     ]
 
+    ollama_tags = _request_json("GET", "http://127.0.0.1:11434/api/tags")
+    checks.append(
+        ("ollama_api_reachable", ollama_tags.success, "http://127.0.0.1:11434")
+    )
     health = _request_json("GET", f"{data['api_url'].rstrip('/')}/health")
     checks.append(("api_reachable", health.success, str(data["api_url"])))
 
@@ -109,6 +114,9 @@ def get_rag_setup_status() -> Result[str]:
         output += "- Read `obsidian://integrations/obsidianrag/setup`.\n"
         output += "- Start Ollama or another supported LLM provider.\n"
         output += "- Start ObsidianRAG with the command shown in the setup resource.\n"
+        output += (
+            "- Reconnect the MCP client after enabling the `obsidianrag` tool set.\n"
+        )
     return Result.ok(output.rstrip())
 
 
@@ -201,8 +209,14 @@ def build_obsidianrag_setup_resource() -> str:
     backend_path = project_path / "backend"
     vault_path = str(data["vault_path"])
     api_url = str(data["api_url"])
+    env_vars = _safe_env_vars(data.get("env"))
     quoted_backend_path = shlex.quote(str(backend_path))
     quoted_vault_path = shlex.quote(vault_path)
+    env_prefix = " ".join(
+        f"{name}={shlex.quote(value)}" for name, value in sorted(env_vars.items())
+    )
+    uv_run_prefix = f"{env_prefix} uv run" if env_prefix else "uv run"
+    uv_sync_prefix = f"{env_prefix} uv sync" if env_prefix else "uv sync"
 
     return f"""# ObsidianRAG Setup
 
@@ -229,19 +243,29 @@ silently.
 ## Agent Checklist
 
 1. Run `rag_setup_status`.
-2. If Ollama is missing, help the user install/start Ollama and pull a local model.
-3. Install backend dependencies from the ObsidianRAG backend folder.
-4. Start the backend.
-5. Run `rag_health`.
-6. Run `rebuild_rag_index` for the first index. Large vaults can take several minutes.
-7. Ask the user to restart or reconnect the MCP client if new tools were just enabled.
+2. Run `list_client_roots` to confirm the client exposes the expected workspace roots.
+3. If Ollama is missing, help the user install/start Ollama and pull a local model.
+4. Install backend dependencies from the ObsidianRAG backend folder.
+5. Start the backend.
+6. Run `rag_health`.
+7. Run `rebuild_rag_index` for the first index. Large vaults can take several minutes.
+8. Ask the user to restart or reconnect the MCP client if new tools were just enabled.
+
+## Environment
+
+The vault profile may declare integration environment variables under
+`profile.integrations.obsidianrag.env`. Only string-like values are surfaced here.
+
+```bash
+{_format_env_export(env_vars)}
+```
 
 ## Suggested Commands
 
 ```bash
 cd {quoted_backend_path}
-uv sync
-uv run obsidianrag serve --vault {quoted_vault_path} --host 127.0.0.1 --port 8000
+{uv_sync_prefix}
+{uv_run_prefix} obsidianrag serve --vault {quoted_vault_path} --host 127.0.0.1 --port 8000
 ```
 
 If using Ollama:
@@ -308,6 +332,7 @@ def _get_integration_config() -> Result[dict[str, Any]]:
             "project_path": str(project_path),
             "api_url": api_url,
             "docs": integration.get("docs"),
+            "env": integration.get("env") or {},
         }
     )
 
@@ -349,3 +374,27 @@ def _request_json(
         json.JSONDecodeError,
     ) as e:
         return Result.fail(str(e))
+
+
+def _safe_env_vars(raw_env: Any) -> dict[str, str]:
+    """Return shell-safe environment values from integration config."""
+    if not isinstance(raw_env, Mapping):
+        return {}
+    result: dict[str, str] = {}
+    for key, value in raw_env.items():
+        name = str(key)
+        if not name.replace("_", "").isalnum() or name.upper() != name:
+            continue
+        if value is None:
+            continue
+        result[name] = str(value)
+    return result
+
+
+def _format_env_export(env_vars: dict[str, str]) -> str:
+    if not env_vars:
+        return "# No integration-specific environment variables declared."
+    return "\n".join(
+        f"export {name}={shlex.quote(value)}"
+        for name, value in sorted(env_vars.items())
+    )

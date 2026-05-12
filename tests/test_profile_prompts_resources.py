@@ -111,6 +111,7 @@ def test_diagnostic_tools_are_registered_and_report_profile(tmp_path, monkeypatc
     tool_names = {tool.name for tool in asyncio.run(mcp.list_tools())}
     health_tool = asyncio.run(mcp.get_tool("health_check"))
     diagnosis_tool = asyncio.run(mcp.get_tool("diagnose_vault_setup"))
+    roots_tool = asyncio.run(mcp.get_tool("list_client_roots"))
     route_tool = asyncio.run(mcp.get_tool("route_task"))
     health = asyncio.run(health_tool.run({}))
     diagnosis = asyncio.run(diagnosis_tool.run({}))
@@ -123,6 +124,8 @@ def test_diagnostic_tools_are_registered_and_report_profile(tmp_path, monkeypatc
 
     assert "health_check" in tool_names
     assert "diagnose_vault_setup" in tool_names
+    assert "list_client_roots" in tool_names
+    assert roots_tool.annotations.readOnlyHint is True
     assert "route_task" in tool_names
     assert "profile_configured" in str(health)
     assert "integration:obsidianrag:path" in str(health)
@@ -154,6 +157,7 @@ def test_obsidianrag_pack_registers_resources_and_tools(tmp_path, monkeypatch):
     assert "obsidian://integrations/obsidianrag/config" in resources
     assert "ObsidianRAG" in str(setup)
     assert "Ollama" in str(setup)
+    assert "list_client_roots" in str(setup)
     assert "obsidianrag serve" in str(setup)
     assert "api_url" in str(config)
     assert "ask_vault" in str(capabilities)
@@ -187,6 +191,28 @@ def test_obsidianrag_setup_uses_shell_safe_paths(tmp_path, monkeypatch):
     assert "User Consent" in setup
     assert "uv run obsidianrag serve --vault" in setup
     assert shlex.quote(str(vault_path)) in setup
+
+
+def test_obsidianrag_setup_surfaces_safe_env_vars(tmp_path, monkeypatch):
+    vault_path = tmp_path / "Vault"
+    vault_path.mkdir()
+    _write_vault_profile(vault_path, extra_tool_sets=["obsidianrag"])
+    config_path = vault_path / ".agents" / "vault.yaml"
+    config_path.write_text(
+        config_path.read_text(encoding="utf-8")
+        + """
+      env:
+        OBSIDIANRAG_LLM_MODEL: "gemma3"
+        lowercase_is_ignored: "nope"
+""",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("OBSIDIAN_VAULT_PATH", str(vault_path))
+
+    setup = build_obsidianrag_setup_resource()
+
+    assert "export OBSIDIANRAG_LLM_MODEL=gemma3" in setup
+    assert "lowercase_is_ignored" not in setup
 
 
 def _write_vault_profile(vault: Path, extra_tool_sets: list[str] | None = None) -> None:

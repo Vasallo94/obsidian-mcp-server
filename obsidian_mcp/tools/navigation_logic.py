@@ -33,6 +33,8 @@ logger = get_logger(__name__)
 
 # Line prefixes that mark non-content lines in Markdown
 _NON_CONTENT_PREFIXES = frozenset(("#", "-", "*", ">", "---", "[["))
+MAX_NOTE_READ_BYTES = 2_000_000
+MAX_BATCH_READ_BYTES = 5_000_000
 
 
 def _json_serial(obj: Any) -> str:
@@ -52,7 +54,7 @@ def format_search_results(resultados: list, solo_titulos: bool) -> str:
     Returns:
         Formatted string with results grouped by file
     """
-    resultado_str = f"Encontradas {len(resultados)} coincidencias:\n\n"
+    resultado_str = f"Found {len(resultados)} matches:\n\n"
 
     por_archivo: dict[str, list[dict[str, str]]] = {}
     for r in resultados:
@@ -71,7 +73,7 @@ def format_search_results(resultados: list, solo_titulos: bool) -> str:
         resultado_str += "\n"
 
     if len(por_archivo) > 20:
-        resultado_str += f"... y {len(por_archivo) - 20} archivos mas."
+        resultado_str += f"... and {len(por_archivo) - 20} more files."
 
     return resultado_str
 
@@ -88,12 +90,12 @@ def list_notes(carpeta: str = "", incluir_subcarpetas: bool = True) -> Result[st
     """
     vault_path = get_vault_path()
     if not vault_path:
-        return Result.fail("La ruta del vault no esta configurada.")
+        return Result.fail("Vault path is not configured.")
 
     if carpeta:
         target_path = vault_path / carpeta
         if not target_path.exists():
-            return Result.fail(f"La carpeta '{carpeta}' no existe en el vault")
+            return Result.fail(f"Folder does not exist in the vault: {carpeta}")
     else:
         target_path = vault_path
 
@@ -101,7 +103,7 @@ def list_notes(carpeta: str = "", incluir_subcarpetas: bool = True) -> Result[st
     notas = list(target_path.glob(pattern))
 
     if not notas:
-        return Result.ok(f"No se encontraron notas en '{carpeta or 'raiz'}'")
+        return Result.ok(f"No notes found in '{carpeta or 'root'}'")
 
     notas_por_carpeta: dict[str, list[dict]] = {}
     notas_filtradas = 0
@@ -113,7 +115,7 @@ def list_notes(carpeta: str = "", incluir_subcarpetas: bool = True) -> Result[st
 
         ruta_relativa = nota.relative_to(vault_path)
         carpeta_padre = (
-            str(ruta_relativa.parent) if ruta_relativa.parent != Path(".") else "Raiz"
+            str(ruta_relativa.parent) if ruta_relativa.parent != Path(".") else "Root"
         )
 
         if carpeta_padre not in notas_por_carpeta:
@@ -124,10 +126,10 @@ def list_notes(carpeta: str = "", incluir_subcarpetas: bool = True) -> Result[st
 
     total_visibles = len(notas) - notas_filtradas
 
-    resultado = f"Notas encontradas en el vault ({total_visibles} total):\n\n"
+    resultado = f"Notes found in the vault ({total_visibles} total):\n\n"
 
     for carpeta_nombre, lista_notas in sorted(notas_por_carpeta.items()):
-        resultado += f"{carpeta_nombre} ({len(lista_notas)} notas):\n"
+        resultado += f"{carpeta_nombre} ({len(lista_notas)} notes):\n"
         for nota_meta in sorted(lista_notas, key=lambda x: x["name"]):
             resultado += (
                 f"   {nota_meta['name']} "
@@ -150,11 +152,18 @@ def read_note(nombre_archivo: str) -> Result[str]:
     nota_path = find_note_by_name(nombre_archivo)
 
     if not nota_path:
-        return Result.fail(f"No se encontro la nota '{nombre_archivo}'")
+        return Result.fail(f"Note not found: {nombre_archivo}")
 
-    is_allowed, error = check_path_access(nota_path, operation="leer")
+    is_allowed, error = check_path_access(nota_path, operation="read")
     if not is_allowed:
         return Result.fail(error)
+
+    size_bytes = nota_path.stat().st_size
+    if size_bytes > MAX_NOTE_READ_BYTES:
+        return Result.fail(
+            "Note is too large to return safely. Use `get_note_info` first and "
+            "read a smaller section or split the note."
+        )
 
     with open(nota_path, "r", encoding="utf-8") as f:
         contenido = f.read()
@@ -162,9 +171,9 @@ def read_note(nombre_archivo: str) -> Result[str]:
     metadata = get_note_metadata(nota_path)
 
     resultado = f"**{metadata['name']}**\n"
-    resultado += f"Ubicacion: {metadata['relative_path']}\n"
+    resultado += f"Location: {metadata['relative_path']}\n"
     resultado += (
-        f"Tamaño: {metadata['size_kb']:.1f}KB | Modificado: {metadata['modified']}\n"
+        f"Size: {metadata['size_kb']:.1f}KB | Modified: {metadata['modified']}\n"
     )
     resultado += f"{'=' * 50}\n\n"
     resultado += contenido
@@ -184,18 +193,20 @@ def search_notes_by_date(fecha_desde: str, fecha_hasta: str = "") -> Result[str]
     """
     vault_path = get_vault_path()
     if not vault_path:
-        return Result.fail("La ruta del vault no esta configurada.")
+        return Result.fail("Vault path is not configured.")
 
     try:
         fecha_inicio = datetime.strptime(fecha_desde, "%Y-%m-%d").date()
     except ValueError:
-        return Result.fail("Formato de fecha invalido. Usa YYYY-MM-DD (ej: 2024-01-15)")
+        return Result.fail(
+            "Invalid date format. Use YYYY-MM-DD, for example 2024-01-15."
+        )
 
     if fecha_hasta:
         try:
             fecha_fin = datetime.strptime(fecha_hasta, "%Y-%m-%d").date()
         except ValueError:
-            return Result.fail("Formato de fecha invalido. Usa YYYY-MM-DD")
+            return Result.fail("Invalid date format. Use YYYY-MM-DD.")
     else:
         fecha_fin = date.today()
 
@@ -214,15 +225,13 @@ def search_notes_by_date(fecha_desde: str, fecha_hasta: str = "") -> Result[str]
             notas_encontradas.append(metadata)
 
     if not notas_encontradas:
-        return Result.ok(
-            f"No se encontraron notas modificadas entre {fecha_desde} y {fecha_fin}"
-        )
+        return Result.ok(f"No notes modified between {fecha_desde} and {fecha_fin}")
 
     notas_encontradas.sort(key=lambda x: x["fecha"], reverse=True)
 
     resultado = (
-        f"Notas modificadas entre {fecha_desde} y {fecha_fin} "
-        f"({len(notas_encontradas)} encontradas):\n\n"
+        f"Notes modified between {fecha_desde} and {fecha_fin} "
+        f"({len(notas_encontradas)} found):\n\n"
     )
 
     for nota in notas_encontradas:
@@ -242,10 +251,10 @@ def _validate_move_paths(
     Returns:
         (is_valid, error_message) — error_message is empty on success.
     """
-    for label, path_str in [("origen", origen), ("destino", destino)]:
+    for label, path_str in [("source", origen), ("destination", destino)]:
         is_valid, error = validate_path_within_vault(path_str, vault_path)
         if not is_valid:
-            return False, f"Error de seguridad ({label}): {error}"
+            return False, f"Security error ({label}): {error}"
 
     config = get_vault_config(vault_path)
     private_folders = ["**/Private/", "**/Privado/*"]
@@ -253,13 +262,9 @@ def _validate_move_paths(
         private_folders = config.private_paths
 
     if is_path_in_restricted_folder(origen, private_folders, vault_path):
-        return False, (
-            "ACCESO DENEGADO: No se permite mover archivos desde carpetas restringidas"
-        )
+        return False, ("Access denied: cannot move files from restricted folders")
     if is_path_in_restricted_folder(destino, private_folders, vault_path):
-        return False, (
-            "ACCESO DENEGADO: No se permite mover archivos hacia carpetas restringidas"
-        )
+        return False, ("Access denied: cannot move files into restricted folders")
 
     return True, ""
 
@@ -277,7 +282,7 @@ def move_note(origen: str, destino: str, crear_carpetas: bool = True) -> Result[
     """
     vault_path = get_vault_path()
     if not vault_path:
-        return Result.fail("Ruta del vault no configurada")
+        return Result.fail("Vault path is not configured.")
 
     is_valid, error = _validate_move_paths(origen, destino, vault_path)
     if not is_valid:
@@ -287,22 +292,24 @@ def move_note(origen: str, destino: str, crear_carpetas: bool = True) -> Result[
     path_destino = vault_path / destino
 
     if not path_origen.exists():
-        return Result.fail(f"El archivo origen no existe: {origen}")
+        return Result.fail(f"Source file does not exist: {origen}")
 
     if not path_origen.is_file():
-        return Result.fail(f"El origen no es un archivo: {origen}")
+        return Result.fail(f"Source is not a file: {origen}")
 
     if path_destino.exists():
-        return Result.fail(f"El archivo destino ya existe: {destino}")
+        return Result.fail(f"Destination file already exists: {destino}")
 
     if crear_carpetas:
         path_destino.parent.mkdir(parents=True, exist_ok=True)
     elif not path_destino.parent.exists():
-        return Result.fail(f"La carpeta destino no existe: {path_destino.parent.name}")
+        return Result.fail(
+            f"Destination folder does not exist: {path_destino.parent.name}"
+        )
 
     path_origen.rename(path_destino)
 
-    return Result.ok(f"Archivo movido/renombrado:\nDe: {origen}\nA:  {destino}")
+    return Result.ok(f"File moved/renamed:\nFrom: {origen}\nTo:   {destino}")
 
 
 def _is_content_paragraph(line: str) -> bool:
@@ -343,7 +350,7 @@ def get_random_concept(carpeta: str = "") -> Result[str]:
     """
     vault_path = get_vault_path()
     if not vault_path:
-        return Result.fail("La ruta del vault no esta configurada.")
+        return Result.fail("Vault path is not configured.")
 
     search_path = vault_path / carpeta if carpeta else vault_path
     notas = list(search_path.rglob("*.md"))
@@ -364,7 +371,7 @@ def get_random_concept(carpeta: str = "") -> Result[str]:
     notas_filtradas = _filter_valid_notes(notas, vault_path, excl_folders)
 
     if not notas_filtradas:
-        return Result.fail("No se encontraron notas validas para extraer conceptos.")
+        return Result.fail("No valid notes found for concept extraction.")
 
     nota_elegida = secrets.choice(notas_filtradas)
     ruta_relativa = nota_elegida.relative_to(vault_path)
@@ -387,18 +394,18 @@ def get_random_concept(carpeta: str = "") -> Result[str]:
         if len(fragmento) > 300:
             fragmento = fragmento[:300] + "..."
     else:
-        fragmento = "(No se encontro un fragmento de texto significativo)"
+        fragmento = "(No meaningful text fragment found.)"
 
     tags_match = re.search(r"tags:\s*\[([^\]]+)\]", contenido)
     tags = tags_match.group(1) if tags_match else ""
 
-    resultado = "**Concepto Aleatorio**\n\n"
+    resultado = "**Random Concept**\n\n"
     resultado += f"**{titulo}**\n"
     resultado += f"`{ruta_relativa}`\n"
     if tags:
         resultado += f"Tags: {tags}\n"
     resultado += f"\n---\n\n{fragmento}\n"
-    resultado += f'\n---\n*Quieres profundizar? Usa `leer_nota("{ruta_relativa}")`*'
+    resultado += f'\n---\n*Want to go deeper? Use `read_note("{ruta_relativa}")`*'
 
     return Result.ok(resultado)
 
@@ -415,22 +422,30 @@ def read_multiple_notes_logic(rutas: list[str]) -> Result[str]:
 
     vault_path = get_vault_path()
     if not vault_path:
-        return Result.fail("La ruta del vault no está configurada.")
+        return Result.fail("Vault path is not configured.")
 
     resultados: dict[str, list[dict[str, Any]]] = {"ok": [], "err": []}
 
     for ruta in rutas:
         nota_path = find_note_by_name(ruta)
         if not nota_path:
-            resultados["err"].append({"path": ruta, "error": "No se encontró"})
+            resultados["err"].append({"path": ruta, "error": "Not found"})
             continue
 
-        is_allowed, error = check_path_access(nota_path, operation="leer")
+        is_allowed, error = check_path_access(nota_path, operation="read")
         if not is_allowed:
             resultados["err"].append({"path": ruta, "error": error})
             continue
 
         try:
+            if nota_path.stat().st_size > MAX_NOTE_READ_BYTES:
+                resultados["err"].append(
+                    {
+                        "path": ruta,
+                        "error": "Note is too large to include in a batch read.",
+                    }
+                )
+                continue
             with open(nota_path, "r", encoding="utf-8") as f:
                 contenido = f.read()
 
@@ -447,10 +462,8 @@ def read_multiple_notes_logic(rutas: list[str]) -> Result[str]:
             resultados["err"].append({"path": ruta, "error": str(e)})
 
     json_str = json.dumps(resultados, ensure_ascii=False, default=_json_serial)
-    if len(json_str) > 100000:
-        return Result.fail(
-            "La respuesta es demasiado grande. Pide menos notas a la vez."
-        )
+    if len(json_str.encode("utf-8")) > MAX_BATCH_READ_BYTES:
+        return Result.fail("The response is too large. Request fewer notes at once.")
 
     return Result.ok(json_str)
 
@@ -466,17 +479,17 @@ def get_notes_info_logic(rutas: list[str]) -> Result[str]:
     """
     vault_path = get_vault_path()
     if not vault_path:
-        return Result.fail("La ruta del vault no está configurada.")
+        return Result.fail("Vault path is not configured.")
 
     infos: list[dict[str, Any]] = []
 
     for ruta in rutas:
         nota_path = find_note_by_name(ruta)
         if not nota_path:
-            infos.append({"path": ruta, "error": "No encontrado"})
+            infos.append({"path": ruta, "error": "Not found"})
             continue
 
-        is_allowed, error = check_path_access(nota_path, operation="leer")
+        is_allowed, error = check_path_access(nota_path, operation="read")
         if not is_allowed:
             infos.append({"path": ruta, "error": error})
             continue

@@ -125,7 +125,7 @@ reportUnknownParameterType = "none"
 exclude_dirs = ["tests", ".venv"]
 
 [tool.pylint.MAIN]
-# Excluir módulo semantic: usa dependencias opcionales (RAG) que no están disponibles siempre
+# Exclude semantic module: it uses optional RAG dependencies that are not always installed.
 ignore = ["semantic"]
 persistent = false
 
@@ -139,14 +139,14 @@ disable = [
     "C0115",  # missing-class-docstring
     "C0116",  # missing-function-docstring
     "C0301",  # line-too-long (ruff)
-    "C0415",  # import-outside-toplevel: intencional en tests de importación
+    "C0415",  # import-outside-toplevel: intentional in import tests
     "R0801",  # duplicate-code (pendiente refactor)
-    "R0903",  # too-few-public-methods: clases helper de test son pequeñas
+    "R0903",  # too-few-public-methods: test helper classes are intentionally small
     "E1101",  # no-member
     "W0613",  # unused-argument: falso positivo con fixtures de pytest
     "W0621",  # redefined-outer-name: falso positivo con fixtures de pytest
     "W1203",  # logging-fstring-interpolation
-    "R0917",  # too-many-positional-arguments: max-args=8 ya cubre este límite
+    "R0917",  # too-many-positional-arguments: max-args=8 already covers this limit
 ]
 
 [tool.pylint.DESIGN]

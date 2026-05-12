@@ -20,7 +20,7 @@ logger = get_logger(__name__)
 
 def _collect_folder_structure(vault_path: Path) -> list[str]:
     """Collect top-level folder structure with immediate subfolders."""
-    excluidos = {
+    excluded = {
         ".git",
         ".obsidian",
         ".trash",
@@ -30,30 +30,30 @@ def _collect_folder_structure(vault_path: Path) -> list[str]:
         ".obsidianrag",
         ".agents",
     }
-    estructura = []
+    structure = []
 
     for item in sorted(vault_path.iterdir()):
-        if not item.is_dir() or item.name in excluidos or item.name.startswith("."):
+        if not item.is_dir() or item.name in excluded or item.name.startswith("."):
             continue
 
-        subcarpetas = []
+        subfolders = []
         try:
             for sub in sorted(item.iterdir()):
                 if sub.is_dir() and not sub.name.startswith("."):
-                    subcarpetas.append(sub.name)
+                    subfolders.append(sub.name)
         except PermissionError:
             pass
 
         desc = f"📂 {item.name}"
-        if subcarpetas:
-            nombres = ", ".join(subcarpetas[:5])
-            if len(subcarpetas) > 5:
-                desc += f" (incluye: {nombres}, ...)"
+        if subfolders:
+            names = ", ".join(subfolders[:5])
+            if len(subfolders) > 5:
+                desc += f" (includes: {names}, ...)"
             else:
-                desc += f" (incluye: {nombres})"
-        estructura.append(desc)
+                desc += f" (includes: {names})"
+        structure.append(desc)
 
-    return estructura
+    return structure
 
 
 def _collect_templates(
@@ -73,18 +73,18 @@ def _collect_templates(
                 templates_folder = item.name
                 break
 
-    plantillas: list[str] = []
+    templates: list[str] = []
     if templates_folder:
         plantillas_path = vault_path / templates_folder
         if plantillas_path.exists():
-            plantillas = [item.stem for item in sorted(plantillas_path.glob("*.md"))]
+            templates = [item.stem for item in sorted(plantillas_path.glob("*.md"))]
 
-    return templates_folder, plantillas
+    return templates_folder, templates
 
 
 def _collect_common_tags(vault_path: Path) -> str:
     """Sample up to 100 notes and return top 20 tags as a formatted string."""
-    conteo: Dict[str, int] = {}
+    counts: Dict[str, int] = {}
     count = 0
 
     for archivo in vault_path.rglob("*.md"):
@@ -94,13 +94,13 @@ def _collect_common_tags(vault_path: Path) -> str:
             with open(archivo, "r", encoding="utf-8") as f:
                 tags = extract_tags_from_content(f.read())
                 for tag in tags:
-                    conteo[tag] = conteo.get(tag, 0) + 1
+                    counts[tag] = counts.get(tag, 0) + 1
             count += 1
         except OSError as e:
-            logger.debug("No se pudo leer '%s': %s", archivo, e)
+            logger.debug("Could not read '%s': %s", archivo, e)
             continue
 
-    top_tags = sorted(conteo.items(), key=lambda x: x[1], reverse=True)[:20]
+    top_tags = sorted(counts.items(), key=lambda x: x[1], reverse=True)[:20]
     return ", ".join(f"#{t}" for t, _ in top_tags)
 
 
@@ -109,12 +109,12 @@ def _collect_agent_context(vault_path: Path) -> list[str]:
     agent_path = vault_path / ".agents"
     if not agent_path.exists() or not agent_path.is_dir():
         return [
-            "⚠️ No se encontró la carpeta .agents",
-            "  -> SUGESTIÓN: Lee la documentación para configurar "
-            "tus Agentes y Reglas.",
+            "⚠️ .agents folder not found",
+            "  -> Suggestion: read the setup documentation to configure "
+            "vault skills and rules.",
         ]
 
-    info = ["✅ Carpeta .agents encontrada."]
+    info = ["✅ .agents folder found."]
     for item in sorted(agent_path.iterdir()):
         if item.name.startswith("."):
             continue
@@ -122,9 +122,9 @@ def _collect_agent_context(vault_path: Path) -> list[str]:
             subitems = [s.name for s in item.iterdir() if not s.name.startswith(".")]
             desc = f"  - 📂 {item.name}/"
             if subitems:
-                nombres = ", ".join(subitems[:5])
+                names = ", ".join(subitems[:5])
                 suffix = "..." if len(subitems) > 5 else ""
-                desc += f" ({nombres}{suffix})"
+                desc += f" ({names}{suffix})"
             info.append(desc)
         else:
             info.append(f"  - 📄 {item.name}")
@@ -142,44 +142,44 @@ def read_vault_context() -> Result[str]:
     try:
         vault_path = get_vault_path()
         if not vault_path:
-            return Result.fail("La ruta del vault no está configurada.")
+            return Result.fail("Vault path is not configured.")
 
         config = get_vault_config(vault_path)
 
-        estructura = _collect_folder_structure(vault_path)
-        templates_folder, plantillas = _collect_templates(vault_path, config)
+        structure = _collect_folder_structure(vault_path)
+        templates_folder, templates = _collect_templates(vault_path, config)
         tags_str = _collect_common_tags(vault_path)
         agent_info = _collect_agent_context(vault_path)
 
         # Build report
-        reporte = "# Contexto del Vault\n\n"
+        report = "# Vault Context\n\n"
 
-        reporte += "## 📂 Estructura Principal\n"
-        reporte += "\n".join(estructura) + "\n\n"
+        report += "## 📂 Main Structure\n"
+        report += "\n".join(structure) + "\n\n"
 
         if templates_folder:
-            reporte += f"## 📝 Plantillas Disponibles (en {templates_folder})\n"
-            if plantillas:
-                reporte += ", ".join(plantillas) + "\n\n"
+            report += f"## 📝 Available Templates (in {templates_folder})\n"
+            if templates:
+                report += ", ".join(templates) + "\n\n"
             else:
-                reporte += f"No se encontraron plantillas en {templates_folder}.\n\n"
+                report += f"No templates found in {templates_folder}.\n\n"
         else:
-            reporte += "## 📝 Plantillas\n"
-            reporte += "No se detectó carpeta de plantillas.\n\n"
+            report += "## 📝 Templates\n"
+            report += "No templates folder detected.\n\n"
 
-        reporte += "## 🏷️ Etiquetas Comunes (Muestreo)\n"
+        report += "## 🏷️ Common Tags (Sample)\n"
         if tags_str:
-            reporte += tags_str + "\n\n"
+            report += tags_str + "\n\n"
         else:
-            reporte += "No se detectaron etiquetas comunes.\n\n"
+            report += "No common tags detected.\n\n"
 
-        reporte += "## 🤖 Contexto del Agente (.agents)\n"
-        reporte += "\n".join(agent_info) + "\n"
+        report += "## 🤖 Agent Context (.agents)\n"
+        report += "\n".join(agent_info) + "\n"
 
-        return Result.ok(reporte)
+        return Result.ok(report)
 
     except OSError as e:
-        return Result.fail(f"Error al leer contexto: {e}")
+        return Result.fail(f"Error reading vault context: {e}")
 
 
 def build_vault_health_report() -> Result[str]:
