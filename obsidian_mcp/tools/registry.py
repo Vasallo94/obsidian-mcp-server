@@ -144,12 +144,17 @@ TOOL_SPECS: dict[str, ToolSpec] = {
         "Rebuild RAG Index", "obsidianrag", read_only=False, idempotent=False
     ),
     # Legacy semantic pack
-    "semantic_search": ToolSpec("Semantic Search", "legacy_semantic"),
+    "semantic_search": ToolSpec(
+        "Legacy Semantic Search (Deprecated)", "legacy_semantic"
+    ),
     "index_vault_semantic": ToolSpec(
-        "Index Vault Semantic", "legacy_semantic", read_only=False, idempotent=False
+        "Legacy Semantic Index (Deprecated)",
+        "legacy_semantic",
+        read_only=False,
+        idempotent=False,
     ),
     "suggest_semantic_connections": ToolSpec(
-        "Suggest Semantic Connections", "legacy_semantic"
+        "Legacy Semantic Connections (Deprecated)", "legacy_semantic"
     ),
     # Canvas pack
     "canvas_read": ToolSpec("Read Canvas", "canvas"),

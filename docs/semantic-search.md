@@ -1,102 +1,79 @@
-# Semantic Search (RAG)
+# Semantic Search
 
-The Obsidian MCP server includes **Retrieval-Augmented Generation (RAG)** capabilities, allowing the AI to query your vault using natural language and understanding context beyond simple keywords.
+The recommended semantic-search path is the `obsidianrag` tool set. It keeps
+this MCP server lightweight and delegates advanced RAG behavior to the external
+ObsidianRAG service over HTTP.
 
-## How does it work?
+## Recommended Architecture
 
-The system uses a vector database to represent your notes as "vectors" in a multidimensional space. When you ask a question, the server searches for the notes whose vectors are closest to your query's vector.
+Use this MCP server for vault access, orchestration, setup diagnostics, and MCP
+tool exposure. Use ObsidianRAG for embeddings, indexing, hybrid retrieval,
+reranking, and natural-language answers over the vault.
 
-### Technical Components
-- **Embeddings**: Uses language models to convert text into numerical representations.
-- **Vector Store**: `ChromaDB` is used to store and search these vectors efficiently.
-- **Orchestration**: `LangChain` manages the data flow between the notes and the embeddings model.
+```text
+MCP client -> obsidian-mcp-server -> ObsidianRAG HTTP API -> local vault index
+```
 
-## Dependency Installation
+Enable it from `.agents/vault.yaml`:
 
-This functionality is optional and requires additional libraries that can increase the installation size:
+```yaml
+profile:
+  tool_sets:
+    - "obsidianrag"
+  integrations:
+    obsidianrag:
+      project_path: "/path/to/ObsidianRAG"
+      api_url: "http://127.0.0.1:8000"
+      env:
+        OBSIDIANRAG_LLM_MODEL: "gemma3"
+        OBSIDIANRAG_OLLAMA_EMBEDDING_MODEL: "embeddinggemma"
+```
+
+Useful tools and resources:
+
+- `rag_setup_status()`: inspect local prerequisites and backend reachability.
+- `rag_health()`: check whether the ObsidianRAG API is healthy.
+- `ask_vault(question, session_id)`: ask semantic questions against the vault.
+- `rebuild_rag_index()`: trigger a backend index rebuild.
+- `obsidian://integrations/obsidianrag/setup`: guided setup playbook.
+- `obsidian://integrations/obsidianrag/config`: safe integration summary.
+
+## Legacy In-Process RAG
+
+The `legacy_semantic` tool set is deprecated. It remains available only for
+backwards compatibility with old local deployments that embedded a RAG stack
+inside this MCP server.
+
+Legacy tools:
+
+- `semantic_search`
+- `index_vault_semantic`
+- `suggest_semantic_connections`
+
+They require the deprecated optional dependency extra:
 
 ```bash
 pip install "obsidian-mcp-server[rag]"
 ```
 
-## Semantic Tools
+This path includes heavier dependencies such as ChromaDB, LangChain packages,
+sentence-transformers, and PyTorch. New installations should not use it. Prefer
+ObsidianRAG so the MCP server does not duplicate indexing and retrieval logic.
 
-### 1. `preguntar_al_conocimiento`
-This is the main tool for "human-like" queries.
-- **Example**: "What have I written about artificial intelligence in the last few months?"
-- **Filters**: You can restrict the search by metadata (e.g., only notes of type "poetry").
+## Migration Notes
 
-### 2. `indexar_vault_semantico`
-New notes do not automatically appear in the semantic search. You must run this tool periodically to update the index.
-- **Incremental**: Only processes new or modified notes.
-- **Forced**: Rebuilds the entire index from scratch (useful if you change the embeddings model).
+For a vault currently using `legacy_semantic`:
 
-### 3. `encontrar_conexiones_sugeridas`
-Analyzes the semantic similarity between all your notes.
-- If two notes discuss very similar topics but do not have a `[[Note]]` link between them, the server will flag them as a suggested connection.
-- It is ideal for maintaining and organically growing your Zettelkasten.
+1. Install and start ObsidianRAG.
+2. Enable the `obsidianrag` tool set in `.agents/vault.yaml`.
+3. Configure the ObsidianRAG project path and local API URL.
+4. Run `rag_setup_status()` and follow the setup resource.
+5. Rebuild the ObsidianRAG index once.
+6. Replace legacy calls:
+   - `semantic_search` -> `ask_vault`
+   - `index_vault_semantic` -> `rebuild_rag_index`
+   - `suggest_semantic_connections` -> use ObsidianRAG retrieval plus explicit
+     link-analysis tools until a dedicated external suggestion workflow exists.
 
-### 4. `sugerir_ubicacion` (Folder Recommendation)
-
-This tool uses **semantic search** to suggest the most appropriate folder for a new note, based on similar notes already existing in your vault.
-
-#### How does it work?
-
-1. **Vector search**: Combines the title, tags, and content of the new note to create a query.
-2. **RAG Retrieval**: Searches for the most similar notes in the vector index (ChromaDB).
-3. **Voting system**: The folders of the similar notes "vote" for the suggested location.
-4. **Ranking with confidence**: Returns multiple candidates sorted by number of votes and confidence percentage.
-
-#### Usage Example
-
-When you ask the AI to create a note about "SSH Configuration for NAS", the system:
-
-```text
-Suggested folders based on similar content:
-
-1. `Technology/Infrastructure`
-   Confidence: 80% (4 votes)
-   Similar notes: NAS, Docker Setup, Local Networks
-
-2. `Technology/Guides`
-   Confidence: 20% (1 vote)
-   Similar notes: VPN Guide
-
-The option 1 has high confidence (80%). You can suggest it to the user.
-```
-
-#### Interpreting Results
-
-| Confidence | Recommendation |
-|-----------|---------------|
-| >=60% | High confidence. The AI can suggest this folder directly. |
-| 40-59% | Moderate confidence. Show options to the user to decide. |
-| <40% | Low confidence. Ask the user where they prefer to place the note. |
-
-#### Automatic Fallback
-
-If the semantic index is unavailable or finds no matches, the tool automatically uses a **keyword-based rule system** as a backup, ensuring a useful suggestion is always provided.
-
-## Data Storage
-The vector index is saved locally in a folder inside your vault (usually `.obsidianrag/` or similar), ensuring that your knowledge never leaves your control.
-
-### 5. Semantic Indexing for Images
-
-The system has the ability to "read" the images in your vault through their descriptions.
-
-#### The Problem
-Text language models (like the one used by this RAG) cannot see the pixels of an `image.png`. If you search for "sales chart", the AI won't know that image contains a sales chart unless the file name is highly explicit.
-
-#### The MCP Solution
-The indexer scans all your notes looking for images with **captions**.
-- Obsidian format: `![[image.png|This is a sales chart]]`
-- Markdown format: `![This is a sales chart](image.png)`
-
-When it finds one, it takes that description and **injects the text into the vector index** associated with the note, under a hidden section called "Image Context".
-
-#### Result
-You can ask: *"Do you have any charts about sales?"*
-The system will find the note because it semantically "knows" it contains that image, even if the main text of the note never mentions the word "chart".
-
-> [!TIP]
-> For this to work, it is **MANDATORY** to add descriptions to relevant images. An image without a description is invisible to the semantic search engine.
+Once no active client depends on `legacy_semantic`, the legacy package extra and
+in-process RAG modules can be removed from the MCP server.

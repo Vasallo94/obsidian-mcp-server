@@ -37,6 +37,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Deprecated: this extra powers the legacy in-process semantic tools. Prefer
+# the `obsidianrag` tool set, which delegates RAG to the external ObsidianRAG
+# service without embedding a second RAG stack in this MCP server.
 rag = [
     "langchain>=0.3.0",
     "langchain-community>=0.3.0",
@@ -50,7 +53,6 @@ rag = [
     "chromadb>=0.5.0",
     "rank-bm25>=0.2.2",
     "sentence-transformers>=3.0.0",
-    "torch>=2.0.0",
     "torch>=2.0.0",
 ]
 

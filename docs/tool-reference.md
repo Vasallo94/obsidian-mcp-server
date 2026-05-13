@@ -76,7 +76,8 @@ project instead of embedding a second RAG stack inside this MCP server.
 - `agents_admin`: `refresh_skills_cache`, `create_skill`, `suggest_vault_skills`,
   `sync_skills`.
 - `youtube`: `get_youtube_transcript`.
-- `legacy_semantic`: legacy in-process semantic tools, disabled by default.
+- `legacy_semantic`: deprecated in-process semantic tools, disabled by default.
+  Prefer `obsidianrag` for all new semantic-search deployments.
 - `canvas`: Obsidian Canvas read/write tools.
 - `kanvas`: workflow/task-board tools.
 - `secundo_selebro`: personal profile tools such as `quick_capture`.

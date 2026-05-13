@@ -176,6 +176,8 @@ opt-ins:
 - `youtube`: transcript import.
 - `obsidianrag`: semantic search through the external ObsidianRAG backend.
 - `canvas` and `kanvas`: visual canvas and workflow helpers.
+- `legacy_semantic`: deprecated in-process semantic search. Prefer
+  `obsidianrag`; this pack is kept only for backwards compatibility.
 
 Use `list_client_roots()` to inspect roots advertised by clients that support
 the MCP `roots/list` capability. This is useful during setup because an agent
@@ -186,6 +188,10 @@ can confirm which workspaces or vault folders the client has made visible.
 This project does not embed a second advanced RAG implementation. When semantic
 search is needed, enable the `obsidianrag` tool set and declare the local
 ObsidianRAG integration in `.agents/vault.yaml`.
+
+The older `legacy_semantic` tool set is deprecated because it embeds ChromaDB,
+LangChain retrievers, sentence-transformers, and PyTorch directly in the MCP
+server. New deployments should use ObsidianRAG instead.
 
 The server then exposes:
 

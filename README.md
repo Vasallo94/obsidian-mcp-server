@@ -166,7 +166,7 @@ To dive deeper into how the server works and how to customize it, check our deta
 2. [Tool Reference](docs/tool-reference.md): Complete list of available MCP tools and their parameters.
 3. [Server Configuration](docs/configuration.md): Guide on environment variables and technical configuration.
 4. [Agent Setup](docs/agent-folder-setup.md): How to organize your vault (`.agents/`) with skills and contextual rules.
-5. [Semantic Search (RAG)](docs/semantic-search.md): Deep dive into vector indexing and RAG mechanics.
+5. [Semantic Search](docs/semantic-search.md): ObsidianRAG integration and legacy RAG migration notes.
 6. [Future Roadmap](docs/FUTURE.md): Planned improvements and next steps for the server.
 
 ---

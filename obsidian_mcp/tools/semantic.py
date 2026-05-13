@@ -20,6 +20,11 @@ def register_semantic_tools(mcp: FastMCP) -> None:
         )
         return
 
+    logger.warning(
+        "The 'legacy_semantic' tool set is deprecated. Prefer the 'obsidianrag' "
+        "tool set, which delegates semantic search to the external ObsidianRAG service."
+    )
+
     try:
         # pylint: disable-next=import-outside-toplevel,unused-import
         import chromadb  # noqa: F401
@@ -36,7 +41,8 @@ def register_semantic_tools(mcp: FastMCP) -> None:
             from .semantic_logic import ask_knowledge
 
             try:
-                return ask_knowledge(query, metadata_filter).to_display()
+                result = ask_knowledge(query, metadata_filter).to_display()
+                return _deprecated_result(result)
             except Exception as e:  # pylint: disable=broad-exception-caught
                 return f"Error running semantic search: {e}"
 
@@ -49,7 +55,7 @@ def register_semantic_tools(mcp: FastMCP) -> None:
                 await ctx.report_progress(0, 1, "Indexing semantic vault...")
                 result = await asyncio.to_thread(index_semantic_vault, force)
                 await ctx.report_progress(1, 1, "Semantic indexing complete")
-                return result.to_display()
+                return _deprecated_result(result.to_display())
             except Exception as e:  # pylint: disable=broad-exception-caught
                 return f"Error updating semantic index: {e}"
 
@@ -65,13 +71,14 @@ def register_semantic_tools(mcp: FastMCP) -> None:
             from .semantic_logic import find_suggested_connections
 
             try:
-                return find_suggested_connections(
+                result = find_suggested_connections(
                     threshold,
                     limit,
                     include_folders,
                     exclude_mocs,
                     min_words,
                 ).to_display()
+                return _deprecated_result(result)
             except ValueError as e:
                 return f"Error finding semantic connections: {e}"
 
@@ -82,3 +89,12 @@ def register_semantic_tools(mcp: FastMCP) -> None:
             "Legacy semantic tools omitted: install optional RAG dependencies "
             "or use the ObsidianRAG integration."
         )
+
+
+def _deprecated_result(result: str) -> str:
+    """Prefix legacy semantic responses with a migration hint."""
+    return (
+        "Deprecated: `legacy_semantic` is maintained for backwards compatibility. "
+        "Prefer the `obsidianrag` tool set with `rag_health` and `ask_vault`.\n\n"
+        f"{result}"
+    )
