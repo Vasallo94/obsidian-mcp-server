@@ -35,7 +35,10 @@ Optional tools are enabled from `.agents/vault.yaml` with
 - `suggest_note_location(title, content, tags)`: Suggest a vault folder.
 - `create_note(title, content, folder, tags, template, created_by)`: Create a note.
 - `append_to_note(note_path, content, at_end)`: Append or prepend content.
-- `patch_note(note_path, operations)`: Apply atomic `old` to `new` edits.
+- `patch_note(note_path, operations)`: Apply atomic exact-match edits with
+  operations shaped as `{"old": "...", "new": "..."}`. Compatibility aliases
+  `oldText`/`newText` and `old_text`/`new_text` are accepted, but clients
+  should prefer `old`/`new`.
 - `replace_note(note_path, content)`: Replace a full note.
 - `update_frontmatter(note_path, updates)`: Update YAML frontmatter.
 - `update_note_tags(note_path, tags)`: Update tag metadata.

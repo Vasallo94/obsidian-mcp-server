@@ -5,6 +5,7 @@ import json
 from fastmcp import Context, FastMCP
 
 from ..middleware import enrich_response, invalidate_rules_cache
+from ..models.tool_inputs import EditOperation
 from .creation_logic import (
     append_to_note as append_to_note_logic,
 )
@@ -13,6 +14,7 @@ from .creation_logic import (
     edit_note,
     get_frontmatter_logic,
     manage_tags_logic,
+    normalize_edit_operations,
     search_and_replace_global,
     suggest_folder_location,
     update_frontmatter_logic,
@@ -153,20 +155,32 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
             return f"Error deleting note: {e}"
 
     @register_tool(mcp, "patch_note")
-    def patch_note(note_path: str, operations: list[dict]) -> str:
-        """Patch a note with exact-match old/new replacements."""
+    def patch_note(note_path: str, operations: list[EditOperation]) -> str:
+        """Patch a note with atomic exact-match replacements.
+
+        Each operation uses `old` for the unique text to replace and `new` for
+        the replacement text. Common aliases (`oldText`/`newText` and
+        `old_text`/`new_text`) are accepted for client compatibility.
+        """
         try:
-            if any(operation.get("old", None) == "" for operation in operations):
+            normalized_result = normalize_edit_operations(operations)
+            if not normalized_result.success:
+                return f"Error: {normalized_result.error}"
+            normalized_operations = normalized_result.data or []
+
+            if any(operation["old"] == "" for operation in normalized_operations):
                 return (
                     "Error: patch_note does not allow full-note replacement. "
                     "Use replace_note for that destructive operation."
                 )
 
-            result = edit_note(note_path, operations).to_display(success_prefix="OK")
+            result = edit_note(note_path, normalized_operations).to_display(
+                success_prefix="OK"
+            )
             if "REGLAS_GLOBALES" in note_path:
                 invalidate_rules_cache()
             combined_new = "\n".join(
-                operation.get("new", "") for operation in operations
+                operation["new"] for operation in normalized_operations
             )
             return enrich_response(
                 tool_name="patch_note",

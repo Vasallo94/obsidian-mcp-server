@@ -51,7 +51,7 @@ class TestGenerateSkill:
         assert "name: test-skill" in content
         assert "Una skill de prueba" in content
         assert "REGLAS_GLOBALES" in content
-        assert "REGLA DE ORO" in content
+        assert "PATCH NOTE GOLDEN RULE" in content
 
     def test_normalizes_skill_name(self, temp_vault, monkeypatch):
         """Should normalize skill names (lowercase, dashes)."""
@@ -180,7 +180,7 @@ class TestSyncSkills:
 
         # Verify fix was applied
         content = skill_file.read_text()
-        assert "REGLA DE ORO" in content
+        assert "PATCH NOTE GOLDEN RULE" in content
 
     def test_reports_all_ok(self, temp_vault, monkeypatch):
         """Should report OK if all skills are valid."""
@@ -196,7 +196,7 @@ class TestSyncSkills:
         skill_file.write_text(
             "# Valid Skill\n\n"
             "Reference to REGLAS_GLOBALES here.\n\n"
-            "## REGLA DE ORO DE EDICIÓN\n"
+            "## PATCH NOTE GOLDEN RULE\n"
             "Instructions here."
         )
 

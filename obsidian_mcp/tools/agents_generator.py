@@ -30,24 +30,24 @@ SKILL_TEMPLATE = dedent("""
     ## Cuándo usar esta skill
     {when_to_use}
 
-    ## Antes de Crear Notas
+    ## Before Creating Notes
 
     > [!CAUTION]
-    > **OBLIGATORIO**: Lee y aplica [[.agents/REGLAS_GLOBALES]]
-    > antes de crear cualquier nota.
+    > **REQUIRED**: Read and apply [[.agents/REGLAS_GLOBALES]]
+    > before creating any note.
 
-    **Ubicación por defecto:** `{default_location}`
+    **Default location:** `{default_location}`
 
-    ## Instrucciones
+    ## Instructions
 
     {instructions}
 
-    ## REGLA DE ORO DE EDICION
-    Cuando uses `patch_note`, envia operaciones old->new:
-    - Lee la nota primero con `read_note`.
-    - old debe ser texto EXACTO de la nota (incluyendo saltos de linea).
-    - old debe ser UNICO. Si aparece mas de una vez, incluye mas contexto.
-    - Para reemplazo total: [{{"old": "", "new": "contenido completo"}}]
+    ## PATCH NOTE GOLDEN RULE
+    When using `patch_note`, send exact old->new operations:
+    - Read the note first with `read_note`.
+    - `old` must be exact text from the note, including line breaks.
+    - `old` must be unique. If it appears more than once, include more context.
+    - Use `replace_note` for full-note replacement.
 """).strip()
 
 
@@ -350,12 +350,15 @@ def sync_skills(actualizar: bool = False) -> Result[str]:
                 skill_file.write_text(new_content, encoding="utf-8")
                 fixed.append(skill_dir.name)
 
-        # Check for REGLA DE ORO
-        if "REGLA DE ORO" not in content:
+        # Check for patch_note editing guidance
+        has_patch_note_rule = (
+            "PATCH NOTE GOLDEN RULE" in content or "REGLA DE ORO" in content
+        )
+        if not has_patch_note_rule:
             issues.append(
                 {
                     "skill": skill_dir.name,
-                    "issue": "Falta sección 'REGLA DE ORO DE EDICIÓN'",
+                    "issue": "Missing 'PATCH NOTE GOLDEN RULE' section",
                     "fixable": True,
                 }
             )
@@ -363,11 +366,12 @@ def sync_skills(actualizar: bool = False) -> Result[str]:
                 # Append the golden rule
                 golden_rule = dedent("""
 
-                    ## REGLA DE ORO DE EDICION
-                    Cuando uses `patch_note`, envia operaciones old->new:
-                    - Lee la nota primero con `read_note`.
-                    - old debe ser texto EXACTO de la nota.
-                    - old debe ser UNICO. Si aparece mas de una vez, incluye mas contexto.
+                    ## PATCH NOTE GOLDEN RULE
+                    When using `patch_note`, send exact old->new operations:
+                    - Read the note first with `read_note`.
+                    - `old` must be exact text from the note.
+                    - `old` must be unique. If it appears more than once, include more context.
+                    - Use `replace_note` for full-note replacement.
                 """).strip()
                 skill_file.write_text(content + "\n\n" + golden_rule, encoding="utf-8")
                 if skill_dir.name not in fixed:

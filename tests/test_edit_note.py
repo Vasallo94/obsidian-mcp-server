@@ -87,6 +87,30 @@ class TestEditNoteHappyPath:
         content = sample_note.read_text(encoding="utf-8")
         assert "First paragraph.\n\nInserted paragraph." in content
 
+    def test_camel_case_operation_aliases(self, temp_vault, sample_note, monkeypatch):
+        """Clients that send oldText/newText aliases should still work."""
+        _patch_vault(monkeypatch, temp_vault)
+        result = edit_note(
+            "test_note.md",
+            [{"oldText": "First paragraph.", "newText": "Updated paragraph."}],
+        )
+        assert result.success
+        content = sample_note.read_text(encoding="utf-8")
+        assert "Updated paragraph." in content
+        assert "First paragraph." not in content
+
+    def test_snake_case_operation_aliases(self, temp_vault, sample_note, monkeypatch):
+        """Clients that send old_text/new_text aliases should still work."""
+        _patch_vault(monkeypatch, temp_vault)
+        result = edit_note(
+            "test_note.md",
+            [{"old_text": "First paragraph.", "new_text": "Updated paragraph."}],
+        )
+        assert result.success
+        content = sample_note.read_text(encoding="utf-8")
+        assert "Updated paragraph." in content
+        assert "First paragraph." not in content
+
     def test_delete_fragment(self, temp_vault, sample_note, monkeypatch):
         """Delete a fragment by setting new to empty string."""
         _patch_vault(monkeypatch, temp_vault)
@@ -255,6 +279,16 @@ class TestEditNoteAtomicFailure:
         result = edit_note("test_note.md", ops)
         assert not result.success
         assert "50" in result.error
+
+    def test_missing_operation_fields(self, temp_vault, sample_note, monkeypatch):
+        """Fail clearly when an operation omits the expected edit fields."""
+        _patch_vault(monkeypatch, temp_vault)
+        original = sample_note.read_text(encoding="utf-8")
+        result = edit_note("test_note.md", [{"oldText": "First paragraph."}])
+        assert not result.success
+        assert "old" in result.error
+        assert "new" in result.error
+        assert sample_note.read_text(encoding="utf-8") == original
 
 
 # === Edge Cases ===

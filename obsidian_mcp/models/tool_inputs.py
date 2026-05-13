@@ -2,7 +2,7 @@
 
 from typing import Any, Dict, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 
 class SuggestNoteLocationInput(BaseModel):
@@ -37,8 +37,16 @@ class DeleteNoteInput(BaseModel):
 
 
 class EditOperation(BaseModel):
-    old: str = Field(description="Exact text to replace. Must be unique.")
-    new: str = Field(description="Replacement text.")
+    model_config = ConfigDict(populate_by_name=True)
+
+    old: str = Field(
+        description="Exact text to replace. Must be unique.",
+        validation_alias=AliasChoices("old", "oldText", "old_text"),
+    )
+    new: str = Field(
+        description="Replacement text.",
+        validation_alias=AliasChoices("new", "newText", "new_text"),
+    )
 
 
 class PatchNoteInput(BaseModel):

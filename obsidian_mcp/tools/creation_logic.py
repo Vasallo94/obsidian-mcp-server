@@ -321,9 +321,57 @@ def _update_frontmatter_date(content: str, user_set_updated: bool = False) -> st
     return content.replace("\n---\n", f"\nupdated: {ahora}\n---\n", 1)
 
 
+def _operation_to_dict(operation: Any) -> dict[str, Any] | None:
+    """Convert dict-like or Pydantic edit operation inputs to a plain dict."""
+    if isinstance(operation, dict):
+        return operation
+    if hasattr(operation, "model_dump"):
+        return operation.model_dump()
+    return None
+
+
+def _edit_operation_value(
+    operation: dict[str, Any], aliases: tuple[str, ...]
+) -> str | None:
+    """Read an edit operation field, accepting common client aliases."""
+    for alias in aliases:
+        if alias in operation:
+            value = operation[alias]
+            return value if isinstance(value, str) else None
+    return None
+
+
+def normalize_edit_operations(operaciones: list[Any]) -> Result[list[dict[str, str]]]:
+    """Normalize exact-match edit operations from MCP clients.
+
+    The public tool contract is {"old": "...", "new": "..."}, but some clients
+    synthesize camelCase field names from prose. Accepting these aliases keeps
+    patch_note portable while preserving the same exact-match semantics.
+    """
+    normalized: list[dict[str, str]] = []
+    for index, operation in enumerate(operaciones, start=1):
+        operation_dict = _operation_to_dict(operation)
+        if operation_dict is None:
+            return Result.fail(
+                f"Operation {index} must be an object with old/new text fields."
+            )
+
+        old_text = _edit_operation_value(operation_dict, ("old", "oldText", "old_text"))
+        new_text = _edit_operation_value(operation_dict, ("new", "newText", "new_text"))
+        if old_text is None or new_text is None:
+            return Result.fail(
+                f"Operation {index} must include string fields 'old' and 'new'. "
+                "Aliases 'oldText'/'newText' and 'old_text'/'new_text' are also accepted."
+            )
+
+        normalized.append({"old": old_text, "new": new_text})
+
+    return Result.ok(normalized)
+
+
 def edit_note(  # pylint: disable=too-many-locals,too-many-return-statements,too-many-branches
     nombre_archivo: str,
-    operaciones: list[dict[str, str]],
+    operaciones: list[Any],
 ) -> Result[str]:
     """Edit an existing note by applying a list of old->new operations.
 
@@ -353,6 +401,11 @@ def edit_note(  # pylint: disable=too-many-locals,too-many-return-statements,too
 
     if len(operaciones) > 50:
         return Result.fail("Maximo 50 operaciones por llamada.")
+
+    normalized_result = normalize_edit_operations(operaciones)
+    if not normalized_result.success:
+        return Result.fail(normalized_result.error or "Invalid edit operations.")
+    operaciones = normalized_result.data or []
 
     with open(nota_path, "r", encoding="utf-8") as f:
         contenido_actual = f.read()
