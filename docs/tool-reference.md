@@ -13,7 +13,11 @@ Always enabled.
 - `list_client_roots()`: Inspect MCP client roots advertised through `roots/list`.
 - `route_task(request)`: Recommend prompts, skills, resources, and tools for a task.
 - `read_vault_context()`: Summarize folders, templates, common tags, and `.agents`.
-- `list_notes(folder, include_subfolders)`: List Markdown notes.
+- `list_notes(folder, include_subfolders, limit, offset, pattern)`: List
+  Markdown notes with pagination. Default `limit=500`; pass `limit=0` for
+  no limit. Use `pattern` (glob like `"2026-*.md"`) to narrow further.
+  Responses include a `Truncated:` footer with the next `offset` when more
+  results exist.
 - `read_note(note_path)`: Read one note, with path checks and output limits.
 - `search_notes(query, folder, titles_only)`: Search titles or Markdown content.
 - `search_notes_by_date(date_from, date_to)`: Find recently modified notes.

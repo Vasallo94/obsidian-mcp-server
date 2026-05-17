@@ -10,6 +10,7 @@ All functions return Result[str] for consistent error handling.
 
 # pylint: disable=too-many-lines
 
+import difflib
 import json
 import re
 from datetime import date, datetime
@@ -146,6 +147,48 @@ def _process_date_placeholders(content: str, date_obj: datetime | None = None) -
     return content
 
 
+def _suggest_close_matches(
+    needle: str, haystack: str, max_suggestions: int = 3, cutoff: float = 0.6
+) -> list[str]:
+    """Find lines or line-windows in ``haystack`` that look like ``needle``.
+
+    Used by ``edit_note`` when an exact-match ``old`` text isn't found, so
+    the agent gets actionable suggestions instead of guessing emoji
+    codepoints or whitespace variants (Issue #8).
+
+    Returns up to ``max_suggestions`` candidate strings, ordered by
+    similarity. Empty list if nothing crosses the ``cutoff`` ratio.
+    """
+    if not needle.strip() or not haystack:
+        return []
+
+    needle_lines = needle.splitlines() or [needle]
+    haystack_lines = haystack.splitlines()
+    window = len(needle_lines)
+
+    if window == 1:
+        candidates = haystack_lines
+    else:
+        candidates = [
+            "\n".join(haystack_lines[i : i + window])
+            for i in range(len(haystack_lines) - window + 1)
+        ]
+
+    matcher = difflib.SequenceMatcher(autojunk=False)
+    matcher.set_seq2(needle)
+    scored: list[tuple[float, str]] = []
+    for cand in candidates:
+        if not cand.strip() or cand == needle:
+            continue
+        matcher.set_seq1(cand)
+        ratio = matcher.ratio()
+        if ratio >= cutoff:
+            scored.append((ratio, cand))
+
+    scored.sort(key=lambda x: x[0], reverse=True)
+    return [cand for _, cand in scored[:max_suggestions]]
+
+
 def _extract_frontmatter_from_content(contenido: str) -> tuple[dict[str, Any], str]:
     """Extract YAML frontmatter from content if it exists."""
     frontmatter_pattern = re.compile(r"^---\s*\n(.*?)\n---\s*\n?", re.DOTALL)
@@ -171,14 +214,21 @@ def _build_frontmatter(
     agente_creador: str = "",
     extra_metadata: dict[str, Any] | None = None,
 ) -> str:
-    """Build YAML frontmatter block combining metadata."""
+    """Build YAML frontmatter block combining metadata.
+
+    Issue #2: when ``extra_metadata`` carries an embedded frontmatter block
+    extracted from ``content``, its fields take precedence over the
+    parameter-derived defaults. Filename identity is still the caller's
+    ``titulo`` argument; the frontmatter ``title`` reflects what the
+    author wrote.
+    """
     metadata: dict[str, Any] = {}
 
     if extra_metadata:
         metadata.update(extra_metadata)
 
-    metadata["title"] = titulo
-    metadata["created"] = ahora
+    metadata.setdefault("title", titulo)
+    metadata.setdefault("created", ahora)
 
     existing_tags = metadata.get("tags", [])
     if isinstance(existing_tags, str):
@@ -442,9 +492,14 @@ def edit_note(  # pylint: disable=too-many-locals,too-many-return-statements,too
         count = contenido_actual.count(old_text)
         if count == 0:
             preview = old_text[:80] + ("..." if len(old_text) > 80 else "")
-            return Result.fail(
+            suggestions = _suggest_close_matches(old_text, contenido_actual)
+            base_msg = (
                 f"No se encontro el texto: '{preview}' en la nota {ruta_relativa}"
             )
+            if suggestions:
+                hint_lines = "\n".join(f"  - {s!r}" for s in suggestions)
+                base_msg += "\nQuiza quisiste decir:\n" + hint_lines
+            return Result.fail(base_msg)
         if count > 1:
             preview = old_text[:80] + ("..." if len(old_text) > 80 else "")
             return Result.fail(

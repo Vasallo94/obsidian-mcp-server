@@ -41,8 +41,13 @@ class ErrorMessages:
     SEMANTIC_NOT_AVAILABLE: str = "Servicio semantico no disponible."
     TIMEOUT: str = "Operacion excedio el tiempo limite ({seconds}s)."
 
-    # Confirmation flow
-    OPERATION_CANCELLED: str = "Operacion cancelada por el usuario."
+    # Confirmation flow (Issue #1: surface specific reason, not opaque "cancelled")
+    OPERATION_DECLINED: str = (
+        "Operacion cancelada: el usuario rechazo explicitamente la confirmacion."
+    )
+    OPERATION_DISMISSED: str = (
+        "Operacion cancelada: el usuario cerro la confirmacion sin responder."
+    )
     OPERATION_CANCELLED_NO_CONFIRM: str = (
         "Operacion cancelada: este cliente no soporta confirmacion interactiva. "
         "Usa un cliente compatible con elicit() o invoca preview_replace_in_notes primero."

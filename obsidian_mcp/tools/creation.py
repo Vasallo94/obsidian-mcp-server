@@ -35,6 +35,18 @@ from .creation_logic import (
 from .registry import register_tool
 
 
+def _cancellation_reason(action: str) -> str:
+    """Map elicit() action to a specific Spanish reason (Issue #1).
+
+    `action` values per MCP spec: 'accept', 'decline', 'cancel'.
+    """
+    if action == "decline":
+        return ERRORS.OPERATION_DECLINED
+    if action == "cancel":
+        return ERRORS.OPERATION_DISMISSED
+    return ERRORS.OPERATION_DECLINED
+
+
 def _extract_fm(content: str) -> dict:
     """Extract frontmatter dict from content for middleware validation."""
     from .creation_logic import _extract_frontmatter_from_content
@@ -141,7 +153,7 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
                 response_type=None,
             )
             if result.action != "accept":
-                return ERRORS.OPERATION_CANCELLED
+                return _cancellation_reason(result.action)
         except Exception:  # pylint: disable=broad-exception-caught
             return ERRORS.OPERATION_CANCELLED_NO_CONFIRM
 
@@ -197,7 +209,7 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
                 response_type=None,
             )
             if confirmation.action != "accept":
-                return ERRORS.OPERATION_CANCELLED
+                return _cancellation_reason(confirmation.action)
         except Exception:  # pylint: disable=broad-exception-caught
             return ERRORS.OPERATION_CANCELLED_NO_CONFIRM
 
@@ -250,7 +262,7 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
                 response_type=None,
             )
             if result.action != "accept":
-                return ERRORS.OPERATION_CANCELLED
+                return _cancellation_reason(result.action)
         except Exception:  # pylint: disable=broad-exception-caught
             return ERRORS.OPERATION_CANCELLED_NO_CONFIRM
 

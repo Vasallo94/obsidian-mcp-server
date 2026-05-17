@@ -58,16 +58,27 @@ def register_navigation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many
     """Register navigation tools."""
 
     @register_tool(mcp, "list_notes")
-    def list_notes(folder: str = "", include_subfolders: bool = True) -> str:
+    def list_notes(
+        folder: str = "",
+        include_subfolders: bool = True,
+        limit: int = 500,
+        offset: int = 0,
+        pattern: str = "",
+    ) -> str:
         """
         List Markdown notes in the vault or in a specific folder.
 
         Args:
             folder: Folder to explore. Empty means the vault root.
             include_subfolders: Whether to include nested folders.
+            limit: Max notes per page (0 = no limit). Defaults to 500.
+            offset: Start index (after path sort).
+            pattern: Optional glob (e.g. "2026-*.md") layered on top of *.md.
         """
         try:
-            return list_notes_logic(folder, include_subfolders).to_display()
+            return list_notes_logic(
+                folder, include_subfolders, limit=limit, offset=offset, pattern=pattern
+            ).to_display()
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error listing notes: {e}"
 
