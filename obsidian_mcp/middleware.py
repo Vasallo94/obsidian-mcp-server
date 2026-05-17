@@ -203,11 +203,16 @@ def enrich_response(
         for w in warnings:
             parts.append(f"- {w}")
 
-    if tool_name in CONTENT_CREATION_TOOLS:
-        prose = load_vault_rules_prose()
-        if prose:
-            parts.append("---")
-            parts.append("[REGLAS ACTIVAS DEL VAULT]")
-            parts.append(prose)
+        if tool_name in CONTENT_CREATION_TOOLS:
+            prose = load_vault_rules_prose()
+            if prose:
+                parts.append("---")
+                parts.append("[REGLAS ACTIVAS DEL VAULT]")
+                parts.append(prose)
+    elif tool_name in CONTENT_CREATION_TOOLS:
+        parts.append("---")
+        parts.append(
+            "[Reglas del vault activas. Llama a get_global_rules() si necesitas el texto completo.]"
+        )
 
     return "\n".join(parts)

@@ -244,18 +244,19 @@ class TestEnrichResponse:
         assert "[WARNINGS:" in result
         assert "Emojis en cabeceras" in result
 
-    def test_injects_prose_for_creation_tools(self, rules_file):
+    def test_injects_prose_only_when_violations_for_creation_tools(self, rules_file):
+        """Issue #3: full prose only emitted when there are warnings."""
         invalidate_rules_cache()
         with patch("obsidian_mcp.middleware.get_vault_path", return_value=rules_file):
-            result = enrich_response(
+            with_violations = enrich_response(
                 tool_name="create_note",
                 result="Nota creada: test.md",
-                title="Mi nota",
-                content="## Limpio\n\nTexto",
+                title="\U0001f680 Mi nota",
+                content="## \U0001f680 Cabecera\n\nTexto",
                 frontmatter={"type": "apunte", "status": "captura", "tags": ["test"]},
             )
-        assert "[REGLAS ACTIVAS DEL VAULT]" in result
-        assert "Reglas Globales para Agentes" in result
+        assert "[REGLAS ACTIVAS DEL VAULT]" in with_violations
+        assert "Reglas Globales para Agentes" in with_violations
 
     def test_no_prose_injection_for_edit_tool(self, rules_file):
         invalidate_rules_cache()
@@ -278,7 +279,8 @@ class TestEnrichResponse:
             )
         assert "[REGLAS ACTIVAS DEL VAULT]" not in result
 
-    def test_clean_result_when_no_violations_still_gets_prose(self, rules_file):
+    def test_clean_result_gets_compact_hint_not_full_prose(self, rules_file):
+        """Issue #3: clean creates omit the ~2KB prose dump and emit a compact pointer."""
         invalidate_rules_cache()
         with patch("obsidian_mcp.middleware.get_vault_path", return_value=rules_file):
             result = enrich_response(
@@ -287,4 +289,79 @@ class TestEnrichResponse:
                 content="Texto normal sin problemas",
             )
         assert "[WARNINGS:" not in result
-        assert "[REGLAS ACTIVAS DEL VAULT]" in result
+        assert "[REGLAS ACTIVAS DEL VAULT]" not in result
+        assert "get_global_rules()" in result
+
+
+class TestValidateNoteTool:
+    """Issue #10: pre-flight validation tool."""
+
+    def test_clean_note_returns_valid_true(self, rules_file):
+        import json
+
+        from obsidian_mcp.tools.agents_logic import validate_note_logic
+
+        invalidate_rules_cache()
+        with patch("obsidian_mcp.middleware.get_vault_path", return_value=rules_file):
+            result = validate_note_logic(
+                title="Mi nota",
+                content=(
+                    "---\n"
+                    "type: apunte\n"
+                    "status: captura\n"
+                    "tags: [test]\n"
+                    "---\n\n"
+                    "## Seccion limpia\n\nTexto"
+                ),
+                mode="create",
+            )
+        assert result.success
+        payload = json.loads(result.data)
+        assert payload["valid"] is True
+        assert payload["violations"] == []
+
+    def test_emoji_in_heading_returns_violation(self, rules_file):
+        import json
+
+        from obsidian_mcp.tools.agents_logic import validate_note_logic
+
+        invalidate_rules_cache()
+        with patch("obsidian_mcp.middleware.get_vault_path", return_value=rules_file):
+            result = validate_note_logic(
+                title="Mi nota",
+                content=(
+                    "---\n"
+                    "type: apunte\n"
+                    "status: captura\n"
+                    "tags: [test]\n"
+                    "---\n\n"
+                    "## \U0001f680 Cabecera con emoji\n"
+                ),
+                mode="create",
+            )
+        payload = json.loads(result.data)
+        assert payload["valid"] is False
+        assert any("Emojis en cabeceras" in v for v in payload["violations"])
+
+    def test_missing_frontmatter_reports_missing_fields(self, rules_file):
+        import json
+
+        from obsidian_mcp.tools.agents_logic import validate_note_logic
+
+        invalidate_rules_cache()
+        with patch("obsidian_mcp.middleware.get_vault_path", return_value=rules_file):
+            result = validate_note_logic(
+                title="Mi nota",
+                content="# Sin frontmatter",
+                mode="create",
+            )
+        payload = json.loads(result.data)
+        assert payload["valid"] is False
+        assert any("type" in v for v in payload["violations"])
+
+    def test_invalid_mode_returns_error(self):
+        from obsidian_mcp.tools.agents_logic import validate_note_logic
+
+        result = validate_note_logic(content="x", mode="totally_invalid")
+        assert not result.success
+        assert "mode" in result.error

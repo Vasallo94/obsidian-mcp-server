@@ -8,6 +8,7 @@ from .agents_generator import generate_skill, suggest_skills_for_vault, sync_ski
 from .agents_logic import (
     get_agent_instructions,
     list_available_skills,
+    validate_note_logic,
 )
 from .agents_logic import (
     get_global_rules as get_global_rules_logic,
@@ -35,6 +36,24 @@ def register_agent_tools(mcp: FastMCP) -> None:
     def get_global_rules() -> str:
         """Read global vault agent rules."""
         return get_global_rules_logic().to_display()
+
+    @register_tool(mcp, "validate_note")
+    def validate_note(
+        content: str,
+        title: str = "",
+        mode: str = "create",
+    ) -> str:
+        """Lint a note against vault rules without writing it.
+
+        Use BEFORE create_note / patch_note to surface frontmatter, heading,
+        and tag violations in-context. Cheaper than round-tripping a write.
+
+        Args:
+            content: Full note body (YAML frontmatter optional but recommended).
+            title: Optional note title for rules with scope='title'.
+            mode: 'create' (default), 'edit', or 'append'.
+        """
+        return validate_note_logic(title=title, content=content, mode=mode).to_display()
 
     @register_tool(mcp, "refresh_skills_cache")
     def refresh_skills_cache() -> str:

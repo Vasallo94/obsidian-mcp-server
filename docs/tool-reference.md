@@ -17,13 +17,18 @@ Always enabled.
 - `read_note(note_path)`: Read one note, with path checks and output limits.
 - `search_notes(query, folder, titles_only)`: Search titles or Markdown content.
 - `search_notes_by_date(date_from, date_to)`: Find recently modified notes.
-- `read_notes(paths)`: Batch-read notes with a response-size guard.
+- `read_notes(paths)`: Batch-read notes with a response-size guard. `paths` is
+  a list of vault-relative paths (one Pydantic argument, not `query=`).
 - `get_note_info(paths)`: Return metadata without full note content.
 - `list_templates()`: List available vault templates.
 - `get_frontmatter(note_path)`: Read YAML frontmatter.
 - `list_skills()`: List valid vault skills from `.agents/skills`.
 - `read_skill(name)`: Read a declared vault skill.
 - `get_global_rules()`: Read vault-level global agent rules.
+- `validate_note(content, title, mode)`: Lint a note against vault rules WITHOUT
+  writing it. Returns JSON `{valid, mode, violations[]}`. Call before
+  `create_note` / `patch_note` to skip a write round-trip. `mode` is
+  `create` (default), `edit`, or `append`.
 
 ## Optional Tool Sets
 
@@ -34,6 +39,11 @@ Optional tools are enabled from `.agents/vault.yaml` with
 
 - `suggest_note_location(title, content, tags)`: Suggest a vault folder.
 - `create_note(title, content, folder, tags, template, created_by)`: Create a note.
+  `tags` is a comma-separated string (e.g. `"astro, equipo"`); it is normalized
+  to a YAML list in the saved frontmatter. If `content` already starts with a
+  `---...---` frontmatter block, embedded fields (`type`, `status`, custom keys)
+  are preserved; conflicts with explicit parameters resolve in favour of the
+  embedded frontmatter.
 - `append_to_note(note_path, content, at_end)`: Append or prepend content.
 - `patch_note(note_path, operations)`: Apply atomic exact-match edits with
   operations shaped as `{"old": "...", "new": "..."}`. Compatibility aliases
@@ -93,3 +103,16 @@ project instead of embedding a second RAG stack inside this MCP server.
 - `obsidian://local_docs/{name}`: A declared local document.
 - `obsidian://integrations/obsidianrag/setup`: Guided ObsidianRAG setup playbook.
 - `obsidian://integrations/obsidianrag/config`: Safe ObsidianRAG integration config.
+
+## Naming Conventions
+
+Tool names follow two patterns by intent:
+
+- **Verb-first** for generic note operations: `create_note`, `read_note`,
+  `patch_note`, `move_note`, `delete_note`, `analyze_links`, `find_orphan_notes`.
+- **Namespace-prefixed** for domain-specific tool families: `canvas_*` (Obsidian
+  Canvas), `kanvas_*` (workflow boards), `rag_*` / `ask_vault` (semantic search).
+
+Renaming public tools is a breaking change for MCP clients, so the mix is
+intentional. When in doubt, search this reference first; the function-name
+prefix matches the tool name verbatim.

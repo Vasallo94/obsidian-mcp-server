@@ -56,6 +56,7 @@ TOOL_SPECS: dict[str, ToolSpec] = {
     "list_skills": ToolSpec("List Skills"),
     "read_skill": ToolSpec("Read Skill"),
     "get_global_rules": ToolSpec("Get Global Rules"),
+    "validate_note": ToolSpec("Validate Note"),
     # Notes write pack
     "suggest_note_location": ToolSpec(
         "Suggest Note Location", "notes_write", open_world=False

@@ -4,6 +4,7 @@ import json
 
 from fastmcp import Context, FastMCP
 
+from ..messages import ERRORS
 from ..middleware import enrich_response, invalidate_rules_cache
 from ..models.tool_inputs import EditOperation
 from .creation_logic import (
@@ -140,12 +141,9 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
                 response_type=None,
             )
             if result.action != "accept":
-                return "Operation cancelled."
+                return ERRORS.OPERATION_CANCELLED
         except Exception:  # pylint: disable=broad-exception-caught
-            return (
-                "Interactive confirmation is not supported by this client. "
-                "The delete operation was cancelled for safety."
-            )
+            return ERRORS.OPERATION_CANCELLED_NO_CONFIRM
 
         try:
             return delete_note_logic(note_path, confirmar=True).to_display(
@@ -199,12 +197,9 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
                 response_type=None,
             )
             if confirmation.action != "accept":
-                return "Operation cancelled."
+                return ERRORS.OPERATION_CANCELLED
         except Exception:  # pylint: disable=broad-exception-caught
-            return (
-                "Interactive confirmation is not supported by this client. "
-                "The replace operation was cancelled for safety."
-            )
+            return ERRORS.OPERATION_CANCELLED_NO_CONFIRM
 
         try:
             edit_result = edit_note(
@@ -255,13 +250,9 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
                 response_type=None,
             )
             if result.action != "accept":
-                return "Operation cancelled."
+                return ERRORS.OPERATION_CANCELLED
         except Exception:  # pylint: disable=broad-exception-caught
-            return (
-                "Interactive confirmation is not supported by this client. "
-                "Run preview_replace_in_notes first and retry with a client "
-                "that supports confirmation."
-            )
+            return ERRORS.OPERATION_CANCELLED_NO_CONFIRM
 
         try:
             return search_and_replace_global(
