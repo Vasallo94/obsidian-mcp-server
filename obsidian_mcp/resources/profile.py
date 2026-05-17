@@ -212,6 +212,20 @@ def register_profile_resources(mcp: FastMCP) -> None:
             vault_path, config.profile.local_docs[name], "Local doc"
         )
 
+    @mcp.resource("obsidian://docs/agent-quickstart")
+    def agent_quickstart_resource() -> str:
+        """Return the AI-agent orientation doc (Issue #4).
+
+        Tells the agent the two-call boot sequence
+        (``read_vault_context`` -> ``get_global_rules``), provides a
+        decision table mapping intents to tools, and lists common
+        traps (e.g. ``read_notes`` uses ``paths`` not ``query``).
+        """
+        doc_path = Path(__file__).resolve().parents[2] / "docs" / "agent-quickstart.md"
+        if not doc_path.exists():
+            return "❌ Error: agent-quickstart.md was not bundled with this install."
+        return doc_path.read_text(encoding="utf-8")
+
     if _is_tool_set_enabled("obsidianrag"):
 
         @mcp.resource("obsidian://integrations/obsidianrag/setup")

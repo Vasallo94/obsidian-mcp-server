@@ -9,6 +9,9 @@ from .analysis_logic import (
     analyze_tags as analyze_tags_logic,
 )
 from .analysis_logic import (
+    find_broken_wikilinks as find_broken_wikilinks_logic,
+)
+from .analysis_logic import (
     get_canonical_tags as get_canonical_tags_logic,
 )
 from .analysis_logic import (
@@ -69,11 +72,33 @@ def register_analysis_tools(mcp: FastMCP) -> None:
 
     @register_tool(mcp, "analyze_links")
     def analyze_links() -> str:
-        """Analyze internal links in the vault."""
+        """Analyze internal links in the vault.
+
+        High-level overview (counts of broken/valid/most-referenced).
+        For per-link broken-with-suggestions output, use
+        ``find_broken_wikilinks`` instead.
+        """
         try:
             return analyze_links_logic().to_display()
         except (OSError, ValueError) as e:
             return f"Error analyzing links: {e}"
+
+    @register_tool(mcp, "find_broken_wikilinks")
+    def find_broken_wikilinks(limit: int = 100) -> str:
+        """Find every wikilink in the vault whose target note doesn't exist.
+
+        Issue #6: returns source-file + line + fuzzy suggestions for each
+        broken ``[[target]]`` reference, so renames and typos can be
+        fixed without manual grepping.
+
+        Args:
+            limit: Max number of broken links in the response (default 100).
+                0 = no limit.
+        """
+        try:
+            return find_broken_wikilinks_logic(limit=limit).to_display()
+        except (OSError, ValueError) as e:
+            return f"Error finding broken wikilinks: {e}"
 
     @register_tool(mcp, "summarize_recent_activity")
     def summarize_recent_activity(days: int = 7) -> str:

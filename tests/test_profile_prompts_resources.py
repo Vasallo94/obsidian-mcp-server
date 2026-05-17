@@ -93,6 +93,15 @@ def test_profile_resources_register_and_read_declared_standard(tmp_path, monkeyp
     assert "obsidian://profile" in resources
     assert "obsidian://skills/list" in resources
     assert "obsidian://skills/catalog" in resources
+    assert "obsidian://docs/agent-quickstart" in resources
+
+    quickstart = asyncio.run(mcp.read_resource("obsidian://docs/agent-quickstart"))
+    quickstart_text = str(quickstart)
+    # Boot sequence and decision-table sanity check
+    assert "read_vault_context" in quickstart_text
+    assert "get_global_rules" in quickstart_text
+    assert "find_broken_wikilinks" in quickstart_text
+    assert "paths=" in quickstart_text  # the read_notes trap warning
     assert "obsidian://skills/{name}" in templates
     assert "obsidian://standards/{name}" in templates
     assert "obsidian://local_docs/{name}" in templates

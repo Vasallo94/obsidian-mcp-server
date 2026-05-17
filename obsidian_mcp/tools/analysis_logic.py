@@ -21,7 +21,7 @@ logger = get_logger(__name__)
 HEX_COLOR_PATTERN = re.compile(r"^([0-9a-fA-F]{3}){1,2}$")
 
 
-def get_vault_stats() -> Result[str]:
+def get_vault_stats() -> Result[str]:  # pylint: disable=too-many-locals
     """Generate complete vault statistics.
 
     Returns:
@@ -147,7 +147,7 @@ def get_canonical_tags() -> Result[str]:
     )
 
 
-def analyze_tags() -> Result[str]:
+def analyze_tags() -> Result[str]:  # pylint: disable=too-many-locals,too-many-branches
     """Analyze tag usage in the vault and compare with official registry.
 
     Returns:
@@ -249,7 +249,9 @@ def analyze_tags() -> Result[str]:
     return Result.ok(resultado)
 
 
-def sync_tag_registry(actualizar: bool = False) -> Result[str]:
+def sync_tag_registry(  # pylint: disable=too-many-locals,too-many-branches
+    actualizar: bool = False,
+) -> Result[str]:
     """Synchronize tag usage with official registry.
 
     Args:
@@ -454,6 +456,64 @@ def analyze_links() -> Result[str]:
             resultado += f"   ... y {len(enlaces_rotos) - 10} enlaces rotos más\n"
 
     return Result.ok(resultado)
+
+
+def find_broken_wikilinks(limit: int = 100) -> Result[str]:
+    """Scan the vault for wikilinks whose target note doesn't exist (Issue #6).
+
+    For each broken link surfaces source file + line + the closest existing
+    stems as fuzzy suggestions, so the agent can fix typos and renames in
+    one pass instead of grepping the vault manually.
+
+    Args:
+        limit: Maximum number of broken links to include in the report.
+
+    Returns:
+        Result with a structured per-source listing and suggestions.
+    """
+    from ..utils.wikilinks import scan_broken_wikilinks  # local to avoid cycles
+
+    vault_path = get_vault_path()
+    if not vault_path:
+        return Result.fail("La ruta del vault no está configurada.")
+
+    if limit < 0:
+        return Result.fail("limit debe ser >= 0.")
+
+    broken = scan_broken_wikilinks(vault_path)
+    if not broken:
+        return Result.ok("OK No se encontraron wikilinks rotos en el vault.")
+
+    grouped: dict[str, list[str]] = {}
+    for item in broken[: limit if limit else len(broken)]:
+        rel = str(item.occurrence.source.relative_to(vault_path))
+        suggestions = (
+            f" -> sugerencias: {', '.join(item.suggestions)}"
+            if item.suggestions
+            else " -> sin sugerencias"
+        )
+        line = (
+            f"  L{item.occurrence.line_no}: [[{item.occurrence.raw}]]"
+            f" (target='{item.occurrence.target}'){suggestions}"
+        )
+        grouped.setdefault(rel, []).append(line)
+
+    header = (
+        f"Wikilinks rotos: {len(broken)} (mostrando "
+        f"{min(limit, len(broken)) if limit else len(broken)}).\n\n"
+    )
+    body_lines: list[str] = []
+    for source, items in sorted(grouped.items()):
+        body_lines.append(f"{source}:")
+        body_lines.extend(items)
+        body_lines.append("")
+
+    if limit and len(broken) > limit:
+        body_lines.append(
+            f"... y {len(broken) - limit} mas. Sube 'limit' para verlos todos."
+        )
+
+    return Result.ok(header + "\n".join(body_lines))
 
 
 def get_recent_activity(dias: int = 7) -> Result[str]:

@@ -56,7 +56,14 @@ Optional tools are enabled from `.agents/vault.yaml` with
 - `replace_note(note_path, content)`: Replace a full note.
 - `update_frontmatter(note_path, updates)`: Update YAML frontmatter.
 - `update_note_tags(note_path, tags)`: Update tag metadata.
-- `move_note(source, destination, create_folders)`: Move or rename a note.
+- `move_note(source, destination, create_folders, update_links)`: Move or
+  rename a note. When `update_links=True`, every vault wikilink targeting
+  the old stem is rewritten to the new stem (aliases/sections preserved).
+  When `False`, the response still reports how many references became
+  stale so you can re-run with `update_links=True`.
+- `rename_note(source, new_name, update_links=True)`: Rename a note in
+  place and update all wikilinks referencing it. Pass `new_name` as the
+  stem (without `.md`), or as a path to also move folders.
 - `delete_note(note_path, confirm)`: Delete a note after explicit confirmation.
 - `preview_replace_in_notes(...)`: Preview global replacements.
 - `apply_replace_in_notes(...)`: Apply global replacements.
@@ -74,6 +81,10 @@ Optional tools are enabled from `.agents/vault.yaml` with
 - `get_notes_by_tag(tag)`: Find notes with a tag.
 - `get_local_graph(note_path, depth)`: Explore local graph connections.
 - `find_orphan_notes()`: Find notes without incoming or outgoing links.
+- `find_broken_wikilinks(limit=100)`: List every `[[target]]` in the vault
+  whose target note doesn't exist. Returns source file + line + fuzzy
+  match suggestions per broken reference (Issue #6). Pair with `rename_note`
+  or `apply_replace_in_notes` to fix them in bulk.
 
 ### `obsidianrag`
 
@@ -98,6 +109,9 @@ project instead of embedding a second RAG stack inside this MCP server.
 
 ## Resources
 
+- `obsidian://docs/agent-quickstart`: AI-agent orientation (start here on
+  every new session). Two-call boot sequence, decision table mapping
+  intent -> tool, and common pitfalls.
 - `obsidian://capabilities`: Active prompts, tool sets, resources, and integrations.
 - `obsidian://profile`: Safe active profile summary.
 - `obsidian://skills/list`: Valid and invalid vault skills.

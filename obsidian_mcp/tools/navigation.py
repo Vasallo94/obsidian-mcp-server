@@ -290,7 +290,12 @@ def register_navigation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many
             return f"Date search error: {e}"
 
     @register_tool(mcp, "move_note")
-    def move_note(source: str, destination: str, create_folders: bool = True) -> str:
+    def move_note(
+        source: str,
+        destination: str,
+        create_folders: bool = True,
+        update_links: bool = False,
+    ) -> str:
         """
         Move or rename a note inside the vault.
 
@@ -298,13 +303,47 @@ def register_navigation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many
             source: Current relative note path.
             destination: New relative note path.
             create_folders: Whether to create destination folders.
+            update_links: When True, rewrite every wikilink across the
+                vault that targets the old stem so it targets the new
+                one (aliases and section anchors preserved). When False,
+                the response still reports how many wikilinks now point
+                at a stale stem.
         """
         try:
-            return move_note_logic(source, destination, create_folders).to_display(
-                success_prefix="OK"
-            )
+            return move_note_logic(
+                source, destination, create_folders, update_links=update_links
+            ).to_display(success_prefix="OK")
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Move note error: {e}"
+
+    @register_tool(mcp, "rename_note")
+    def rename_note(source: str, new_name: str, update_links: bool = True) -> str:
+        """
+        Rename a note in place, optionally rewriting every wikilink to it.
+
+        Args:
+            source: Current relative note path (e.g. ``notes/Old Name.md``).
+            new_name: New filename stem (no ``.md``). The note stays in
+                the same folder. Pass a full path to also move it.
+            update_links: When True (default), rewrite vault-wide
+                wikilink references from the old stem to the new one.
+        """
+        try:
+            src = Path(source)
+            if new_name.endswith(".md"):
+                new_name = new_name[:-3]
+            if "/" in new_name:
+                destination = new_name + ".md"
+            else:
+                destination = str(src.with_name(f"{new_name}.md"))
+            return move_note_logic(
+                source,
+                destination,
+                crear_carpetas=False,
+                update_links=update_links,
+            ).to_display(success_prefix="OK")
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            return f"Rename note error: {e}"
 
     @register_tool(mcp, "random_concept")
     def random_concept(folder: str = "") -> str:

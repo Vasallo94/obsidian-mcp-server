@@ -323,17 +323,29 @@ def _validate_move_paths(
     return True, ""
 
 
-def move_note(origen: str, destino: str, crear_carpetas: bool = True) -> Result[str]:
+def move_note(  # pylint: disable=too-many-locals,too-many-return-statements
+    origen: str,
+    destino: str,
+    crear_carpetas: bool = True,
+    update_links: bool = False,
+) -> Result[str]:
     """Move or rename a note within the vault.
 
     Args:
-        origen: Current relative path of the note
-        destino: New relative path for the note
-        crear_carpetas: Whether to create destination folders if needed
+        origen: Current relative path of the note.
+        destino: New relative path for the note.
+        crear_carpetas: Whether to create destination folders if needed.
+        update_links: When True (Issue #7/#11), rewrite every wikilink
+            across the vault that points to the old stem so they target
+            the new stem instead. Aliases/sections are preserved.
 
     Returns:
-        Result with success or error message
+        Result with success or error message. On success, the message
+        reports how many wikilinks were touched (or 0 if update_links
+        was False) so the agent doesn't have to guess.
     """
+    from ..utils.wikilinks import rewrite_wikilinks_in_vault
+
     vault_path = get_vault_path()
     if not vault_path:
         return Result.fail("Vault path is not configured.")
@@ -361,9 +373,30 @@ def move_note(origen: str, destino: str, crear_carpetas: bool = True) -> Result[
             f"Destination folder does not exist: {path_destino.parent.name}"
         )
 
+    old_stem = path_origen.stem
+    new_stem = path_destino.stem
+
     path_origen.rename(path_destino)
 
-    return Result.ok(f"File moved/renamed:\nFrom: {origen}\nTo:   {destino}")
+    msg = f"File moved/renamed:\nFrom: {origen}\nTo:   {destino}"
+
+    if update_links and old_stem != new_stem:
+        total, touched = rewrite_wikilinks_in_vault(
+            vault_path, old_target=old_stem, new_target=new_stem
+        )
+        msg += f"\nLinks updated: {total} references across {len(touched)} files."
+    elif not update_links:
+        # Issue #11: surface impact even when we didn't rewrite.
+        total, touched = rewrite_wikilinks_in_vault(
+            vault_path, old_target=old_stem, new_target=new_stem, dry_run=True
+        )
+        if old_stem != new_stem and total > 0:
+            msg += (
+                f"\nWarning: {total} wikilinks across {len(touched)} files now point "
+                f"to the old stem '{old_stem}'. Re-run with update_links=True to fix."
+            )
+
+    return Result.ok(msg)
 
 
 def _is_content_paragraph(line: str) -> bool:

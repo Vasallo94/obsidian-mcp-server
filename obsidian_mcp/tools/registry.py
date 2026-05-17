@@ -86,6 +86,9 @@ TOOL_SPECS: dict[str, ToolSpec] = {
     "move_note": ToolSpec(
         "Move Note", "notes_write", read_only=False, idempotent=False
     ),
+    "rename_note": ToolSpec(
+        "Rename Note", "notes_write", read_only=False, idempotent=False
+    ),
     "delete_note": ToolSpec(
         "Delete Note",
         "notes_write",
@@ -117,6 +120,7 @@ TOOL_SPECS: dict[str, ToolSpec] = {
     "get_notes_by_tag": ToolSpec("Get Notes By Tag", "vault_analysis"),
     "get_local_graph": ToolSpec("Get Local Graph", "vault_analysis"),
     "find_orphan_notes": ToolSpec("Find Orphan Notes", "vault_analysis"),
+    "find_broken_wikilinks": ToolSpec("Find Broken Wikilinks", "vault_analysis"),
     # Personal pack
     "quick_capture": ToolSpec(
         "Quick Capture",
