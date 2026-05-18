@@ -97,14 +97,39 @@ def run_validations(
     frontmatter: dict[str, Any] | None = None,
 ) -> list[str]:
     """Run applicable validations and return list of warning strings."""
-    warnings = []
+    return [
+        warning
+        for _, warning in iter_violations(
+            rules, mode, title=title, content=content, frontmatter=frontmatter
+        )
+    ]
+
+
+def iter_violations(
+    rules: list[dict[str, Any]],
+    mode: str | None,
+    *,
+    title: str = "",
+    content: str = "",
+    frontmatter: dict[str, Any] | None = None,
+) -> list[tuple[dict[str, Any], str]]:
+    """Like ``run_validations`` but also returns the rule that fired.
+
+    Public surface used by ``lint_vault`` (Issue #9) to decide which
+    violations are auto-fixable per-rule.
+
+    Pass ``mode=None`` to ignore each rule's ``applies_to`` filter --
+    useful for whole-vault lint sweeps where every rule should be
+    enforced regardless of write mode.
+    """
+    pairs: list[tuple[dict[str, Any], str]] = []
     for rule in rules:
-        if mode not in rule.get("applies_to", []):
+        if mode is not None and mode not in rule.get("applies_to", []):
             continue
         warning = _check_rule(rule, title, content, frontmatter or {})
         if warning:
-            warnings.append(warning)
-    return warnings
+            pairs.append((rule, warning))
+    return pairs
 
 
 def _check_rule(
@@ -164,6 +189,66 @@ def _check_allowed_values(rule: dict[str, Any], fm: dict[str, Any]) -> str | Non
     if value and value not in rule["allowed_values"]:
         return rule["warning"].format(value=value)
     return None
+
+
+# --- Auto-fix Engine (Issue #9) ---
+
+
+def is_rule_autofixable(rule: dict[str, Any]) -> bool:
+    """Return True iff ``rule`` is one of the kinds ``apply_autofix`` handles.
+
+    Currently: regex-based ``scope=headings`` or ``scope=body`` rules with a
+    ``pattern``. These map cleanly to ``re.sub(pattern, "", ...)``.
+
+    Frontmatter rules (``required_fields``, ``allowed_values``) need
+    semantic user input and are intentionally NOT auto-fixed.
+    """
+    if "pattern" not in rule:
+        return False
+    return rule.get("scope") in {"headings", "body"}
+
+
+def apply_autofix(rule: dict[str, Any], content: str) -> tuple[str, int]:
+    """Apply ``rule`` as an in-place rewrite of ``content``.
+
+    For ``scope=headings``: strip every match of ``rule['pattern']`` from
+    lines that start with ``#`` (after lstrip). For ``scope=body``: strip
+    every match anywhere. Whitespace collapse is applied to keep
+    headings readable after emoji removal.
+
+    Returns ``(new_content, replacement_count)``. Counts pattern hits,
+    not lines touched.
+    """
+    if not is_rule_autofixable(rule):
+        return content, 0
+
+    try:
+        pattern = re.compile(rule["pattern"])
+    except re.error:
+        return content, 0
+
+    scope = rule["scope"]
+    count = 0
+
+    if scope == "headings":
+        new_lines: list[str] = []
+        for line in content.splitlines(keepends=True):
+            stripped = line.lstrip()
+            if stripped.startswith("#"):
+                new_line, n = pattern.subn("", line)
+                if n:
+                    count += n
+                    # Collapse "## " + emoji + " title" -> "## title"
+                    new_line = re.sub(r"^(#+)\s+\s+", r"\1 ", new_line)
+                    new_line = re.sub(r"^(#+)\s+$", r"\1", new_line)
+                new_lines.append(new_line)
+            else:
+                new_lines.append(line)
+        return "".join(new_lines), count
+
+    # scope == "body"
+    new_content, count = pattern.subn("", content)
+    return new_content, count
 
 
 # --- Response Enrichment ---

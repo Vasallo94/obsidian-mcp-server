@@ -81,6 +81,10 @@ Optional tools are enabled from `.agents/vault.yaml` with
 - `get_notes_by_tag(tag)`: Find notes with a tag.
 - `get_local_graph(note_path, depth)`: Explore local graph connections.
 - `find_orphan_notes()`: Find notes without incoming or outgoing links.
+- `lint_vault(folder, rule_ids, auto_fix, limit)`: Run vault rules across
+  every note in one sweep (Issue #9). With `auto_fix=True` the
+  regex-based heading/body rules are rewritten in place; frontmatter
+  rules remain report-only because they need semantic input.
 - `find_broken_wikilinks(limit=100)`: List every `[[target]]` in the vault
   whose target note doesn't exist. Returns source file + line + fuzzy
   match suggestions per broken reference (Issue #6). Pair with `rename_note`

@@ -22,6 +22,9 @@ from .analysis_logic import (
     get_vault_stats as get_vault_stats_logic,
 )
 from .analysis_logic import (
+    lint_vault as lint_vault_logic,
+)
+from .analysis_logic import (
     sync_tag_registry as sync_tag_registry_logic,
 )
 from .registry import register_tool
@@ -82,6 +85,38 @@ def register_analysis_tools(mcp: FastMCP) -> None:
             return analyze_links_logic().to_display()
         except (OSError, ValueError) as e:
             return f"Error analyzing links: {e}"
+
+    @register_tool(mcp, "lint_vault")
+    def lint_vault(
+        folder: str = "",
+        rule_ids: str = "",
+        auto_fix: bool = False,
+        limit: int = 200,
+    ) -> str:
+        """Run vault rules across every note and report violations.
+
+        Single sweep that replaces per-note patches (Issue #9). With
+        ``auto_fix=True`` the regex-based heading/body rules are
+        applied in place; frontmatter rules remain report-only since
+        they need user input.
+
+        Args:
+            folder: Restrict scan to a vault-relative folder.
+            rule_ids: Comma-separated rule IDs to run (empty = all).
+            auto_fix: When True, write fixes to disk for auto-fixable
+                rules. Default False -> dry run.
+            limit: Max violations in the response (default 200).
+        """
+        try:
+            ids = [r.strip() for r in rule_ids.split(",") if r.strip()] or None
+            return lint_vault_logic(
+                folder=folder,
+                rule_ids=ids,
+                auto_fix=auto_fix,
+                limit=limit,
+            ).to_display()
+        except (OSError, ValueError) as e:
+            return f"Error linting vault: {e}"
 
     @register_tool(mcp, "find_broken_wikilinks")
     def find_broken_wikilinks(limit: int = 100) -> str:

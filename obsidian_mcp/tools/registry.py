@@ -121,6 +121,12 @@ TOOL_SPECS: dict[str, ToolSpec] = {
     "get_local_graph": ToolSpec("Get Local Graph", "vault_analysis"),
     "find_orphan_notes": ToolSpec("Find Orphan Notes", "vault_analysis"),
     "find_broken_wikilinks": ToolSpec("Find Broken Wikilinks", "vault_analysis"),
+    "lint_vault": ToolSpec(
+        "Lint Vault",
+        "vault_analysis",
+        read_only=False,  # auto_fix=True writes files
+        idempotent=False,
+    ),
     # Personal pack
     "quick_capture": ToolSpec(
         "Quick Capture",

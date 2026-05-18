@@ -28,6 +28,7 @@ After those two calls you have enough context to write correctly. Everything bel
 | Find broken wikilinks across the vault | `find_broken_wikilinks(limit=100)` — returns source file + line + fuzzy suggestions |
 | Link/orphan analysis | `analyze_links()`, `find_orphan_notes()` |
 | Bulk find/replace text | `preview_replace_in_notes(...)` then `apply_replace_in_notes(...)` |
+| Lint every note against vault rules (heading emojis, missing frontmatter fields, etc.) | `lint_vault(auto_fix=False)` to scan, then `lint_vault(auto_fix=True)` to apply regex-based fixes |
 | Vault stats / tag audit | `get_vault_stats()`, `analyze_tags()`, `list_tags()` |
 | Routing help | `route_task(request)` — suggests prompts/skills/tools for an ambiguous task |
 
