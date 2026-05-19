@@ -4,6 +4,7 @@ import json
 
 from fastmcp import Context, FastMCP
 
+from ..messages import ERRORS
 from ..middleware import enrich_response, invalidate_rules_cache
 from ..models.tool_inputs import EditOperation
 from .creation_logic import (
@@ -34,6 +35,18 @@ from .creation_logic import (
 from .registry import register_tool
 
 
+def _cancellation_reason(action: str) -> str:
+    """Map elicit() action to a specific Spanish reason (Issue #1).
+
+    `action` values per MCP spec: 'accept', 'decline', 'cancel'.
+    """
+    if action == "decline":
+        return ERRORS.OPERATION_DECLINED
+    if action == "cancel":
+        return ERRORS.OPERATION_DISMISSED
+    return ERRORS.OPERATION_DECLINED
+
+
 def _extract_fm(content: str) -> dict:
     """Extract frontmatter dict from content for middleware validation."""
     from .creation_logic import _extract_frontmatter_from_content
@@ -49,7 +62,7 @@ def _parse_tags(tags: str) -> list[str]:
 def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-statements
     """Register note creation and editing tools."""
 
-    @register_tool(mcp, "list_templates")
+    @register_tool(mcp, "templates.list")
     def list_templates() -> str:
         """List available note templates."""
         try:
@@ -57,7 +70,7 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error listing templates: {e}"
 
-    @register_tool(mcp, "suggest_note_location")
+    @register_tool(mcp, "notes.suggest_location")
     def suggest_note_location(title: str, content: str, tags: str = "") -> str:
         """Suggest candidate vault folders for a new note."""
         try:
@@ -65,7 +78,7 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error suggesting note location: {e}"
 
-    @register_tool(mcp, "create_note")
+    @register_tool(mcp, "notes.create")
     def create_note(
         title: str,
         content: str,
@@ -88,7 +101,7 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
                 description,
             ).to_display(success_prefix="OK")
             return enrich_response(
-                tool_name="create_note",
+                tool_name="notes.create",
                 result=result,
                 title=title,
                 content=content,
@@ -97,7 +110,7 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error creating note: {e}"
 
-    @register_tool(mcp, "append_to_note")
+    @register_tool(mcp, "notes.append")
     def append_to_note(
         note_path: str,
         content: str,
@@ -124,14 +137,14 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
                 return "Error: position must be 'end', 'start', or 'section'."
 
             return enrich_response(
-                tool_name="append_to_note",
+                tool_name="notes.append",
                 result=result,
                 content=content,
             )
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error appending to note: {e}"
 
-    @register_tool(mcp, "delete_note")
+    @register_tool(mcp, "notes.delete")
     async def delete_note(note_path: str, ctx: Context) -> str:
         """Delete a note after explicit client confirmation."""
         try:
@@ -140,12 +153,9 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
                 response_type=None,
             )
             if result.action != "accept":
-                return "Operation cancelled."
+                return _cancellation_reason(result.action)
         except Exception:  # pylint: disable=broad-exception-caught
-            return (
-                "Interactive confirmation is not supported by this client. "
-                "The delete operation was cancelled for safety."
-            )
+            return ERRORS.OPERATION_CANCELLED_NO_CONFIRM
 
         try:
             return delete_note_logic(note_path, confirmar=True).to_display(
@@ -154,7 +164,7 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error deleting note: {e}"
 
-    @register_tool(mcp, "patch_note")
+    @register_tool(mcp, "notes.patch")
     def patch_note(note_path: str, operations: list[EditOperation]) -> str:
         """Patch a note with atomic exact-match replacements.
 
@@ -183,14 +193,14 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
                 operation["new"] for operation in normalized_operations
             )
             return enrich_response(
-                tool_name="patch_note",
+                tool_name="notes.patch",
                 result=result,
                 content=combined_new,
             )
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error patching note: {e}"
 
-    @register_tool(mcp, "replace_note")
+    @register_tool(mcp, "notes.replace")
     async def replace_note(note_path: str, content: str, ctx: Context) -> str:
         """Replace the full content of a note after explicit confirmation."""
         try:
@@ -199,12 +209,9 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
                 response_type=None,
             )
             if confirmation.action != "accept":
-                return "Operation cancelled."
+                return _cancellation_reason(confirmation.action)
         except Exception:  # pylint: disable=broad-exception-caught
-            return (
-                "Interactive confirmation is not supported by this client. "
-                "The replace operation was cancelled for safety."
-            )
+            return ERRORS.OPERATION_CANCELLED_NO_CONFIRM
 
         try:
             edit_result = edit_note(
@@ -213,14 +220,14 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
             if "REGLAS_GLOBALES" in note_path:
                 invalidate_rules_cache()
             return enrich_response(
-                tool_name="replace_note",
+                tool_name="notes.replace",
                 result=edit_result,
                 content=content,
             )
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error replacing note: {e}"
 
-    @register_tool(mcp, "preview_replace_in_notes")
+    @register_tool(mcp, "notes.preview_replace")
     def preview_replace_in_notes(
         search: str,
         replacement: str,
@@ -239,7 +246,7 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error previewing replacement: {e}"
 
-    @register_tool(mcp, "apply_replace_in_notes")
+    @register_tool(mcp, "notes.apply_replace")
     async def apply_replace_in_notes(
         search: str,
         replacement: str,
@@ -255,13 +262,9 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
                 response_type=None,
             )
             if result.action != "accept":
-                return "Operation cancelled."
+                return _cancellation_reason(result.action)
         except Exception:  # pylint: disable=broad-exception-caught
-            return (
-                "Interactive confirmation is not supported by this client. "
-                "Run preview_replace_in_notes first and retry with a client "
-                "that supports confirmation."
-            )
+            return ERRORS.OPERATION_CANCELLED_NO_CONFIRM
 
         try:
             return search_and_replace_global(
@@ -274,13 +277,13 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error applying replacement: {e}"
 
-    @register_tool(mcp, "quick_capture")
+    @register_tool(mcp, "inbox.capture")
     def quick_capture(text: str, tags: str = "") -> str:
         """Capture an inbox note in the personal vault profile."""
         try:
             result = quick_capture_logic(text, tags).to_display()
             return enrich_response(
-                tool_name="quick_capture",
+                tool_name="inbox.capture",
                 result=result,
                 title=text[:80],
                 content=text,
@@ -288,7 +291,7 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error creating quick capture: {e}"
 
-    @register_tool(mcp, "get_frontmatter")
+    @register_tool(mcp, "notes.get_frontmatter")
     def get_frontmatter(note_path: str) -> str:
         """Return only a note frontmatter block as JSON."""
         try:
@@ -296,7 +299,7 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error reading frontmatter: {e}"
 
-    @register_tool(mcp, "update_frontmatter")
+    @register_tool(mcp, "notes.update_frontmatter")
     def update_frontmatter(
         note_path: str,
         frontmatter_updates: str,
@@ -316,14 +319,14 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
                 frontmatter = {}
 
             return enrich_response(
-                tool_name="update_frontmatter",
+                tool_name="notes.update_frontmatter",
                 result=result,
                 frontmatter=frontmatter,
             )
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error updating frontmatter: {e}"
 
-    @register_tool(mcp, "update_note_tags")
+    @register_tool(mcp, "notes.update_tags")
     def update_note_tags(note_path: str, operation: str, tags: str = "") -> str:
         """Add, remove, or set YAML tags on a note."""
         try:

@@ -33,7 +33,7 @@ logger = get_logger(__name__)
 def register_workflow_tools(mcp: FastMCP) -> None:
     """Register kanvas workflow tools with the MCP server."""
 
-    @register_tool(mcp, "kanvas_status")
+    @register_tool(mcp, "kanvas.status")
     def kanvas_status(canvas_path: str) -> str:
         """Get a board overview: task counts by state, groups, total tasks.
 
@@ -48,7 +48,7 @@ def register_workflow_tools(mcp: FastMCP) -> None:
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error getting status: {e}"
 
-    @register_tool(mcp, "kanvas_task")
+    @register_tool(mcp, "kanvas.task")
     def kanvas_task(canvas_path: str, task_id: str) -> str:
         """Show details for a specific task: state, group, description, dependencies.
 
@@ -64,7 +64,7 @@ def register_workflow_tools(mcp: FastMCP) -> None:
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error showing task: {e}"
 
-    @register_tool(mcp, "kanvas_ready")
+    @register_tool(mcp, "kanvas.ready")
     def kanvas_ready(canvas_path: str) -> str:
         """List tasks that are ready to start (red/To Do with all dependencies met).
 
@@ -79,7 +79,7 @@ def register_workflow_tools(mcp: FastMCP) -> None:
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error getting ready tasks: {e}"
 
-    @register_tool(mcp, "kanvas_blocked")
+    @register_tool(mcp, "kanvas.blocked")
     def kanvas_blocked(canvas_path: str) -> str:
         """List tasks that are blocked and what is blocking them.
 
@@ -94,7 +94,7 @@ def register_workflow_tools(mcp: FastMCP) -> None:
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error getting blocked tasks: {e}"
 
-    @register_tool(mcp, "kanvas_start")
+    @register_tool(mcp, "kanvas.start")
     def kanvas_start(canvas_path: str, task_id: str) -> str:
         """Start a task: red (To Do) → orange (Doing). Validates dependencies are met.
 
@@ -110,7 +110,7 @@ def register_workflow_tools(mcp: FastMCP) -> None:
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error starting task: {e}"
 
-    @register_tool(mcp, "kanvas_finish")
+    @register_tool(mcp, "kanvas.finish")
     def kanvas_finish(canvas_path: str, task_id: str) -> str:
         """Finish a task: orange (Doing) → cyan (Review).
 
@@ -126,7 +126,7 @@ def register_workflow_tools(mcp: FastMCP) -> None:
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error finishing task: {e}"
 
-    @register_tool(mcp, "kanvas_pause")
+    @register_tool(mcp, "kanvas.pause")
     def kanvas_pause(canvas_path: str, task_id: str) -> str:
         """Pause a task: orange (Doing) → red (To Do).
 
@@ -142,7 +142,7 @@ def register_workflow_tools(mcp: FastMCP) -> None:
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error pausing task: {e}"
 
-    @register_tool(mcp, "kanvas_approve")
+    @register_tool(mcp, "kanvas.approve")
     def kanvas_approve(canvas_path: str, task_id: str) -> str:
         """Approve a proposed task: purple (Proposed) → red (To Do). RELAXED mode only.
 
@@ -158,7 +158,7 @@ def register_workflow_tools(mcp: FastMCP) -> None:
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error approving task: {e}"
 
-    @register_tool(mcp, "kanvas_complete")
+    @register_tool(mcp, "kanvas.complete")
     def kanvas_complete(canvas_path: str, task_id: str) -> str:
         """Mark a task as done: cyan (Review) → green (Done). RELAXED mode only.
 
@@ -174,7 +174,7 @@ def register_workflow_tools(mcp: FastMCP) -> None:
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error completing task: {e}"
 
-    @register_tool(mcp, "kanvas_edit_task")
+    @register_tool(mcp, "kanvas.edit_task")
     def kanvas_edit_task(canvas_path: str, task_id: str, text: str) -> str:
         """Update a task's description body. Task must be orange (or cyan in RELAXED mode).
 
@@ -191,7 +191,7 @@ def register_workflow_tools(mcp: FastMCP) -> None:
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error editing task: {e}"
 
-    @register_tool(mcp, "kanvas_add_dependency")
+    @register_tool(mcp, "kanvas.add_dependency")
     def kanvas_add_dependency(canvas_path: str, from_task: str, to_task: str) -> str:
         """Add a dependency: from_task blocks to_task. Rejects cycles.
 
@@ -208,7 +208,7 @@ def register_workflow_tools(mcp: FastMCP) -> None:
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error adding dependency: {e}"
 
-    @register_tool(mcp, "kanvas_propose_task")
+    @register_tool(mcp, "kanvas.propose_task")
     def kanvas_propose_task(
         canvas_path: str,
         group: str,
@@ -235,7 +235,7 @@ def register_workflow_tools(mcp: FastMCP) -> None:
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error proposing task: {e}"
 
-    @register_tool(mcp, "kanvas_propose_group")
+    @register_tool(mcp, "kanvas.propose_group")
     def kanvas_propose_group(canvas_path: str, label: str) -> str:
         """Add a new group/phase to the project canvas.
 
@@ -251,7 +251,7 @@ def register_workflow_tools(mcp: FastMCP) -> None:
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error proposing group: {e}"
 
-    @register_tool(mcp, "kanvas_init")
+    @register_tool(mcp, "kanvas.init")
     def kanvas_init(
         canvas_path: str,
         groups: list[str],

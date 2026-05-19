@@ -42,8 +42,8 @@ def test_core_prompts_register_without_vault_profile(tmp_path, monkeypatch):
     assert "update_media_item" not in prompt_names
     assert "prompt_actualizar_media" not in prompt_names
     assert all(not name.startswith("prompt_") for name in prompt_names)
-    assert "ask_vault" not in tool_names
-    assert "rag_health" not in tool_names
+    assert "rag.ask" not in tool_names
+    assert "rag.health" not in tool_names
     assert "preguntar_al_conocimiento" not in tool_names
 
 
@@ -93,12 +93,21 @@ def test_profile_resources_register_and_read_declared_standard(tmp_path, monkeyp
     assert "obsidian://profile" in resources
     assert "obsidian://skills/list" in resources
     assert "obsidian://skills/catalog" in resources
+    assert "obsidian://docs/agent-quickstart" in resources
+
+    quickstart = asyncio.run(mcp.read_resource("obsidian://docs/agent-quickstart"))
+    quickstart_text = str(quickstart)
+    # Boot sequence and decision-table sanity check
+    assert "vault.context" in quickstart_text
+    assert "rules.get" in quickstart_text
+    assert "links.find_broken" in quickstart_text
+    assert "paths=" in quickstart_text  # the notes.read_many trap warning
     assert "obsidian://skills/{name}" in templates
     assert "obsidian://standards/{name}" in templates
     assert "obsidian://local_docs/{name}" in templates
     assert "Media Standard" in str(standard)
     assert "Local Index" in str(local_doc)
-    assert "health_check" in str(capabilities)
+    assert "vault.health" in str(capabilities)
     assert "when_to_use" in str(catalog)
 
 
@@ -109,10 +118,10 @@ def test_diagnostic_tools_are_registered_and_report_profile(tmp_path, monkeypatc
 
     mcp = create_server()
     tool_names = {tool.name for tool in asyncio.run(mcp.list_tools())}
-    health_tool = asyncio.run(mcp.get_tool("health_check"))
-    diagnosis_tool = asyncio.run(mcp.get_tool("diagnose_vault_setup"))
-    roots_tool = asyncio.run(mcp.get_tool("list_client_roots"))
-    route_tool = asyncio.run(mcp.get_tool("route_task"))
+    health_tool = asyncio.run(mcp.get_tool("vault.health"))
+    diagnosis_tool = asyncio.run(mcp.get_tool("vault.diagnose"))
+    roots_tool = asyncio.run(mcp.get_tool("client.roots"))
+    route_tool = asyncio.run(mcp.get_tool("route.task"))
     health = asyncio.run(health_tool.run({}))
     diagnosis = asyncio.run(diagnosis_tool.run({}))
     route = asyncio.run(
@@ -122,11 +131,11 @@ def test_diagnostic_tools_are_registered_and_report_profile(tmp_path, monkeypatc
         route_tool.run({"request": "Busca una película sobre una modelo y asesinatos"})
     )
 
-    assert "health_check" in tool_names
-    assert "diagnose_vault_setup" in tool_names
-    assert "list_client_roots" in tool_names
+    assert "vault.health" in tool_names
+    assert "vault.diagnose" in tool_names
+    assert "client.roots" in tool_names
     assert roots_tool.annotations.readOnlyHint is True
-    assert "route_task" in tool_names
+    assert "route.task" in tool_names
     assert "profile_configured" in str(health)
     assert "integration:obsidianrag:path" in str(health)
     assert "No setup issues detected" in str(diagnosis)
@@ -149,18 +158,18 @@ def test_obsidianrag_pack_registers_resources_and_tools(tmp_path, monkeypatch):
     )
     capabilities = asyncio.run(mcp.read_resource("obsidian://capabilities"))
 
-    assert "ask_vault" in tool_names
-    assert "rag_health" in tool_names
-    assert "rebuild_rag_index" in tool_names
-    assert "rag_setup_status" in tool_names
+    assert "rag.ask" in tool_names
+    assert "rag.health" in tool_names
+    assert "rag.rebuild_index" in tool_names
+    assert "rag.setup_status" in tool_names
     assert "obsidian://integrations/obsidianrag/setup" in resources
     assert "obsidian://integrations/obsidianrag/config" in resources
     assert "ObsidianRAG" in str(setup)
     assert "Ollama" in str(setup)
-    assert "list_client_roots" in str(setup)
+    assert "client.roots" in str(setup)
     assert "obsidianrag serve" in str(setup)
     assert "api_url" in str(config)
-    assert "ask_vault" in str(capabilities)
+    assert "rag.ask" in str(capabilities)
 
 
 def test_obsidianrag_rejects_non_loopback_api_url(tmp_path, monkeypatch):

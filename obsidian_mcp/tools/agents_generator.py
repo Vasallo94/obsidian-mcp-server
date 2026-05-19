@@ -43,11 +43,11 @@ SKILL_TEMPLATE = dedent("""
     {instructions}
 
     ## PATCH NOTE GOLDEN RULE
-    When using `patch_note`, send exact old->new operations:
-    - Read the note first with `read_note`.
+    When using `notes.patch`, send exact old->new operations:
+    - Read the note first with `notes.read`.
     - `old` must be exact text from the note, including line breaks.
     - `old` must be unique. If it appears more than once, include more context.
-    - Use `replace_note` for full-note replacement.
+    - Use `notes.replace` for full-note replacement.
 """).strip()
 
 
@@ -87,7 +87,7 @@ def generate_skill(
     if skill_file.exists():
         return Result.fail(
             f"A skill named '{nombre_limpio}' already exists. "
-            "Use `patch_note` to modify it."
+            "Use `notes.patch` to modify it."
         )
 
     # Prepare template values
@@ -127,7 +127,7 @@ def generate_skill(
     return Result.ok(
         f"Skill creada: **{titulo}**\n"
         f"Location: `.agents/skills/{nombre_limpio}/SKILL.md`\n\n"
-        "The skill is now available. Use `list_skills()` to see it."
+        "The skill is now available. Use `skills.list()` to see it."
     )
 
 
@@ -367,11 +367,11 @@ def sync_skills(actualizar: bool = False) -> Result[str]:
                 golden_rule = dedent("""
 
                     ## PATCH NOTE GOLDEN RULE
-                    When using `patch_note`, send exact old->new operations:
-                    - Read the note first with `read_note`.
+                    When using `notes.patch`, send exact old->new operations:
+                    - Read the note first with `notes.read`.
                     - `old` must be exact text from the note.
                     - `old` must be unique. If it appears more than once, include more context.
-                    - Use `replace_note` for full-note replacement.
+                    - Use `notes.replace` for full-note replacement.
                 """).strip()
                 skill_file.write_text(content + "\n\n" + golden_rule, encoding="utf-8")
                 if skill_dir.name not in fixed:
@@ -390,6 +390,6 @@ def sync_skills(actualizar: bool = False) -> Result[str]:
     if actualizar and fixed:
         output += f"\n✅ Corregidas: {', '.join(fixed)}"
     elif not actualizar and any(i.get("fixable") for i in issues):
-        output += "\nRun `sync_skills(update=True)` to apply fixes."
+        output += "\nRun `skills.sync(update=True)` to apply fixes."
 
     return Result.ok(output)

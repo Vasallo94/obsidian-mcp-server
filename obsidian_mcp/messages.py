@@ -11,6 +11,7 @@ from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
+# pylint: disable=invalid-name,too-many-instance-attributes
 class ErrorMessages:
     """Standardized error messages for MCP tools."""
 
@@ -40,8 +41,21 @@ class ErrorMessages:
     SEMANTIC_NOT_AVAILABLE: str = "Servicio semantico no disponible."
     TIMEOUT: str = "Operacion excedio el tiempo limite ({seconds}s)."
 
+    # Confirmation flow (Issue #1: surface specific reason, not opaque "cancelled")
+    OPERATION_DECLINED: str = (
+        "Operacion cancelada: el usuario rechazo explicitamente la confirmacion."
+    )
+    OPERATION_DISMISSED: str = (
+        "Operacion cancelada: el usuario cerro la confirmacion sin responder."
+    )
+    OPERATION_CANCELLED_NO_CONFIRM: str = (
+        "Operacion cancelada: este cliente no soporta confirmacion interactiva. "
+        "Usa un cliente compatible con elicit() o invoca preview_replace_in_notes primero."
+    )
+
 
 @dataclass(frozen=True)
+# pylint: disable=invalid-name,too-many-instance-attributes
 class SuccessMessages:
     """Standardized success messages for MCP tools."""
 

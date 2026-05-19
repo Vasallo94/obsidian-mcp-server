@@ -108,33 +108,33 @@ class TestProjectLifecycle:
         tool_names = [t.name for t in asyncio.run(mcp.list_tools())]
 
         canvas_tools = [
-            "canvas_read",
-            "canvas_list",
-            "canvas_add_card",
-            "canvas_add_group",
-            "canvas_add_edge",
-            "canvas_update_card",
-            "canvas_remove_card",
-            "canvas_remove_edge",
+            "canvas.read",
+            "canvas.list",
+            "canvas.add_card",
+            "canvas.add_group",
+            "canvas.add_edge",
+            "canvas.update_card",
+            "canvas.remove_card",
+            "canvas.remove_edge",
         ]
         for tool in canvas_tools:
             assert tool in tool_names, f"Missing canvas tool: {tool}"
 
         kanvas_tools = [
-            "kanvas_status",
-            "kanvas_task",
-            "kanvas_ready",
-            "kanvas_blocked",
-            "kanvas_start",
-            "kanvas_finish",
-            "kanvas_pause",
-            "kanvas_approve",
-            "kanvas_complete",
-            "kanvas_edit_task",
-            "kanvas_add_dependency",
-            "kanvas_propose_task",
-            "kanvas_propose_group",
-            "kanvas_init",
+            "kanvas.status",
+            "kanvas.task",
+            "kanvas.ready",
+            "kanvas.blocked",
+            "kanvas.start",
+            "kanvas.finish",
+            "kanvas.pause",
+            "kanvas.approve",
+            "kanvas.complete",
+            "kanvas.edit_task",
+            "kanvas.add_dependency",
+            "kanvas.propose_task",
+            "kanvas.propose_group",
+            "kanvas.init",
         ]
         for tool in kanvas_tools:
             assert tool in tool_names, f"Missing kanvas tool: {tool}"

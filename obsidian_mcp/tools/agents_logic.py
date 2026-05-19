@@ -244,3 +244,49 @@ def refresh_skills_cache() -> Result[str]:
     return Result.ok(
         "✅ Caché de skills invalidado. La próxima consulta recargará las skills."
     )
+
+
+def validate_note_logic(
+    title: str = "",
+    content: str = "",
+    mode: str = "create",
+) -> Result[str]:
+    """Run vault rules against arbitrary content without writing.
+
+    Lets agents lint a note before calling create_note / patch_note so they
+    can fix violations in-context instead of round-tripping through a write.
+
+    Args:
+        title: Note title (used by rules with scope='title').
+        content: Full note body, optionally including YAML frontmatter.
+        mode: One of 'create', 'edit', 'append'. Determines which rules apply.
+
+    Returns:
+        Result with a JSON summary {valid, mode, violations[]}.
+    """
+    import json
+
+    from ..middleware import load_vault_rules, run_validations
+    from .creation_logic import _extract_frontmatter_from_content
+
+    if mode not in {"create", "edit", "append"}:
+        return Result.fail(
+            f"mode debe ser uno de: create, edit, append (recibido: '{mode}')."
+        )
+
+    frontmatter, body = _extract_frontmatter_from_content(content)
+    rules = load_vault_rules()
+    warnings = run_validations(
+        rules,
+        mode=mode,
+        title=title,
+        content=body if frontmatter else content,
+        frontmatter=frontmatter,
+    )
+
+    payload: dict[str, Any] = {
+        "valid": not warnings,
+        "mode": mode,
+        "violations": warnings,
+    }
+    return Result.ok(json.dumps(payload, ensure_ascii=False, indent=2))

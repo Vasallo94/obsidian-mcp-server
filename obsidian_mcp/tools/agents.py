@@ -8,6 +8,7 @@ from .agents_generator import generate_skill, suggest_skills_for_vault, sync_ski
 from .agents_logic import (
     get_agent_instructions,
     list_available_skills,
+    validate_note_logic,
 )
 from .agents_logic import (
     get_global_rules as get_global_rules_logic,
@@ -21,27 +22,45 @@ from .registry import register_tool
 def register_agent_tools(mcp: FastMCP) -> None:
     """Register vault skill tools and resources."""
 
-    @register_tool(mcp, "list_skills")
+    @register_tool(mcp, "skills.list")
     def list_skills() -> str:
         """List skills available in the vault."""
         return list_available_skills().to_display()
 
-    @register_tool(mcp, "read_skill")
+    @register_tool(mcp, "skills.read")
     def read_skill(name: str) -> str:
         """Read a specific vault skill file."""
         return get_agent_instructions(name).to_display()
 
-    @register_tool(mcp, "get_global_rules")
+    @register_tool(mcp, "rules.get")
     def get_global_rules() -> str:
         """Read global vault agent rules."""
         return get_global_rules_logic().to_display()
 
-    @register_tool(mcp, "refresh_skills_cache")
+    @register_tool(mcp, "notes.validate")
+    def validate_note(
+        content: str,
+        title: str = "",
+        mode: str = "create",
+    ) -> str:
+        """Lint a note against vault rules without writing it.
+
+        Use BEFORE create_note / patch_note to surface frontmatter, heading,
+        and tag violations in-context. Cheaper than round-tripping a write.
+
+        Args:
+            content: Full note body (YAML frontmatter optional but recommended).
+            title: Optional note title for rules with scope='title'.
+            mode: 'create' (default), 'edit', or 'append'.
+        """
+        return validate_note_logic(title=title, content=content, mode=mode).to_display()
+
+    @register_tool(mcp, "skills.refresh_cache")
     def refresh_skills_cache() -> str:
         """Invalidate and refresh the in-memory skill cache."""
         return refresh_skills_cache_logic().to_display()
 
-    @register_tool(mcp, "create_skill")
+    @register_tool(mcp, "skills.create")
     def create_skill(
         name: str,
         description: str,
@@ -58,12 +77,12 @@ def register_agent_tools(mcp: FastMCP) -> None:
             default_location,
         ).to_display()
 
-    @register_tool(mcp, "suggest_vault_skills")
+    @register_tool(mcp, "skills.suggest")
     def suggest_vault_skills() -> str:
         """Analyze the vault and suggest useful personal skills."""
         return suggest_skills_for_vault().to_display()
 
-    @register_tool(mcp, "sync_skills")
+    @register_tool(mcp, "skills.sync")
     def sync_vault_skills(update: bool = False) -> str:
         """Validate skills and optionally apply automatic fixes."""
         return sync_skills(update).to_display()

@@ -192,6 +192,41 @@ class TestEditNoteAtomicFailure:
         assert "No se encontro" in result.error
         assert sample_note.read_text(encoding="utf-8") == original  # unchanged
 
+    def test_old_not_found_suggests_close_matches(self, temp_vault, monkeypatch):
+        """Issue #8: emoji codepoint mismatch should surface fuzzy suggestions."""
+        note = temp_vault / "shop.md"
+        note.write_text(
+            "---\ntitle: Shop\n---\n\n## \U0001f6d2 Recomendaciones de Compra\n\nx\n",
+            encoding="utf-8",
+        )
+        _patch_vault(monkeypatch, temp_vault)
+        # Couch emoji 1F6CB vs cart emoji 1F6D2 -- one codepoint off.
+        result = edit_note(
+            "shop.md",
+            [
+                {
+                    "old": "## \U0001f6cb Recomendaciones de Compra",
+                    "new": "## Compra",
+                }
+            ],
+        )
+        assert not result.success
+        assert "No se encontro" in result.error
+        assert "Quiza quisiste decir" in result.error
+        assert "Recomendaciones de Compra" in result.error
+
+    def test_old_not_found_without_close_matches_omits_hint(
+        self, temp_vault, sample_note, monkeypatch
+    ):
+        """If nothing nearby is similar, don't fabricate suggestions."""
+        _patch_vault(monkeypatch, temp_vault)
+        result = edit_note(
+            "test_note.md",
+            [{"old": "ZZZZZZ totally unrelated 9999 quasar", "new": "x"}],
+        )
+        assert not result.success
+        assert "Quiza quisiste decir" not in (result.error or "")
+
     def test_old_appears_multiple_times(self, temp_vault, monkeypatch):
         """Fail if old text appears more than once (ambiguity)."""
         note = temp_vault / "dup.md"

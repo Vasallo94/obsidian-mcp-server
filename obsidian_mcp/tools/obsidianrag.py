@@ -28,7 +28,7 @@ def register_obsidianrag_tools(mcp: FastMCP) -> None:
     if not _is_obsidianrag_enabled():
         return
 
-    @register_tool(mcp, "rag_setup_status")
+    @register_tool(mcp, "rag.setup_status")
     def rag_setup_status() -> str:
         """
         Inspect local ObsidianRAG setup status.
@@ -38,14 +38,14 @@ def register_obsidianrag_tools(mcp: FastMCP) -> None:
         """
         return get_rag_setup_status().to_display()
 
-    @register_tool(mcp, "rag_health")
+    @register_tool(mcp, "rag.health")
     def rag_health() -> str:
         """
         Check whether the ObsidianRAG backend is reachable and ready.
         """
         return check_rag_health().to_display()
 
-    @register_tool(mcp, "ask_vault")
+    @register_tool(mcp, "rag.ask")
     def ask_vault(question: str, session_id: str | None = None) -> str:
         """
         Ask a natural-language question against the Obsidian vault via ObsidianRAG.
@@ -56,7 +56,7 @@ def register_obsidianrag_tools(mcp: FastMCP) -> None:
         """
         return ask_rag(question, session_id).to_display()
 
-    @register_tool(mcp, "rebuild_rag_index")
+    @register_tool(mcp, "rag.rebuild_index")
     def rebuild_rag_index() -> str:
         """
         Rebuild the ObsidianRAG index after large vault changes.
@@ -108,8 +108,10 @@ def get_rag_setup_status() -> Result[str]:
     )
     output += "\n\n## Next Actions\n"
     if health.success:
-        output += "- ObsidianRAG is reachable. Use `ask_vault` for semantic vault questions.\n"
-        output += "- Run `rebuild_rag_index` after big vault reorganizations.\n"
+        output += (
+            "- ObsidianRAG is reachable. Use `rag.ask` for semantic vault questions.\n"
+        )
+        output += "- Run `rag.rebuild_index` after big vault reorganizations.\n"
     else:
         output += "- Read `obsidian://integrations/obsidianrag/setup`.\n"
         output += "- Start Ollama or another supported LLM provider.\n"
@@ -153,7 +155,7 @@ def ask_rag(question: str, session_id: str | None = None) -> Result[str]:
     )
     if not result.success:
         return Result.fail(
-            "ObsidianRAG query failed. Check `rag_health` and "
+            "ObsidianRAG query failed. Check `rag.health` and "
             "`obsidian://integrations/obsidianrag/setup`."
         )
 
@@ -183,7 +185,7 @@ def rebuild_rag_database() -> Result[str]:
     )
     if not result.success:
         return Result.fail(
-            "Could not rebuild ObsidianRAG index. Check `rag_health` first."
+            "Could not rebuild ObsidianRAG index. Check `rag.health` first."
         )
     return Result.ok(json.dumps(result.data, ensure_ascii=False, indent=2))
 
@@ -242,13 +244,13 @@ silently.
 
 ## Agent Checklist
 
-1. Run `rag_setup_status`.
-2. Run `list_client_roots` to confirm the client exposes the expected workspace roots.
+1. Run `rag.setup_status`.
+2. Run `client.roots` to confirm the client exposes the expected workspace roots.
 3. If Ollama is missing, help the user install/start Ollama and pull a local model.
 4. Install backend dependencies from the ObsidianRAG backend folder.
 5. Start the backend.
-6. Run `rag_health`.
-7. Run `rebuild_rag_index` for the first index. Large vaults can take several minutes.
+6. Run `rag.health`.
+7. Run `rag.rebuild_index` for the first index. Large vaults can take several minutes.
 8. Ask the user to restart or reconnect the MCP client if new tools were just enabled.
 
 ## Environment
@@ -289,9 +291,9 @@ Call tool: ask_vault(question="...")
 
 ## Troubleshooting
 
-- If `rag_health` fails, confirm the server is listening at `{api_url}`.
+- If `rag.health` fails, confirm the server is listening at `{api_url}`.
 - If the server starts but is not ready, check the LLM provider and embedding model.
-- If results are stale, run `rebuild_rag_index`.
+- If results are stale, run `rag.rebuild_index`.
 - Keep the old MCP in-process semantic tools disabled unless testing legacy behavior.
 """
 

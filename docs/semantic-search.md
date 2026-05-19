@@ -31,10 +31,10 @@ profile:
 
 Useful tools and resources:
 
-- `rag_setup_status()`: inspect local prerequisites and backend reachability.
-- `rag_health()`: check whether the ObsidianRAG API is healthy.
-- `ask_vault(question, session_id)`: ask semantic questions against the vault.
-- `rebuild_rag_index()`: trigger a backend index rebuild.
+- `rag.setup_status()`: inspect local prerequisites and backend reachability.
+- `rag.health()`: check whether the ObsidianRAG API is healthy.
+- `rag.ask(question, session_id)`: ask semantic questions against the vault.
+- `rag.rebuild_index()`: trigger a backend index rebuild.
 - `obsidian://integrations/obsidianrag/setup`: guided setup playbook.
 - `obsidian://integrations/obsidianrag/config`: safe integration summary.
 
@@ -46,9 +46,9 @@ inside this MCP server.
 
 Legacy tools:
 
-- `semantic_search`
-- `index_vault_semantic`
-- `suggest_semantic_connections`
+- `semantic.search`
+- `semantic.index`
+- `semantic.suggest_connections`
 
 They require the deprecated optional dependency extra:
 
@@ -67,12 +67,12 @@ For a vault currently using `legacy_semantic`:
 1. Install and start ObsidianRAG.
 2. Enable the `obsidianrag` tool set in `.agents/vault.yaml`.
 3. Configure the ObsidianRAG project path and local API URL.
-4. Run `rag_setup_status()` and follow the setup resource.
+4. Run `rag.setup_status()` and follow the setup resource.
 5. Rebuild the ObsidianRAG index once.
 6. Replace legacy calls:
-   - `semantic_search` -> `ask_vault`
-   - `index_vault_semantic` -> `rebuild_rag_index`
-   - `suggest_semantic_connections` -> use ObsidianRAG retrieval plus explicit
+   - `semantic.search` -> `rag.ask`
+   - `semantic.index` -> `rag.rebuild_index`
+   - `semantic.suggest_connections` -> use ObsidianRAG retrieval plus explicit
      link-analysis tools until a dedicated external suggestion workflow exists.
 
 Once no active client depends on `legacy_semantic`, the legacy package extra and

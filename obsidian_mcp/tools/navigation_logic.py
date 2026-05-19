@@ -78,19 +78,42 @@ def format_search_results(resultados: list, solo_titulos: bool) -> str:
     return resultado_str
 
 
-def list_notes(carpeta: str = "", incluir_subcarpetas: bool = True) -> Result[str]:
-    """List all notes in the vault or a specific folder.
+DEFAULT_LIST_NOTES_LIMIT = 500
+
+
+def list_notes(  # pylint: disable=too-many-locals,too-many-branches
+    carpeta: str = "",
+    incluir_subcarpetas: bool = True,
+    limit: int = DEFAULT_LIST_NOTES_LIMIT,
+    offset: int = 0,
+    pattern: str = "",
+) -> Result[str]:
+    """List notes in the vault or a specific folder, with pagination.
+
+    Issue #5: large vaults overran the response budget (125K+ chars on
+    single call). ``limit``/``offset`` cap the output and the footer
+    points at the next page.
 
     Args:
-        carpeta: Specific folder to explore (empty = vault root)
-        incluir_subcarpetas: Whether to include subfolders in search
+        carpeta: Specific folder to explore (empty = vault root).
+        incluir_subcarpetas: Whether to recurse into subfolders.
+        limit: Max notes to include in the response. Use 0 for "no limit".
+        offset: Start index (after filename sort).
+        pattern: Optional glob (e.g. ``"2026-*.md"``) layered over the
+            base ``*.md`` discovery.
 
     Returns:
-        Result with formatted string of notes organized by folder
+        Result with a formatted listing plus pagination footer when
+        more notes exist beyond ``offset + limit``.
     """
     vault_path = get_vault_path()
     if not vault_path:
         return Result.fail("Vault path is not configured.")
+
+    if limit < 0:
+        return Result.fail("limit debe ser >= 0 (0 = sin limite).")
+    if offset < 0:
+        return Result.fail("offset debe ser >= 0.")
 
     if carpeta:
         target_path = vault_path / carpeta
@@ -99,34 +122,58 @@ def list_notes(carpeta: str = "", incluir_subcarpetas: bool = True) -> Result[st
     else:
         target_path = vault_path
 
-    pattern = "**/*.md" if incluir_subcarpetas else "*.md"
-    notas = list(target_path.glob(pattern))
+    base_pattern = "**/*.md" if incluir_subcarpetas else "*.md"
+    if pattern:
+        glob_pattern = (
+            f"**/{pattern}"
+            if incluir_subcarpetas and not pattern.startswith("**/")
+            else pattern
+        )
+    else:
+        glob_pattern = base_pattern
 
-    if not notas:
-        return Result.ok(f"No notes found in '{carpeta or 'root'}'")
+    notas_raw = list(target_path.glob(glob_pattern))
 
-    notas_por_carpeta: dict[str, list[dict]] = {}
+    visibles: list[Path] = []
     notas_filtradas = 0
-    for nota in notas:
+    for nota in notas_raw:
         is_forbidden, _ = is_path_forbidden(nota, vault_path)
         if is_forbidden:
             notas_filtradas += 1
             continue
+        visibles.append(nota)
 
+    total_visibles = len(visibles)
+
+    if total_visibles == 0:
+        return Result.ok(f"No notes found in '{carpeta or 'root'}'")
+
+    visibles.sort(key=lambda p: str(p.relative_to(vault_path)))
+
+    end = total_visibles if limit == 0 else min(offset + limit, total_visibles)
+    page = visibles[offset:end]
+
+    if not page:
+        return Result.ok(
+            f"No notes in this page (offset={offset}, limit={limit}). "
+            f"Total visibles: {total_visibles}."
+        )
+
+    notas_por_carpeta: dict[str, list[dict]] = {}
+    for nota in page:
         ruta_relativa = nota.relative_to(vault_path)
         carpeta_padre = (
             str(ruta_relativa.parent) if ruta_relativa.parent != Path(".") else "Root"
         )
-
         if carpeta_padre not in notas_por_carpeta:
             notas_por_carpeta[carpeta_padre] = []
+        notas_por_carpeta[carpeta_padre].append(get_note_metadata(nota))
 
-        metadata = get_note_metadata(nota)
-        notas_por_carpeta[carpeta_padre].append(metadata)
-
-    total_visibles = len(notas) - notas_filtradas
-
-    resultado = f"Notes found in the vault ({total_visibles} total):\n\n"
+    header = (
+        f"Notes found in the vault ({total_visibles} total, "
+        f"showing {offset + 1}-{end}):\n\n"
+    )
+    resultado = header
 
     for carpeta_nombre, lista_notas in sorted(notas_por_carpeta.items()):
         resultado += f"{carpeta_nombre} ({len(lista_notas)} notes):\n"
@@ -136,6 +183,13 @@ def list_notes(carpeta: str = "", incluir_subcarpetas: bool = True) -> Result[st
                 f"({nota_meta['size_kb']:.1f}KB, {nota_meta['modified']})\n"
             )
         resultado += "\n"
+
+    if end < total_visibles:
+        next_offset = end
+        resultado += (
+            f"--- Truncated: {total_visibles - end} more notes available. "
+            f"Call list_notes(offset={next_offset}, limit={limit}) for the next page."
+        )
 
     return Result.ok(resultado)
 
@@ -161,7 +215,7 @@ def read_note(nombre_archivo: str) -> Result[str]:
     size_bytes = nota_path.stat().st_size
     if size_bytes > MAX_NOTE_READ_BYTES:
         return Result.fail(
-            "Note is too large to return safely. Use `get_note_info` first and "
+            "Note is too large to return safely. Use `notes.info` first and "
             "read a smaller section or split the note."
         )
 
@@ -269,17 +323,29 @@ def _validate_move_paths(
     return True, ""
 
 
-def move_note(origen: str, destino: str, crear_carpetas: bool = True) -> Result[str]:
+def move_note(  # pylint: disable=too-many-locals,too-many-return-statements
+    origen: str,
+    destino: str,
+    crear_carpetas: bool = True,
+    update_links: bool = False,
+) -> Result[str]:
     """Move or rename a note within the vault.
 
     Args:
-        origen: Current relative path of the note
-        destino: New relative path for the note
-        crear_carpetas: Whether to create destination folders if needed
+        origen: Current relative path of the note.
+        destino: New relative path for the note.
+        crear_carpetas: Whether to create destination folders if needed.
+        update_links: When True (Issue #7/#11), rewrite every wikilink
+            across the vault that points to the old stem so they target
+            the new stem instead. Aliases/sections are preserved.
 
     Returns:
-        Result with success or error message
+        Result with success or error message. On success, the message
+        reports how many wikilinks were touched (or 0 if update_links
+        was False) so the agent doesn't have to guess.
     """
+    from ..utils.wikilinks import rewrite_wikilinks_in_vault
+
     vault_path = get_vault_path()
     if not vault_path:
         return Result.fail("Vault path is not configured.")
@@ -307,9 +373,30 @@ def move_note(origen: str, destino: str, crear_carpetas: bool = True) -> Result[
             f"Destination folder does not exist: {path_destino.parent.name}"
         )
 
+    old_stem = path_origen.stem
+    new_stem = path_destino.stem
+
     path_origen.rename(path_destino)
 
-    return Result.ok(f"File moved/renamed:\nFrom: {origen}\nTo:   {destino}")
+    msg = f"File moved/renamed:\nFrom: {origen}\nTo:   {destino}"
+
+    if update_links and old_stem != new_stem:
+        total, touched = rewrite_wikilinks_in_vault(
+            vault_path, old_target=old_stem, new_target=new_stem
+        )
+        msg += f"\nLinks updated: {total} references across {len(touched)} files."
+    elif not update_links:
+        # Issue #11: surface impact even when we didn't rewrite.
+        total, touched = rewrite_wikilinks_in_vault(
+            vault_path, old_target=old_stem, new_target=new_stem, dry_run=True
+        )
+        if old_stem != new_stem and total > 0:
+            msg += (
+                f"\nWarning: {total} wikilinks across {len(touched)} files now point "
+                f"to the old stem '{old_stem}'. Re-run with update_links=True to fix."
+            )
+
+    return Result.ok(msg)
 
 
 def _is_content_paragraph(line: str) -> bool:
@@ -405,7 +492,7 @@ def get_random_concept(carpeta: str = "") -> Result[str]:
     if tags:
         resultado += f"Tags: {tags}\n"
     resultado += f"\n---\n\n{fragmento}\n"
-    resultado += f'\n---\n*Want to go deeper? Use `read_note("{ruta_relativa}")`*'
+    resultado += f'\n---\n*Want to go deeper? Use `notes.read("{ruta_relativa}")`*'
 
     return Result.ok(resultado)
 

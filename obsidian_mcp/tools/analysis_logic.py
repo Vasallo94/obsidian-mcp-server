@@ -21,7 +21,7 @@ logger = get_logger(__name__)
 HEX_COLOR_PATTERN = re.compile(r"^([0-9a-fA-F]{3}){1,2}$")
 
 
-def get_vault_stats() -> Result[str]:
+def get_vault_stats() -> Result[str]:  # pylint: disable=too-many-locals
     """Generate complete vault statistics.
 
     Returns:
@@ -147,7 +147,7 @@ def get_canonical_tags() -> Result[str]:
     )
 
 
-def analyze_tags() -> Result[str]:
+def analyze_tags() -> Result[str]:  # pylint: disable=too-many-locals,too-many-branches
     """Analyze tag usage in the vault and compare with official registry.
 
     Returns:
@@ -249,7 +249,9 @@ def analyze_tags() -> Result[str]:
     return Result.ok(resultado)
 
 
-def sync_tag_registry(actualizar: bool = False) -> Result[str]:
+def sync_tag_registry(  # pylint: disable=too-many-locals,too-many-branches
+    actualizar: bool = False,
+) -> Result[str]:
     """Synchronize tag usage with official registry.
 
     Args:
@@ -454,6 +456,206 @@ def analyze_links() -> Result[str]:
             resultado += f"   ... y {len(enlaces_rotos) - 10} enlaces rotos más\n"
 
     return Result.ok(resultado)
+
+
+def lint_vault(  # pylint: disable=too-many-locals,too-many-branches,too-many-statements
+    folder: str = "",
+    rule_ids: list[str] | None = None,
+    auto_fix: bool = False,
+    limit: int = 200,
+) -> Result[str]:
+    """Run vault-rule validations across every note (Issue #9).
+
+    Replaces the per-note + manual-fix dance the 2026-05-17 session
+    described (60 individual patch_note calls to strip emojis from
+    headings) with a single sweep.
+
+    Args:
+        folder: Restrict to a vault-relative folder (empty = whole vault).
+        rule_ids: Limit to specific rule IDs (e.g. ``["no_emoji_headings"]``).
+            Empty/None = every rule loaded from REGLAS_GLOBALES.md.
+        auto_fix: When True, apply fixes for auto-fixable rules
+            (regex-based scope=headings or scope=body) and write the
+            results back to disk. Frontmatter rules are always
+            report-only.
+        limit: Cap on violations reported in the response.
+
+    Returns:
+        Result with a per-file breakdown of violations and, when
+        ``auto_fix`` is True, a summary of how many notes were fixed.
+    """
+    from ..middleware import (
+        apply_autofix,
+        is_rule_autofixable,
+        iter_violations,
+        load_vault_rules,
+    )
+    from ..utils import is_path_forbidden
+    from .creation_logic import _extract_frontmatter_from_content
+
+    vault_path = get_vault_path()
+    if not vault_path:
+        return Result.fail("La ruta del vault no está configurada.")
+
+    if limit < 0:
+        return Result.fail("limit debe ser >= 0.")
+
+    if folder:
+        scan_root = vault_path / folder
+        if not scan_root.exists():
+            return Result.fail(f"Carpeta no existe: {folder}")
+    else:
+        scan_root = vault_path
+
+    rules = load_vault_rules()
+    if rule_ids:
+        wanted = set(rule_ids)
+        rules = [r for r in rules if r.get("id") in wanted]
+        if not rules:
+            return Result.fail(
+                f"Ningun rule_id de {sorted(wanted)} esta definido en REGLAS_GLOBALES.md."
+            )
+
+    violations_by_file: dict[str, list[str]] = {}
+    fixed_by_file: dict[str, int] = {}
+    total_violations = 0
+    files_scanned = 0
+
+    for md_file in scan_root.rglob("*.md"):
+        # Skip restricted/system folders (.agents, .obsidian, .trash, etc.).
+        forbidden, _ = is_path_forbidden(md_file, vault_path)
+        if forbidden:
+            continue
+        # Also skip the rules file itself.
+        if md_file.name == "REGLAS_GLOBALES.md":
+            continue
+
+        files_scanned += 1
+        try:
+            content = md_file.read_text(encoding="utf-8")
+        except OSError:
+            continue
+
+        frontmatter, body = _extract_frontmatter_from_content(content)
+        title = md_file.stem
+        rel = str(md_file.relative_to(vault_path))
+
+        # mode='edit' covers post-creation linting; frontmatter rules
+        # that only apply at 'create' time are skipped by design.
+        violations = iter_violations(
+            rules,
+            mode=None,  # whole-vault sweep: every rule applies
+            title=title,
+            content=body,
+            frontmatter=frontmatter or {},
+        )
+        for rule, warning in violations:
+            total_violations += 1
+            label = f"[{rule.get('id', '?')}] {warning}"
+            violations_by_file.setdefault(rel, []).append(label)
+
+            if auto_fix and is_rule_autofixable(rule):
+                new_content, n = apply_autofix(rule, content)
+                if n:
+                    md_file.write_text(new_content, encoding="utf-8")
+                    fixed_by_file[rel] = fixed_by_file.get(rel, 0) + n
+                    content = new_content  # refresh for any further rules
+                    _, body = _extract_frontmatter_from_content(content)
+
+    if total_violations == 0:
+        return Result.ok(
+            f"OK: 0 violaciones en {files_scanned} notas escaneadas"
+            f"{' (filtro: ' + folder + ')' if folder else ''}."
+        )
+
+    lines: list[str] = [
+        (
+            f"Lint vault: {total_violations} violacion(es) en "
+            f"{len(violations_by_file)} de {files_scanned} notas."
+        ),
+        "",
+    ]
+    if auto_fix:
+        total_fixes = sum(fixed_by_file.values())
+        lines.append(
+            f"Auto-fix aplicado: {total_fixes} cambios en "
+            f"{len(fixed_by_file)} archivos."
+        )
+        lines.append("")
+
+    shown = 0
+    for source, items in sorted(violations_by_file.items()):
+        if limit and shown >= limit:
+            remaining = total_violations - shown
+            lines.append(f"... y {remaining} mas. Sube 'limit' para verlas todas.")
+            break
+        lines.append(f"{source}:")
+        for item in items:
+            if limit and shown >= limit:
+                break
+            lines.append(f"  - {item}")
+            shown += 1
+        lines.append("")
+
+    return Result.ok("\n".join(lines))
+
+
+def find_broken_wikilinks(limit: int = 100) -> Result[str]:
+    """Scan the vault for wikilinks whose target note doesn't exist (Issue #6).
+
+    For each broken link surfaces source file + line + the closest existing
+    stems as fuzzy suggestions, so the agent can fix typos and renames in
+    one pass instead of grepping the vault manually.
+
+    Args:
+        limit: Maximum number of broken links to include in the report.
+
+    Returns:
+        Result with a structured per-source listing and suggestions.
+    """
+    from ..utils.wikilinks import scan_broken_wikilinks  # local to avoid cycles
+
+    vault_path = get_vault_path()
+    if not vault_path:
+        return Result.fail("La ruta del vault no está configurada.")
+
+    if limit < 0:
+        return Result.fail("limit debe ser >= 0.")
+
+    broken = scan_broken_wikilinks(vault_path)
+    if not broken:
+        return Result.ok("OK No se encontraron wikilinks rotos en el vault.")
+
+    grouped: dict[str, list[str]] = {}
+    for item in broken[: limit if limit else len(broken)]:
+        rel = str(item.occurrence.source.relative_to(vault_path))
+        suggestions = (
+            f" -> sugerencias: {', '.join(item.suggestions)}"
+            if item.suggestions
+            else " -> sin sugerencias"
+        )
+        line = (
+            f"  L{item.occurrence.line_no}: [[{item.occurrence.raw}]]"
+            f" (target='{item.occurrence.target}'){suggestions}"
+        )
+        grouped.setdefault(rel, []).append(line)
+
+    header = (
+        f"Wikilinks rotos: {len(broken)} (mostrando "
+        f"{min(limit, len(broken)) if limit else len(broken)}).\n\n"
+    )
+    body_lines: list[str] = []
+    for source, items in sorted(grouped.items()):
+        body_lines.append(f"{source}:")
+        body_lines.extend(items)
+        body_lines.append("")
+
+    if limit and len(broken) > limit:
+        body_lines.append(
+            f"... y {len(broken) - limit} mas. Sube 'limit' para verlos todos."
+        )
+
+    return Result.ok(header + "\n".join(body_lines))
 
 
 def get_recent_activity(dias: int = 7) -> Result[str]:

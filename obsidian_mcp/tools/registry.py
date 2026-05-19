@@ -38,62 +38,66 @@ class ToolSpec:
 
 TOOL_SPECS: dict[str, ToolSpec] = {
     # Core diagnostics and routing
-    "health_check": ToolSpec("Health Check"),
-    "diagnose_vault_setup": ToolSpec("Diagnose Vault Setup"),
-    "list_client_roots": ToolSpec("List Client Roots"),
-    "route_task": ToolSpec("Route Task"),
-    "read_vault_context": ToolSpec("Read Vault Context"),
+    "vault.health": ToolSpec("Health Check"),
+    "vault.diagnose": ToolSpec("Diagnose Vault Setup"),
+    "client.roots": ToolSpec("List Client Roots"),
+    "route.task": ToolSpec("Route Task"),
+    "vault.context": ToolSpec("Read Vault Context"),
     # Core navigation
-    "list_notes": ToolSpec("List Notes"),
-    "read_note": ToolSpec("Read Note"),
-    "search_notes": ToolSpec("Search Notes"),
-    "search_notes_by_date": ToolSpec("Search Notes By Date"),
-    "read_notes": ToolSpec("Read Multiple Notes"),
-    "get_note_info": ToolSpec("Get Note Info"),
-    "list_templates": ToolSpec("List Templates"),
-    "get_frontmatter": ToolSpec("Get Frontmatter"),
+    "notes.list": ToolSpec("List Notes"),
+    "notes.read": ToolSpec("Read Note"),
+    "notes.search": ToolSpec("Search Notes"),
+    "notes.search_by_date": ToolSpec("Search Notes By Date"),
+    "notes.read_many": ToolSpec("Read Multiple Notes"),
+    "notes.info": ToolSpec("Get Note Info"),
+    "templates.list": ToolSpec("List Templates"),
+    "notes.get_frontmatter": ToolSpec("Get Frontmatter"),
     # Core skills/resources
-    "list_skills": ToolSpec("List Skills"),
-    "read_skill": ToolSpec("Read Skill"),
-    "get_global_rules": ToolSpec("Get Global Rules"),
+    "skills.list": ToolSpec("List Skills"),
+    "skills.read": ToolSpec("Read Skill"),
+    "rules.get": ToolSpec("Get Global Rules"),
+    "notes.validate": ToolSpec("Validate Note"),
     # Notes write pack
-    "suggest_note_location": ToolSpec(
+    "notes.suggest_location": ToolSpec(
         "Suggest Note Location", "notes_write", open_world=False
     ),
-    "create_note": ToolSpec(
+    "notes.create": ToolSpec(
         "Create Note", "notes_write", read_only=False, idempotent=False
     ),
-    "append_to_note": ToolSpec(
+    "notes.append": ToolSpec(
         "Append To Note", "notes_write", read_only=False, idempotent=False
     ),
-    "patch_note": ToolSpec(
+    "notes.patch": ToolSpec(
         "Patch Note", "notes_write", read_only=False, idempotent=False
     ),
-    "replace_note": ToolSpec(
+    "notes.replace": ToolSpec(
         "Replace Note",
         "notes_write",
         read_only=False,
         destructive=True,
         idempotent=False,
     ),
-    "update_frontmatter": ToolSpec(
+    "notes.update_frontmatter": ToolSpec(
         "Update Frontmatter", "notes_write", read_only=False, idempotent=False
     ),
-    "update_note_tags": ToolSpec(
+    "notes.update_tags": ToolSpec(
         "Update Note Tags", "notes_write", read_only=False, idempotent=False
     ),
-    "move_note": ToolSpec(
+    "notes.move": ToolSpec(
         "Move Note", "notes_write", read_only=False, idempotent=False
     ),
-    "delete_note": ToolSpec(
+    "notes.rename": ToolSpec(
+        "Rename Note", "notes_write", read_only=False, idempotent=False
+    ),
+    "notes.delete": ToolSpec(
         "Delete Note",
         "notes_write",
         read_only=False,
         destructive=True,
         idempotent=False,
     ),
-    "preview_replace_in_notes": ToolSpec("Preview Replace In Notes", "notes_write"),
-    "apply_replace_in_notes": ToolSpec(
+    "notes.preview_replace": ToolSpec("Preview Replace In Notes", "notes_write"),
+    "notes.apply_replace": ToolSpec(
         "Apply Replace In Notes",
         "notes_write",
         read_only=False,
@@ -101,84 +105,89 @@ TOOL_SPECS: dict[str, ToolSpec] = {
         idempotent=False,
     ),
     # Vault analysis pack
-    "get_vault_stats": ToolSpec("Get Vault Stats", "vault_analysis"),
-    "get_canonical_tags": ToolSpec("Get Canonical Tags", "vault_analysis"),
-    "analyze_tags": ToolSpec("Analyze Tags", "vault_analysis"),
-    "sync_tag_registry": ToolSpec(
+    "vault.stats": ToolSpec("Get Vault Stats", "vault_analysis"),
+    "tags.canonical": ToolSpec("Get Canonical Tags", "vault_analysis"),
+    "tags.analyze": ToolSpec("Analyze Tags", "vault_analysis"),
+    "tags.sync_registry": ToolSpec(
         "Sync Tag Registry", "vault_analysis", read_only=False, idempotent=False
     ),
-    "list_tags": ToolSpec("List Tags", "vault_analysis"),
-    "analyze_links": ToolSpec("Analyze Links", "vault_analysis"),
-    "summarize_recent_activity": ToolSpec(
-        "Summarize Recent Activity", "vault_analysis"
+    "tags.list": ToolSpec("List Tags", "vault_analysis"),
+    "links.analyze": ToolSpec("Analyze Links", "vault_analysis"),
+    "activity.recent": ToolSpec("Summarize Recent Activity", "vault_analysis"),
+    "links.backlinks": ToolSpec("Get Backlinks", "vault_analysis"),
+    "tags.notes_with": ToolSpec("Get Notes By Tag", "vault_analysis"),
+    "links.local_graph": ToolSpec("Get Local Graph", "vault_analysis"),
+    "links.find_orphans": ToolSpec("Find Orphan Notes", "vault_analysis"),
+    "links.find_broken": ToolSpec("Find Broken Wikilinks", "vault_analysis"),
+    "vault.lint": ToolSpec(
+        "Lint Vault",
+        "vault_analysis",
+        read_only=False,  # auto_fix=True writes files
+        idempotent=False,
     ),
-    "get_backlinks": ToolSpec("Get Backlinks", "vault_analysis"),
-    "get_notes_by_tag": ToolSpec("Get Notes By Tag", "vault_analysis"),
-    "get_local_graph": ToolSpec("Get Local Graph", "vault_analysis"),
-    "find_orphan_notes": ToolSpec("Find Orphan Notes", "vault_analysis"),
     # Personal pack
-    "quick_capture": ToolSpec(
+    "inbox.capture": ToolSpec(
         "Quick Capture",
         "secundo_selebro",
         read_only=False,
         idempotent=False,
     ),
-    "random_concept": ToolSpec("Random Concept", "secundo_selebro"),
+    "random.concept": ToolSpec("Random Concept", "secundo_selebro"),
     # Agent administration pack
-    "refresh_skills_cache": ToolSpec("Refresh Skills Cache", "agents_admin"),
-    "create_skill": ToolSpec(
+    "skills.refresh_cache": ToolSpec("Refresh Skills Cache", "agents_admin"),
+    "skills.create": ToolSpec(
         "Create Skill", "agents_admin", read_only=False, idempotent=False
     ),
-    "suggest_vault_skills": ToolSpec("Suggest Vault Skills", "agents_admin"),
-    "sync_skills": ToolSpec(
+    "skills.suggest": ToolSpec("Suggest Vault Skills", "agents_admin"),
+    "skills.sync": ToolSpec(
         "Sync Skills", "agents_admin", read_only=False, idempotent=False
     ),
     # External packs
-    "get_youtube_transcript": ToolSpec(
+    "youtube.transcript": ToolSpec(
         "Get YouTube Transcript", "youtube", open_world=True
     ),
-    "rag_setup_status": ToolSpec("RAG Setup Status", "obsidianrag", open_world=True),
-    "rag_health": ToolSpec("RAG Health", "obsidianrag", open_world=True),
-    "ask_vault": ToolSpec("Ask Vault", "obsidianrag", open_world=True),
-    "rebuild_rag_index": ToolSpec(
+    "rag.setup_status": ToolSpec("RAG Setup Status", "obsidianrag", open_world=True),
+    "rag.health": ToolSpec("RAG Health", "obsidianrag", open_world=True),
+    "rag.ask": ToolSpec("Ask Vault", "obsidianrag", open_world=True),
+    "rag.rebuild_index": ToolSpec(
         "Rebuild RAG Index", "obsidianrag", read_only=False, idempotent=False
     ),
     # Legacy semantic pack
-    "semantic_search": ToolSpec(
+    "semantic.search": ToolSpec(
         "Legacy Semantic Search (Deprecated)", "legacy_semantic"
     ),
-    "index_vault_semantic": ToolSpec(
+    "semantic.index": ToolSpec(
         "Legacy Semantic Index (Deprecated)",
         "legacy_semantic",
         read_only=False,
         idempotent=False,
     ),
-    "suggest_semantic_connections": ToolSpec(
+    "semantic.suggest_connections": ToolSpec(
         "Legacy Semantic Connections (Deprecated)", "legacy_semantic"
     ),
     # Canvas pack
-    "canvas_read": ToolSpec("Read Canvas", "canvas"),
-    "canvas_list": ToolSpec("List Canvases", "canvas"),
-    "canvas_add_card": ToolSpec(
+    "canvas.read": ToolSpec("Read Canvas", "canvas"),
+    "canvas.list": ToolSpec("List Canvases", "canvas"),
+    "canvas.add_card": ToolSpec(
         "Add Canvas Card", "canvas", read_only=False, idempotent=False
     ),
-    "canvas_add_group": ToolSpec(
+    "canvas.add_group": ToolSpec(
         "Add Canvas Group", "canvas", read_only=False, idempotent=False
     ),
-    "canvas_add_edge": ToolSpec(
+    "canvas.add_edge": ToolSpec(
         "Add Canvas Edge", "canvas", read_only=False, idempotent=False
     ),
-    "canvas_update_card": ToolSpec(
+    "canvas.update_card": ToolSpec(
         "Update Canvas Card", "canvas", read_only=False, idempotent=False
     ),
-    "canvas_remove_card": ToolSpec(
+    "canvas.remove_card": ToolSpec(
         "Remove Canvas Card",
         "canvas",
         read_only=False,
         destructive=True,
         idempotent=False,
     ),
-    "canvas_remove_edge": ToolSpec(
+    "canvas.remove_edge": ToolSpec(
         "Remove Canvas Edge",
         "canvas",
         read_only=False,
@@ -186,38 +195,38 @@ TOOL_SPECS: dict[str, ToolSpec] = {
         idempotent=False,
     ),
     # Kanvas pack
-    "kanvas_status": ToolSpec("Kanvas Status", "kanvas"),
-    "kanvas_task": ToolSpec("Kanvas Task", "kanvas"),
-    "kanvas_ready": ToolSpec("Kanvas Ready Tasks", "kanvas"),
-    "kanvas_blocked": ToolSpec("Kanvas Blocked Tasks", "kanvas"),
-    "kanvas_start": ToolSpec(
+    "kanvas.status": ToolSpec("Kanvas Status", "kanvas"),
+    "kanvas.task": ToolSpec("Kanvas Task", "kanvas"),
+    "kanvas.ready": ToolSpec("Kanvas Ready Tasks", "kanvas"),
+    "kanvas.blocked": ToolSpec("Kanvas Blocked Tasks", "kanvas"),
+    "kanvas.start": ToolSpec(
         "Kanvas Start Task", "kanvas", read_only=False, idempotent=False
     ),
-    "kanvas_finish": ToolSpec(
+    "kanvas.finish": ToolSpec(
         "Kanvas Finish Task", "kanvas", read_only=False, idempotent=False
     ),
-    "kanvas_pause": ToolSpec(
+    "kanvas.pause": ToolSpec(
         "Kanvas Pause Task", "kanvas", read_only=False, idempotent=False
     ),
-    "kanvas_approve": ToolSpec(
+    "kanvas.approve": ToolSpec(
         "Kanvas Approve Task", "kanvas", read_only=False, idempotent=False
     ),
-    "kanvas_complete": ToolSpec(
+    "kanvas.complete": ToolSpec(
         "Kanvas Complete Task", "kanvas", read_only=False, idempotent=False
     ),
-    "kanvas_edit_task": ToolSpec(
+    "kanvas.edit_task": ToolSpec(
         "Kanvas Edit Task", "kanvas", read_only=False, idempotent=False
     ),
-    "kanvas_add_dependency": ToolSpec(
+    "kanvas.add_dependency": ToolSpec(
         "Kanvas Add Dependency", "kanvas", read_only=False, idempotent=False
     ),
-    "kanvas_propose_task": ToolSpec(
+    "kanvas.propose_task": ToolSpec(
         "Kanvas Propose Task", "kanvas", read_only=False, idempotent=False
     ),
-    "kanvas_propose_group": ToolSpec(
+    "kanvas.propose_group": ToolSpec(
         "Kanvas Propose Group", "kanvas", read_only=False, idempotent=False
     ),
-    "kanvas_init": ToolSpec("Kanvas Init", "kanvas", read_only=False, idempotent=False),
+    "kanvas.init": ToolSpec("Kanvas Init", "kanvas", read_only=False, idempotent=False),
 }
 
 

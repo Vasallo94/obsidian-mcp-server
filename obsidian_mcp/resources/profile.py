@@ -67,14 +67,14 @@ def register_profile_resources(mcp: FastMCP) -> None:
                 "obsidian://local_docs/{name}",
             ],
             "diagnostics": [
-                "health_check",
-                "diagnose_vault_setup",
-                "list_client_roots",
-                "route_task",
+                "vault.health",
+                "vault.diagnose",
+                "client.roots",
+                "route.task",
             ],
             "client_capabilities": {
                 "roots": {
-                    "tool": "list_client_roots",
+                    "tool": "client.roots",
                     "purpose": (
                         "Inspect roots advertised by the MCP client so agents can "
                         "confirm workspace/vault access before setup work."
@@ -82,7 +82,7 @@ def register_profile_resources(mcp: FastMCP) -> None:
                 }
             },
             "obsidianrag_tools": (
-                ["rag_setup_status", "rag_health", "ask_vault", "rebuild_rag_index"]
+                ["rag.setup_status", "rag.health", "rag.ask", "rag.rebuild_index"]
                 if _is_tool_set_enabled("obsidianrag")
                 else []
             ),
@@ -211,6 +211,20 @@ def register_profile_resources(mcp: FastMCP) -> None:
         return _read_declared_file(
             vault_path, config.profile.local_docs[name], "Local doc"
         )
+
+    @mcp.resource("obsidian://docs/agent-quickstart")
+    def agent_quickstart_resource() -> str:
+        """Return the AI-agent orientation doc (Issue #4).
+
+        Tells the agent the two-call boot sequence
+        (``vault.context`` -> ``rules.get``), provides a
+        decision table mapping intents to tools, and lists common
+        traps (e.g. ``notes.read_many`` uses ``paths`` not ``query``).
+        """
+        doc_path = Path(__file__).resolve().parents[2] / "docs" / "agent-quickstart.md"
+        if not doc_path.exists():
+            return "❌ Error: agent-quickstart.md was not bundled with this install."
+        return doc_path.read_text(encoding="utf-8")
 
     if _is_tool_set_enabled("obsidianrag"):
 

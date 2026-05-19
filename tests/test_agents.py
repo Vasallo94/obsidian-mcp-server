@@ -27,13 +27,13 @@ def test_agent_tools_registration(mock_valid_vault):
     """Verify that agent tools are registered in the server."""
     mcp = create_server()
     tool_names = _get_tool_names(mcp)
-    assert "list_skills" in tool_names
-    assert "read_skill" in tool_names
-    assert "get_global_rules" in tool_names
+    assert "skills.list" in tool_names
+    assert "skills.read" in tool_names
+    assert "rules.get" in tool_names
 
 
 def test_navigation_move_registration(mock_valid_vault):
     """Verify that move_note is registered when notes_write is enabled."""
     mcp = create_server()
     tool_names = _get_tool_names(mcp)
-    assert "move_note" in tool_names
+    assert "notes.move" in tool_names
