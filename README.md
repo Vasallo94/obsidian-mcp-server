@@ -146,7 +146,7 @@ profile:
 ```
 
 Then read `obsidian://integrations/obsidianrag/setup` or call
-`rag_setup_status`. Agents should show setup commands before installing
+`rag.setup_status`. Agents should show setup commands before installing
 dependencies, starting services, pulling models, or rebuilding the index.
 
 ### Cursor & Cline Integration

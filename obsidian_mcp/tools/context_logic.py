@@ -292,7 +292,7 @@ def diagnose_vault_setup_report() -> Result[str]:
                 )
             elif "invalid_skills_found" in line:
                 recommendations.append(
-                    "Run `sync_skills(update=False)` to inspect invalid skills."
+                    "Run `skills.sync(update=False)` to inspect invalid skills."
                 )
             elif "standard:" in line:
                 recommendations.append(
@@ -432,7 +432,7 @@ def _infer_route(
         if "obsidianrag" in integrations or "obsidianrag" in tool_sets:
             tools.extend(["rag_health", "ask_vault", "ObsidianRAG"])
             notes = (
-                "Use ObsidianRAG for natural-language vault QA. Run `rag_health` first; "
+                "Use ObsidianRAG for natural-language vault QA. Run `rag.health` first; "
                 "if the backend is offline, read `obsidian://integrations/obsidianrag/setup`."
             )
         return _route(

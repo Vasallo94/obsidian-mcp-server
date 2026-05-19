@@ -115,7 +115,7 @@ def iter_violations(
 ) -> list[tuple[dict[str, Any], str]]:
     """Like ``run_validations`` but also returns the rule that fired.
 
-    Public surface used by ``lint_vault`` (Issue #9) to decide which
+    Public surface used by ``vault.lint`` (Issue #9) to decide which
     violations are auto-fixable per-rule.
 
     Pass ``mode=None`` to ignore each rule's ``applies_to`` filter --
@@ -253,15 +253,15 @@ def apply_autofix(rule: dict[str, Any], content: str) -> tuple[str, int]:
 
 # --- Response Enrichment ---
 
-CONTENT_CREATION_TOOLS = frozenset({"create_note", "append_to_note"})
+CONTENT_CREATION_TOOLS = frozenset({"notes.create", "notes.append"})
 
 TOOL_MODE_MAP: dict[str, str] = {
-    "create_note": "create",
-    "quick_capture": "create",
-    "append_to_note": "append",
-    "patch_note": "edit",
-    "replace_note": "edit",
-    "update_frontmatter": "edit",
+    "notes.create": "create",
+    "inbox.capture": "create",
+    "notes.append": "append",
+    "notes.patch": "edit",
+    "notes.replace": "edit",
+    "notes.update_frontmatter": "edit",
 }
 
 

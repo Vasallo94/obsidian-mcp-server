@@ -9,8 +9,8 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 
 ### Added
 - **Canvas Integration (22 nuevas herramientas)**: Soporte completo para ficheros `.canvas` de Obsidian con dos capas:
-  - **8 herramientas genéricas** (`canvas_read`, `canvas_list`, `canvas_add_card`, `canvas_add_group`, `canvas_add_edge`, `canvas_update_card`, `canvas_remove_card`, `canvas_remove_edge`) para CRUD sobre cualquier canvas.
-  - **14 herramientas de workflow Kanvas** (`kanvas_init`, `kanvas_status`, `kanvas_task`, `kanvas_ready`, `kanvas_blocked`, `kanvas_start`, `kanvas_finish`, `kanvas_pause`, `kanvas_approve`, `kanvas_complete`, `kanvas_edit_task`, `kanvas_add_dependency`, `kanvas_propose_task`, `kanvas_propose_group`) para gestión de proyectos con estados codificados por color (gris=bloqueado, rojo=pendiente, naranja=en curso, cian=revisión, verde=hecho, morado=propuesto).
+  - **8 herramientas genéricas** (`canvas.read`, `canvas.list`, `canvas.add_card`, `canvas.add_group`, `canvas.add_edge`, `canvas.update_card`, `canvas.remove_card`, `canvas.remove_edge`) para CRUD sobre cualquier canvas.
+  - **14 herramientas de workflow Kanvas** (`kanvas.init`, `kanvas.status`, `kanvas.task`, `kanvas.ready`, `kanvas.blocked`, `kanvas.start`, `kanvas.finish`, `kanvas.pause`, `kanvas.approve`, `kanvas.complete`, `kanvas.edit_task`, `kanvas.add_dependency`, `kanvas.propose_task`, `kanvas.propose_group`) para gestión de proyectos con estados codificados por color (gris=bloqueado, rojo=pendiente, naranja=en curso, cian=revisión, verde=hecho, morado=propuesto).
   - Dos modos de workflow: **STRICT** (solo el humano aprueba/completa) y **RELAXED** (el agente también puede).
   - Detección automática de ciclos en dependencias entre tareas.
   - Normalización automática de estados (bloqueos) al guardar.
@@ -32,7 +32,7 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 - **QA Code Coverage**: Arreglados todos los avisos estrictos de `pylint` (reduciendo la complejidad ciclomática explícita y gestionando *lazy loading* de paquetes RAG).
 - **Vulnerabilidades Corregidas**: Mitigadas 2 vulnerabilidades moderadas/altas (CVEs) encontradas en dependencias secundarias (`authlib` y `diskcache`) vía `uv sync --upgrade`.
 - **Tag Extraction**: Filtro de códigos de color hexadecimales (`#fff`, etc.) en `extract_tags_from_content` para evitar falsos positivos.
-- **Tag Sync**: Búsqueda flexible (regex) del encabezado de estadísticas en el Registro de Tags y fallback de creación iterativo si no existe en `sync_tag_registry`.
+- **Tag Sync**: Búsqueda flexible (regex) del encabezado de estadísticas en el Registro de Tags y fallback de creación iterativo si no existe en `tags.sync_registry`.
 - **Import circular** en `security.py` que impedía el arranque del servidor MCP. El import de `vault_config` se movió a nivel de función para romper el ciclo de dependencias.
 
 ### Changed

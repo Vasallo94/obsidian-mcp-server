@@ -57,7 +57,7 @@ def _format_search_results(results: list[dict[str, str]], titles_only: bool) -> 
 def register_navigation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-statements
     """Register navigation tools."""
 
-    @register_tool(mcp, "list_notes")
+    @register_tool(mcp, "notes.list")
     def list_notes(
         folder: str = "",
         include_subfolders: bool = True,
@@ -82,7 +82,7 @@ def register_navigation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error listing notes: {e}"
 
-    @register_tool(mcp, "read_note")
+    @register_tool(mcp, "notes.read")
     def read_note(note_path: str) -> str:
         """
         Read the full content of a note.
@@ -95,7 +95,7 @@ def register_navigation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error reading note: {e}"
 
-    @register_tool(mcp, "search_notes")
+    @register_tool(mcp, "notes.search")
     def search_notes(  # pylint: disable=too-many-locals,too-many-branches,too-many-statements,too-many-nested-blocks
         query: str,
         folder: str = "",
@@ -275,7 +275,7 @@ def register_navigation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many
             logger.error("Unexpected search error: %s", e)
             return f"Search error: {e}"
 
-    @register_tool(mcp, "search_notes_by_date")
+    @register_tool(mcp, "notes.search_by_date")
     def search_notes_by_date(start_date: str, end_date: str = "") -> str:
         """
         Search notes modified in a date range.
@@ -289,7 +289,7 @@ def register_navigation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Date search error: {e}"
 
-    @register_tool(mcp, "move_note")
+    @register_tool(mcp, "notes.move")
     def move_note(
         source: str,
         destination: str,
@@ -316,7 +316,7 @@ def register_navigation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Move note error: {e}"
 
-    @register_tool(mcp, "rename_note")
+    @register_tool(mcp, "notes.rename")
     def rename_note(source: str, new_name: str, update_links: bool = True) -> str:
         """
         Rename a note in place, optionally rewriting every wikilink to it.
@@ -345,7 +345,7 @@ def register_navigation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Rename note error: {e}"
 
-    @register_tool(mcp, "random_concept")
+    @register_tool(mcp, "random.concept")
     def random_concept(folder: str = "") -> str:
         """
         Return a random concept from the vault as a surprise flashcard.
@@ -358,7 +358,7 @@ def register_navigation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Random concept error: {e}"
 
-    @register_tool(mcp, "read_notes")
+    @register_tool(mcp, "notes.read_many")
     async def read_notes(paths: list[str], ctx: Context) -> str:
         """
         Read the content and frontmatter of multiple notes.
@@ -377,7 +377,7 @@ def register_navigation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Read notes error: {e}"
 
-    @register_tool(mcp, "get_note_info")
+    @register_tool(mcp, "notes.info")
     def get_note_info(paths: list[str]) -> str:
         """
         Return metadata for multiple notes without loading all content.

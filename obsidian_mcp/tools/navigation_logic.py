@@ -215,7 +215,7 @@ def read_note(nombre_archivo: str) -> Result[str]:
     size_bytes = nota_path.stat().st_size
     if size_bytes > MAX_NOTE_READ_BYTES:
         return Result.fail(
-            "Note is too large to return safely. Use `get_note_info` first and "
+            "Note is too large to return safely. Use `notes.info` first and "
             "read a smaller section or split the note."
         )
 
@@ -492,7 +492,7 @@ def get_random_concept(carpeta: str = "") -> Result[str]:
     if tags:
         resultado += f"Tags: {tags}\n"
     resultado += f"\n---\n\n{fragmento}\n"
-    resultado += f'\n---\n*Want to go deeper? Use `read_note("{ruta_relativa}")`*'
+    resultado += f'\n---\n*Want to go deeper? Use `notes.read("{ruta_relativa}")`*'
 
     return Result.ok(resultado)
 

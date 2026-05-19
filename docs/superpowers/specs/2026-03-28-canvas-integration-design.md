@@ -158,14 +158,14 @@ Tools for reading/writing any `.canvas` file. No workflow assumptions.
 
 | Tool | Description |
 |------|-------------|
-| `canvas_read(canvas_path)` | Read canvas summary: nodes, edges, groups (human-readable, not raw JSON) |
-| `canvas_list(folder="")` | List all `.canvas` files in the vault or a folder |
-| `canvas_add_card(canvas_path, text, group="", color="", width=280, height=160)` | Add a text card, optionally inside a group |
-| `canvas_add_group(canvas_path, label)` | Create a group/area |
-| `canvas_add_edge(canvas_path, from_id, to_id, label="")` | Connect two nodes with an arrow |
-| `canvas_update_card(canvas_path, node_id, text="", color="")` | Update text and/or color of a card |
-| `canvas_remove_card(canvas_path, node_id)` | Delete a card and its edges |
-| `canvas_remove_edge(canvas_path, edge_id)` | Delete a connection |
+| `canvas.read(canvas_path)` | Read canvas summary: nodes, edges, groups (human-readable, not raw JSON) |
+| `canvas.list(folder="")` | List all `.canvas` files in the vault or a folder |
+| `canvas.add_card(canvas_path, text, group="", color="", width=280, height=160)` | Add a text card, optionally inside a group |
+| `canvas.add_group(canvas_path, label)` | Create a group/area |
+| `canvas.add_edge(canvas_path, from_id, to_id, label="")` | Connect two nodes with an arrow |
+| `canvas.update_card(canvas_path, node_id, text="", color="")` | Update text and/or color of a card |
+| `canvas.remove_card(canvas_path, node_id)` | Delete a card and its edges |
+| `canvas.remove_edge(canvas_path, edge_id)` | Delete a connection |
 
 ## Workflow tools (16 tools)
 

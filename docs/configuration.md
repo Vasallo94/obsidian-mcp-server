@@ -179,7 +179,7 @@ opt-ins:
 - `legacy_semantic`: deprecated in-process semantic search. Prefer
   `obsidianrag`; this pack is kept only for backwards compatibility.
 
-Use `list_client_roots()` to inspect roots advertised by clients that support
+Use `client.roots()` to inspect roots advertised by clients that support
 the MCP `roots/list` capability. This is useful during setup because an agent
 can confirm which workspaces or vault folders the client has made visible.
 
@@ -195,11 +195,11 @@ server. New deployments should use ObsidianRAG instead.
 
 The server then exposes:
 
-- `rag_setup_status()`: detects the configured project, backend, `uv`, Ollama
+- `rag.setup_status()`: detects the configured project, backend, `uv`, Ollama
   CLI/API, and ObsidianRAG API health.
 - `obsidian://integrations/obsidianrag/setup`: a setup playbook with exact
   commands, safe shell quoting, and optional environment variables.
-- `rag_health()` and `rebuild_rag_index()` for readiness and first indexing.
+- `rag.health()` and `rag.rebuild_index()` for readiness and first indexing.
 
 Agents must ask for consent before installing dependencies, pulling models,
 starting local services, or rebuilding a large index.

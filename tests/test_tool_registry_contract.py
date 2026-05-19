@@ -17,11 +17,11 @@ def test_tool_sets_gate_optional_tools(tmp_path, monkeypatch):
     mcp = create_server()
     tool_names = {tool.name for tool in asyncio.run(mcp.list_tools())}
 
-    assert "read_note" in tool_names
-    assert "list_client_roots" in tool_names
-    assert "create_note" not in tool_names
-    assert "get_vault_stats" not in tool_names
-    assert "ask_vault" not in tool_names
+    assert "notes.read" in tool_names
+    assert "client.roots" in tool_names
+    assert "notes.create" not in tool_names
+    assert "vault.stats" not in tool_names
+    assert "rag.ask" not in tool_names
 
 
 def test_tool_set_env_enables_optional_tools(tmp_path, monkeypatch):
@@ -34,10 +34,10 @@ def test_tool_set_env_enables_optional_tools(tmp_path, monkeypatch):
     mcp = create_server()
     tool_names = {tool.name for tool in asyncio.run(mcp.list_tools())}
 
-    assert "create_note" in tool_names
-    assert "preview_replace_in_notes" in tool_names
-    assert "get_vault_stats" in tool_names
-    assert "ask_vault" not in tool_names
+    assert "notes.create" in tool_names
+    assert "notes.preview_replace" in tool_names
+    assert "vault.stats" in tool_names
+    assert "rag.ask" not in tool_names
 
 
 def test_public_tool_names_are_english(tmp_path, monkeypatch):
@@ -79,8 +79,8 @@ def test_write_tool_annotations_are_exposed(tmp_path, monkeypatch):
     invalidate_skills_cache()
 
     mcp = create_server()
-    create_note = asyncio.run(mcp.get_tool("create_note"))
-    delete_note = asyncio.run(mcp.get_tool("delete_note"))
+    create_note = asyncio.run(mcp.get_tool("notes.create"))
+    delete_note = asyncio.run(mcp.get_tool("notes.delete"))
 
     assert create_note.annotations.readOnlyHint is False
     assert create_note.annotations.idempotentHint is False

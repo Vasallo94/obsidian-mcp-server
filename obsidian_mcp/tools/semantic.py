@@ -32,7 +32,7 @@ def register_semantic_tools(mcp: FastMCP) -> None:
         # pylint: disable-next=import-outside-toplevel,unused-import
         import langchain  # noqa: F401
 
-        @register_tool(mcp, "semantic_search")
+        @register_tool(mcp, "semantic.search")
         async def semantic_search(
             query: str,
             metadata_filter: Optional[Dict[str, Any]] = None,
@@ -46,7 +46,7 @@ def register_semantic_tools(mcp: FastMCP) -> None:
             except Exception as e:  # pylint: disable=broad-exception-caught
                 return f"Error running semantic search: {e}"
 
-        @register_tool(mcp, "index_vault_semantic")
+        @register_tool(mcp, "semantic.index")
         async def index_vault_semantic(ctx, force: bool = False) -> str:
             """Update the legacy semantic index for the vault."""
             from .semantic_logic import index_semantic_vault
@@ -59,7 +59,7 @@ def register_semantic_tools(mcp: FastMCP) -> None:
             except Exception as e:  # pylint: disable=broad-exception-caught
                 return f"Error updating semantic index: {e}"
 
-        @register_tool(mcp, "suggest_semantic_connections")
+        @register_tool(mcp, "semantic.suggest_connections")
         async def suggest_semantic_connections(
             threshold: float = 0.70,
             limit: int = 5,
@@ -95,6 +95,6 @@ def _deprecated_result(result: str) -> str:
     """Prefix legacy semantic responses with a migration hint."""
     return (
         "Deprecated: `legacy_semantic` is maintained for backwards compatibility. "
-        "Prefer the `obsidianrag` tool set with `rag_health` and `ask_vault`.\n\n"
+        "Prefer the `obsidianrag` tool set with `rag.health` and `rag.ask`.\n\n"
         f"{result}"
     )

@@ -7,7 +7,7 @@ link updates), and #11 (move_note unresolved-reference reporting).
 Naming: a "wikilink" follows Obsidian syntax — ``[[Target]]``,
 ``[[Target|alias]]``, ``[[Target#Section]]``. Image/file embeds
 ``![[file.png]]`` are intentionally excluded; they aren't note-to-note
-edges and aren't covered by ``rename_note``.
+edges and aren't covered by ``notes.rename``.
 """
 
 from __future__ import annotations

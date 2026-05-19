@@ -37,13 +37,13 @@ def register_core_prompts(mcp: FastMCP) -> None:
         You are an Obsidian assistant for the vault "{vault_name}".
 
         Before writing or making complex changes:
-        1. Read global rules with `get_global_rules()`.
-        2. Check available skills with `list_skills()`.
+        1. Read global rules with `rules.get()`.
+        2. Check available skills with `skills.list()`.
         3. If a skill matches the task, read it with
-           `read_skill("skill-name")`.
-        4. Read vault context with `read_vault_context()`.
-        5. When creating notes, prefer real templates from `list_templates()`
-           and `read_note()`.
+           `skills.read("skill-name")`.
+        4. Read vault context with `vault.context()`.
+        5. When creating notes, prefer real templates from `templates.list()`
+           and `notes.read()`.
 
         Reuse existing tags and conventions. Do not invent a structure when
         the vault already has a matching template, standard, or skill.
@@ -65,10 +65,10 @@ def register_core_prompts(mcp: FastMCP) -> None:
         Desired note type: "{note_type}".
 
         Required flow:
-        1. Read global rules with `get_global_rules()`.
-        2. List real templates with `list_templates()`.
-        3. Read the best matching template with `read_note()`.
-        4. Use `suggest_note_location()` to choose the destination.
+        1. Read global rules with `rules.get()`.
+        2. List real templates with `templates.list()`.
+        3. Read the best matching template with `notes.read()`.
+        4. Use `notes.suggest_location()` to choose the destination.
         5. Create the note without inventing frontmatter fields that conflict
            with the template or vault conventions.
 
@@ -88,9 +88,9 @@ def register_core_prompts(mcp: FastMCP) -> None:
         The user needs a vault template for: "{template_goal}".
 
         Required flow:
-        1. Run `list_templates()`.
+        1. Run `templates.list()`.
         2. Choose the closest template by purpose, not just filename.
-        3. Read the template with `read_note()`.
+        3. Read the template with `notes.read()`.
         4. Explain which template you chose and why.
         5. Use the template exactly as the structural base for any new note.
         """
@@ -107,9 +107,9 @@ def register_core_prompts(mcp: FastMCP) -> None:
         Explore the vault context for: "{query}".
 
         Required flow:
-        1. Read global rules with `get_global_rules()`.
-        2. Search notes with `search_notes()`.
-        3. Read the most relevant notes with `read_note()`.
+        1. Read global rules with `rules.get()`.
+        2. Search notes with `notes.search()`.
+        3. Read the most relevant notes with `notes.read()`.
         4. Use backlinks or graph tools when relationships matter.
         5. Summarize what you found before proposing edits.
 

@@ -19,7 +19,7 @@ from .registry import register_tool
 def register_context_tools(mcp: FastMCP) -> None:
     """Register vault context tools."""
 
-    @register_tool(mcp, "read_vault_context")
+    @register_tool(mcp, "vault.context")
     def read_vault_context() -> str:
         """Read the vault structure, templates, and common metadata."""
         try:
@@ -27,7 +27,7 @@ def register_context_tools(mcp: FastMCP) -> None:
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error reading vault context: {e}"
 
-    @register_tool(mcp, "health_check")
+    @register_tool(mcp, "vault.health")
     def health_check() -> str:
         """Validate the active vault and MCP profile configuration."""
         try:
@@ -35,7 +35,7 @@ def register_context_tools(mcp: FastMCP) -> None:
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error running health check: {e}"
 
-    @register_tool(mcp, "diagnose_vault_setup")
+    @register_tool(mcp, "vault.diagnose")
     def diagnose_vault_setup() -> str:
         """Diagnose vault setup issues and return actionable recommendations."""
         try:
@@ -43,7 +43,7 @@ def register_context_tools(mcp: FastMCP) -> None:
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error diagnosing vault setup: {e}"
 
-    @register_tool(mcp, "list_client_roots")
+    @register_tool(mcp, "client.roots")
     async def list_client_roots(ctx: Context) -> str:
         """List filesystem roots advertised by the connected MCP client."""
         try:
@@ -71,7 +71,7 @@ def register_context_tools(mcp: FastMCP) -> None:
             }
             return json.dumps(payload, ensure_ascii=False, indent=2)
 
-    @register_tool(mcp, "route_task")
+    @register_tool(mcp, "route.task")
     def route_task(request: str) -> str:
         """Recommend prompts, skills, resources, and tools for a task."""
         try:

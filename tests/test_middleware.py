@@ -226,7 +226,7 @@ class TestRunValidations:
 class TestEnrichResponse:
     def test_passthrough_for_unknown_tool(self):
         result = enrich_response(
-            tool_name="read_note",
+            tool_name="notes.read",
             result="nota leida",
         )
         assert result == "nota leida"
@@ -235,7 +235,7 @@ class TestEnrichResponse:
         invalidate_rules_cache()
         with patch("obsidian_mcp.middleware.get_vault_path", return_value=rules_file):
             result = enrich_response(
-                tool_name="create_note",
+                tool_name="notes.create",
                 result="Nota creada: test.md",
                 title="\U0001f680 Mi nota",
                 content="## \U0001f680 Cabecera\n\nTexto",
@@ -249,7 +249,7 @@ class TestEnrichResponse:
         invalidate_rules_cache()
         with patch("obsidian_mcp.middleware.get_vault_path", return_value=rules_file):
             with_violations = enrich_response(
-                tool_name="create_note",
+                tool_name="notes.create",
                 result="Nota creada: test.md",
                 title="\U0001f680 Mi nota",
                 content="## \U0001f680 Cabecera\n\nTexto",
@@ -262,7 +262,7 @@ class TestEnrichResponse:
         invalidate_rules_cache()
         with patch("obsidian_mcp.middleware.get_vault_path", return_value=rules_file):
             result = enrich_response(
-                tool_name="patch_note",
+                tool_name="notes.patch",
                 result="Nota editada",
                 content="## Limpio\n\nTexto",
             )
@@ -272,7 +272,7 @@ class TestEnrichResponse:
         invalidate_rules_cache()
         with patch("obsidian_mcp.middleware.get_vault_path", return_value=rules_file):
             result = enrich_response(
-                tool_name="quick_capture",
+                tool_name="inbox.capture",
                 result="Captura guardada",
                 title="Idea rapida",
                 frontmatter={"type": "inbox", "status": "captura", "tags": []},
@@ -284,7 +284,7 @@ class TestEnrichResponse:
         invalidate_rules_cache()
         with patch("obsidian_mcp.middleware.get_vault_path", return_value=rules_file):
             result = enrich_response(
-                tool_name="append_to_note",
+                tool_name="notes.append",
                 result="Contenido agregado",
                 content="Texto normal sin problemas",
             )

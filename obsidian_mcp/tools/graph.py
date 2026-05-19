@@ -20,7 +20,7 @@ from .registry import register_tool
 def register_graph_tools(mcp: FastMCP) -> None:
     """Register graph and relationship tools."""
 
-    @register_tool(mcp, "get_backlinks")
+    @register_tool(mcp, "links.backlinks")
     def get_backlinks(note_path: str) -> str:
         """List notes that link to the given note."""
         try:
@@ -28,7 +28,7 @@ def register_graph_tools(mcp: FastMCP) -> None:
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error reading backlinks: {e}"
 
-    @register_tool(mcp, "get_notes_by_tag")
+    @register_tool(mcp, "tags.notes_with")
     def get_notes_by_tag(tag: str) -> str:
         """List notes that contain a specific tag."""
         try:
@@ -36,7 +36,7 @@ def register_graph_tools(mcp: FastMCP) -> None:
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error finding notes by tag: {e}"
 
-    @register_tool(mcp, "get_local_graph")
+    @register_tool(mcp, "links.local_graph")
     def get_local_graph(note_path: str, depth: int = 1) -> str:
         """Read incoming and outgoing links around a note."""
         try:
@@ -44,7 +44,7 @@ def register_graph_tools(mcp: FastMCP) -> None:
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error reading local graph: {e}"
 
-    @register_tool(mcp, "find_orphan_notes")
+    @register_tool(mcp, "links.find_orphans")
     def find_orphan_notes() -> str:
         """Find notes without incoming or outgoing wikilinks."""
         try:
