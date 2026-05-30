@@ -1,0 +1,12 @@
+{
+  "afp_version": "0.2",
+  "subject_uri": "mcp://github.com/Vasallo94/obsidian-mcp-server",
+  "sink": {
+    "type": "github_issues",
+    "repo": "Vasallo94/obsidian-mcp-server",
+    "label": "afp-report"
+  },
+  "redaction": "required",
+  "accepts_remote": true,
+  "schema_extensions": []
+}
