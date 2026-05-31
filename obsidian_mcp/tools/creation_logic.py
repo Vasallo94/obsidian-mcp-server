@@ -998,7 +998,7 @@ def search_and_replace_global(
             resultado += f"- `{arch['ruta_rel']}` ({arch['ocurrencias']} ocurrencias)\n"
         if len(archivos_afectados) > 20:
             resultado += f"- ... y {len(archivos_afectados) - 20} archivos más\n"
-        resultado += "\n⚠️ Ejecuta con `solo_preview=False` para aplicar los cambios."
+        resultado += "\n⚠️ Usa `notes.apply_replace` para aplicar los cambios."
         return Result.ok(resultado)
 
     # Modo ejecución
@@ -1234,6 +1234,11 @@ def update_frontmatter_logic(
         updates_dict = json.loads(frontmatter_updates)
     except json.JSONDecodeError:
         return Result.fail("frontmatter_updates debe ser un JSON string válido.")
+
+    if not isinstance(updates_dict, dict):
+        return Result.fail(
+            "frontmatter_updates debe ser un objeto JSON codificado como string."
+        )
 
     try:
         with open(nota_path, "r", encoding="utf-8") as f:

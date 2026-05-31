@@ -24,7 +24,10 @@ class CreateNoteInput(BaseModel):
 class AppendToNoteInput(BaseModel):
     note_path: str = Field(description="Note path or filename.")
     content: str = Field(description="Content to insert.")
-    position: str = Field(default="end", description="'end', 'start', or 'section'.")
+    position: str = Field(
+        default="end",
+        description="'end', 'append', 'start', or 'section'. 'append' is an alias for 'end'.",
+    )
     section: str = Field(default="", description="Section heading for section inserts.")
     create_section: bool = Field(
         default=True,
@@ -34,6 +37,10 @@ class AppendToNoteInput(BaseModel):
 
 class DeleteNoteInput(BaseModel):
     note_path: str = Field(description="Note path or filename to delete.")
+    confirm: bool = Field(
+        default=False,
+        description="Must be true to acknowledge permanent deletion.",
+    )
 
 
 class EditOperation(BaseModel):
@@ -80,7 +87,9 @@ class FrontmatterInput(BaseModel):
 
 class UpdateFrontmatterInput(BaseModel):
     note_path: str = Field(description="Note path or filename.")
-    frontmatter_updates: str = Field(description="JSON object with metadata updates.")
+    frontmatter_updates: str = Field(
+        description='JSON object encoded as a string, e.g. {"status": "en_proceso"}.'
+    )
     merge: bool = Field(default=True, description="Merge with existing frontmatter.")
 
 
