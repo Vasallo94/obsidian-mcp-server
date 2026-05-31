@@ -127,14 +127,16 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
                 result = append_to_section(
                     note_path, section, content, create_section
                 ).to_display(success_prefix="OK")
-            elif normalized_position in {"end", "start"}:
+            elif normalized_position in {"end", "start", "append"}:
+                if normalized_position == "append":
+                    normalized_position = "end"
                 result = append_to_note_logic(
                     note_path,
                     content,
                     al_final=normalized_position == "end",
                 ).to_display(success_prefix="OK")
             else:
-                return "Error: position must be 'end', 'start', or 'section'."
+                return "Error: position must be 'end', 'append', 'start', or 'section'."
 
             return enrich_response(
                 tool_name="notes.append",
@@ -145,8 +147,11 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
             return f"Error appending to note: {e}"
 
     @register_tool(mcp, "notes.delete")
-    async def delete_note(note_path: str, ctx: Context) -> str:
+    async def delete_note(note_path: str, ctx: Context, confirm: bool = False) -> str:
         """Delete a note after explicit client confirmation."""
+        if not confirm:
+            return "Error: confirm=True is required to delete a note."
+
         try:
             result = await ctx.elicit(
                 f"Permanently delete '{note_path}'? This cannot be undone.",

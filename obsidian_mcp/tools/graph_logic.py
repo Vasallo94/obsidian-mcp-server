@@ -10,7 +10,12 @@ from typing import Dict, List
 
 from ..config import get_vault_path
 from ..result import Result
-from ..utils import extract_internal_links, extract_tags_from_content, get_logger
+from ..utils import (
+    extract_internal_links,
+    extract_tags_from_content,
+    find_note_by_name,
+    get_logger,
+)
 
 logger = get_logger(__name__)
 
@@ -197,17 +202,12 @@ def get_local_graph(nombre_nota: str, profundidad: int = 1) -> Result[str]:
         if not vault_path:
             return Result.fail("La ruta del vault no está configurada.")
 
-        nombre_limpio = nombre_nota.replace(".md", "")
-
-        # Find note
-        nota_path = None
-        for archivo in vault_path.rglob("*.md"):
-            if archivo.stem == nombre_limpio:
-                nota_path = archivo
-                break
+        nota_path = find_note_by_name(nombre_nota)
 
         if not nota_path:
             return Result.fail(f"No se encontró la nota '{nombre_nota}'")
+
+        nombre_limpio = nota_path.stem
 
         # Get outgoing links
         with open(nota_path, "r", encoding="utf-8") as f:
