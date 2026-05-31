@@ -107,7 +107,7 @@ class TestExtractInternalLinks:
         """Should return empty list when no links present."""
         content = "Plain text without any links."
         links = extract_internal_links(content)
-        assert links == []
+        assert not links
 
     def test_duplicate_links_deduplicated(self):
         """Should remove duplicate links."""

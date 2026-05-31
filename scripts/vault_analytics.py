@@ -74,13 +74,13 @@ def analyze_vault(vault_path: str):
 
     print("\n📅 NOTES BY YEAR:")
     for year in sorted(by_year.keys()):
-        bar = "█" * (by_year[year] // 10) + "▌" * ((by_year[year] % 10) // 5)
-        print(f"   {year}: {bar} ({by_year[year]})")
+        chart_bar = "█" * (by_year[year] // 10) + "▌" * ((by_year[year] % 10) // 5)
+        print(f"   {year}: {chart_bar} ({by_year[year]})")
 
     print("\n📆 NOTES BY MONTH (top 10):")
     for month, count in by_month.most_common(10):
-        bar = "█" * (count // 5)
-        print(f"   {month}: {bar} ({count})")
+        chart_bar = "█" * (count // 5)
+        print(f"   {month}: {chart_bar} ({count})")
 
     # Time span
     span = newest[1] - oldest[1]
