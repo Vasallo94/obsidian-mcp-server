@@ -58,6 +58,38 @@ def test_update_frontmatter_rejects_json_that_is_not_an_object(tmp_path, monkeyp
     assert note.read_text(encoding="utf-8") == "---\ntitle: Test\n---\n\nBody\n"
 
 
+def test_update_frontmatter_tool_returns_validation_error_for_non_object_json(
+    tmp_path, monkeypatch
+):
+    vault = _set_vault(monkeypatch, tmp_path)
+    rules_dir = vault / ".agents"
+    rules_dir.mkdir()
+    (rules_dir / "REGLAS_GLOBALES.md").write_text(
+        "---\n"
+        "validations:\n"
+        "  - id: status-values\n"
+        "    scope: frontmatter\n"
+        "    applies_to: [edit]\n"
+        "    field: status\n"
+        "    allowed_values: [en_proceso]\n"
+        '    warning: "status inválido: {value}"\n'
+        "---\n"
+        "\n"
+        "# Reglas\n",
+        encoding="utf-8",
+    )
+    note = vault / "note.md"
+    note.write_text("---\ntitle: Test\n---\n\nBody\n", encoding="utf-8")
+    mcp = create_server()
+    update_tool = asyncio.run(mcp.get_tool("notes.update_frontmatter"))
+
+    result = update_tool.fn("note.md", '["not", "an", "object"]')
+
+    assert "objeto JSON" in result
+    assert "dictionary update sequence" not in result
+    assert "'list' object has no attribute" not in result
+
+
 def test_notes_append_accepts_append_as_end_alias(tmp_path, monkeypatch):
     vault = _set_vault(monkeypatch, tmp_path)
     note = vault / "note.md"
