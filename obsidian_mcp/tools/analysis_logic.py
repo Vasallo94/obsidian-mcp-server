@@ -268,7 +268,12 @@ def sync_tag_registry(  # pylint: disable=too-many-locals,too-many-branches
         vault_path / "04_Recursos" / "Obsidian" / "Registro de Tags del Vault.md"
     )
     if not registry_path.exists():
-        return Result.fail("No se encontró el registro oficial de tags.")
+        return Result.fail(
+            "No se encontró el registro oficial de tags. "
+            "Crea el archivo en "
+            "'04_Recursos/Obsidian/Registro de Tags del Vault.md' "
+            "o usa tags.list/tags.analyze sin sincronización hasta inicializarlo."
+        )
 
     # 1. Get tags from reality
     conteo_real: dict[str, int] = {}
