@@ -312,11 +312,14 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
     ) -> str:
         """Update a note frontmatter without changing the note body."""
         try:
-            result = update_frontmatter_logic(
+            logic_result = update_frontmatter_logic(
                 note_path,
                 frontmatter_updates,
                 merge,
-            ).to_display(success_prefix="OK")
+            )
+            result = logic_result.to_display(success_prefix="OK")
+            if not logic_result.success:
+                return result
 
             try:
                 frontmatter = json.loads(frontmatter_updates)
