@@ -6,6 +6,7 @@ Valida la configuración y la conectividad antes de ejecutar el servidor
 
 import os
 import sys
+from importlib.util import find_spec
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -64,20 +65,16 @@ def diagnose_setup():
         return False
 
     # Verificar dependencias
-    try:
-        import fastmcp  # noqa: F401
-
+    if find_spec("fastmcp"):
         print("✅ FastMCP instalado")
-    except ImportError:
+    else:
         print("❌ ERROR: FastMCP no instalado")
         print("💡 Instala con: pip install fastmcp")
         return False
 
-    try:
-        import dotenv  # noqa: F401
-
+    if find_spec("dotenv"):
         print("✅ python-dotenv instalado")
-    except ImportError:
+    else:
         print("❌ ERROR: python-dotenv no instalado")
         print("💡 Instala con: pip install python-dotenv")
         return False
@@ -93,6 +90,11 @@ def diagnose_setup():
     return True
 
 
+def main() -> int:
+    """Run diagnostics and return a process exit code."""
+    setup_ok = diagnose_setup()
+    return 0 if setup_ok else 1
+
+
 if __name__ == "__main__":
-    success = diagnose_setup()
-    sys.exit(0 if success else 1)
+    sys.exit(main())

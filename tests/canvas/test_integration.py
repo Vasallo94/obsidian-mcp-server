@@ -96,10 +96,11 @@ class TestProjectLifecycle:
         read_result = read_canvas(str(canvas_path))
         assert read_result.success is True
 
-    def test_server_has_canvas_tools(self):
+    def test_server_has_canvas_tools(self, monkeypatch):
         """Verify the MCP server registers all expected canvas and kanvas tools."""
         from obsidian_mcp.server import create_server
 
+        monkeypatch.setenv("OBSIDIAN_MCP_TOOL_SETS", "canvas,kanvas")
         with patch(
             "obsidian_mcp.server.validate_configuration", return_value=(True, "")
         ):

@@ -54,5 +54,5 @@ def test_transcript_fetch() -> None:
 if __name__ == "__main__":
     try:
         test_transcript_fetch()
-    except Exception as e:
+    except (RuntimeError, OSError, ValueError) as e:
         print(f"Execution failed with exception: {e}")
