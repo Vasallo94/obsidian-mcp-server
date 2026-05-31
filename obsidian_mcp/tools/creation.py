@@ -1,6 +1,7 @@
 """MCP note creation and editing tools."""
 
 import json
+from time import perf_counter
 
 from fastmcp import Context, FastMCP
 
@@ -45,6 +46,11 @@ def _cancellation_reason(action: str) -> str:
     if action == "cancel":
         return ERRORS.OPERATION_DISMISSED
     return ERRORS.OPERATION_DECLINED
+
+
+def _with_duration(result: str, started_at: float) -> str:
+    """Append elapsed time context for synchronous write operations."""
+    return f"{result}\n- Duración: {perf_counter() - started_at:.2f}s"
 
 
 def _extract_fm(content: str) -> dict:
@@ -163,9 +169,11 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
             return ERRORS.OPERATION_CANCELLED_NO_CONFIRM
 
         try:
-            return delete_note_logic(note_path, confirmar=True).to_display(
+            started_at = perf_counter()
+            result = delete_note_logic(note_path, confirmar=True).to_display(
                 success_prefix="OK"
             )
+            return _with_duration(result, started_at)
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error deleting note: {e}"
 
@@ -219,16 +227,16 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
             return ERRORS.OPERATION_CANCELLED_NO_CONFIRM
 
         try:
+            started_at = perf_counter()
             edit_result = edit_note(
                 note_path, [{"old": "", "new": content}]
             ).to_display(success_prefix="OK")
             if "REGLAS_GLOBALES" in note_path:
                 invalidate_rules_cache()
-            return enrich_response(
-                tool_name="notes.replace",
-                result=edit_result,
-                content=content,
+            result = enrich_response(
+                tool_name="notes.replace", result=edit_result, content=content
             )
+            return _with_duration(result, started_at)
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error replacing note: {e}"
 
@@ -272,13 +280,15 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
             return ERRORS.OPERATION_CANCELLED_NO_CONFIRM
 
         try:
-            return search_and_replace_global(
+            started_at = perf_counter()
+            result = search_and_replace_global(
                 search,
                 replacement,
                 folder,
                 solo_preview=False,
                 limite=limit,
             ).to_display()
+            return _with_duration(result, started_at)
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error applying replacement: {e}"
 
