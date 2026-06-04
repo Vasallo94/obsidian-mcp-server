@@ -167,3 +167,6 @@ profiling/
 .build/
 .eggs/
 __pypackages__/
+
+# Claude Code local config and worktrees (machine-specific, never commit)
+.claude/
