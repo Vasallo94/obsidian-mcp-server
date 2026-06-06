@@ -25,6 +25,9 @@ def _reset_global_state_after_test():
     reset_settings()
     invalidate_note_cache()
     invalidate_vault_config_cache()
+    # The rules cache is a process-global module singleton; clear it so tests
+    # don't leak vault validations into each other (order-dependence bug).
+    invalidate_rules_cache()
 
 
 def _set_vault(monkeypatch, tmp_path):

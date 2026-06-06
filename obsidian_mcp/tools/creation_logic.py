@@ -1036,6 +1036,28 @@ def search_and_replace_global(
     return Result.ok(resultado)
 
 
+def inbox_capture_frontmatter(etiquetas: str = "") -> dict[str, Any]:
+    """Return the frontmatter that ``quick_capture`` writes for an inbox note.
+
+    Single source of truth for the inbox semantics (``type``/``status``/
+    ``created``/``updated`` plus parsed ``tags``). Exposed so the tool layer
+    can hand the real metadata to the rule middleware: otherwise a
+    ``required_fields`` vault rule fires a false "missing type/status/tags"
+    warning even though the note on disk has those fields.
+    """
+    ahora_fecha = datetime.now().strftime("%Y-%m-%d")
+    metadata: dict[str, Any] = {
+        "type": "inbox",
+        "status": "captura",
+        "created": ahora_fecha,
+        "updated": ahora_fecha,
+    }
+    tags = [t.strip() for t in etiquetas.split(",") if t.strip()]
+    if tags:
+        metadata["tags"] = tags
+    return metadata
+
+
 def quick_capture(texto: str, etiquetas: str = "") -> Result[str]:
     """Capture an idea quickly to Inbox with minimal friction.
 
@@ -1088,13 +1110,13 @@ def quick_capture(texto: str, etiquetas: str = "") -> Result[str]:
             plantilla = "Idea.md"
 
     # 4. Create the note with inbox semantics preserved in frontmatter.
-    ahora_fecha = datetime.now().strftime("%Y-%m-%d")
+    metadata = inbox_capture_frontmatter()
     contenido = (
         "---\n"
-        "type: inbox\n"
-        "status: captura\n"
-        f"created: {ahora_fecha}\n"
-        f"updated: {ahora_fecha}\n"
+        f"type: {metadata['type']}\n"
+        f"status: {metadata['status']}\n"
+        f"created: {metadata['created']}\n"
+        f"updated: {metadata['updated']}\n"
         "---\n\n"
         f"{texto}"
     )

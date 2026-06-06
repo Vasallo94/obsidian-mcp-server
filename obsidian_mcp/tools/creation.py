@@ -15,6 +15,7 @@ from .creation_logic import (
     append_to_section,
     edit_note,
     get_frontmatter_logic,
+    inbox_capture_frontmatter,
     manage_tags_logic,
     normalize_edit_operations,
     search_and_replace_global,
@@ -159,12 +160,12 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
             return "Error: confirm=True is required to delete a note."
 
         try:
-            result = await ctx.elicit(
+            confirmation = await ctx.elicit(
                 f"Permanently delete '{note_path}'? This cannot be undone.",
                 response_type=None,
             )
-            if result.action != "accept":
-                return _cancellation_reason(result.action)
+            if confirmation.action != "accept":
+                return _cancellation_reason(confirmation.action)
         except Exception:  # pylint: disable=broad-exception-caught
             return ERRORS.OPERATION_CANCELLED_NO_CONFIRM
 
@@ -269,13 +270,13 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
     ) -> str:
         """Apply a literal search/replace across notes after confirmation."""
         try:
-            result = await ctx.elicit(
+            confirmation = await ctx.elicit(
                 f"Replace '{search}' with '{replacement}' in up to {limit} notes"
                 f"{f' under {folder}' if folder else ''}?",
                 response_type=None,
             )
-            if result.action != "accept":
-                return _cancellation_reason(result.action)
+            if confirmation.action != "accept":
+                return _cancellation_reason(confirmation.action)
         except Exception:  # pylint: disable=broad-exception-caught
             return ERRORS.OPERATION_CANCELLED_NO_CONFIRM
 
@@ -302,6 +303,7 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
                 result=result,
                 title=text[:80],
                 content=text,
+                frontmatter=inbox_capture_frontmatter(tags),
             )
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error creating quick capture: {e}"
