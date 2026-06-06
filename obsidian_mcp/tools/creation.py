@@ -1,6 +1,7 @@
 """MCP note creation and editing tools."""
 
 import json
+from time import perf_counter
 
 from fastmcp import Context, FastMCP
 
@@ -14,6 +15,7 @@ from .creation_logic import (
     append_to_section,
     edit_note,
     get_frontmatter_logic,
+    inbox_capture_frontmatter,
     manage_tags_logic,
     normalize_edit_operations,
     search_and_replace_global,
@@ -45,6 +47,11 @@ def _cancellation_reason(action: str) -> str:
     if action == "cancel":
         return ERRORS.OPERATION_DISMISSED
     return ERRORS.OPERATION_DECLINED
+
+
+def _with_duration(result: str, started_at: float) -> str:
+    """Append elapsed time context for synchronous write operations."""
+    return f"{result}\n- Duración: {perf_counter() - started_at:.2f}s"
 
 
 def _extract_fm(content: str) -> dict:
@@ -127,14 +134,16 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
                 result = append_to_section(
                     note_path, section, content, create_section
                 ).to_display(success_prefix="OK")
-            elif normalized_position in {"end", "start"}:
+            elif normalized_position in {"end", "start", "append"}:
+                if normalized_position == "append":
+                    normalized_position = "end"
                 result = append_to_note_logic(
                     note_path,
                     content,
                     al_final=normalized_position == "end",
                 ).to_display(success_prefix="OK")
             else:
-                return "Error: position must be 'end', 'start', or 'section'."
+                return "Error: position must be 'end', 'append', 'start', or 'section'."
 
             return enrich_response(
                 tool_name="notes.append",
@@ -145,22 +154,27 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
             return f"Error appending to note: {e}"
 
     @register_tool(mcp, "notes.delete")
-    async def delete_note(note_path: str, ctx: Context) -> str:
+    async def delete_note(note_path: str, ctx: Context, confirm: bool = False) -> str:
         """Delete a note after explicit client confirmation."""
+        if not confirm:
+            return "Error: confirm=True is required to delete a note."
+
         try:
-            result = await ctx.elicit(
+            confirmation = await ctx.elicit(
                 f"Permanently delete '{note_path}'? This cannot be undone.",
                 response_type=None,
             )
-            if result.action != "accept":
-                return _cancellation_reason(result.action)
+            if confirmation.action != "accept":
+                return _cancellation_reason(confirmation.action)
         except Exception:  # pylint: disable=broad-exception-caught
             return ERRORS.OPERATION_CANCELLED_NO_CONFIRM
 
         try:
-            return delete_note_logic(note_path, confirmar=True).to_display(
+            started_at = perf_counter()
+            result = delete_note_logic(note_path, confirmar=True).to_display(
                 success_prefix="OK"
             )
+            return _with_duration(result, started_at)
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error deleting note: {e}"
 
@@ -214,16 +228,16 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
             return ERRORS.OPERATION_CANCELLED_NO_CONFIRM
 
         try:
+            started_at = perf_counter()
             edit_result = edit_note(
                 note_path, [{"old": "", "new": content}]
             ).to_display(success_prefix="OK")
             if "REGLAS_GLOBALES" in note_path:
                 invalidate_rules_cache()
-            return enrich_response(
-                tool_name="notes.replace",
-                result=edit_result,
-                content=content,
+            result = enrich_response(
+                tool_name="notes.replace", result=edit_result, content=content
             )
+            return _with_duration(result, started_at)
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error replacing note: {e}"
 
@@ -256,24 +270,26 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
     ) -> str:
         """Apply a literal search/replace across notes after confirmation."""
         try:
-            result = await ctx.elicit(
+            confirmation = await ctx.elicit(
                 f"Replace '{search}' with '{replacement}' in up to {limit} notes"
                 f"{f' under {folder}' if folder else ''}?",
                 response_type=None,
             )
-            if result.action != "accept":
-                return _cancellation_reason(result.action)
+            if confirmation.action != "accept":
+                return _cancellation_reason(confirmation.action)
         except Exception:  # pylint: disable=broad-exception-caught
             return ERRORS.OPERATION_CANCELLED_NO_CONFIRM
 
         try:
-            return search_and_replace_global(
+            started_at = perf_counter()
+            result = search_and_replace_global(
                 search,
                 replacement,
                 folder,
                 solo_preview=False,
                 limite=limit,
             ).to_display()
+            return _with_duration(result, started_at)
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error applying replacement: {e}"
 
@@ -287,6 +303,7 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
                 result=result,
                 title=text[:80],
                 content=text,
+                frontmatter=inbox_capture_frontmatter(tags),
             )
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error creating quick capture: {e}"
@@ -307,11 +324,14 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
     ) -> str:
         """Update a note frontmatter without changing the note body."""
         try:
-            result = update_frontmatter_logic(
+            logic_result = update_frontmatter_logic(
                 note_path,
                 frontmatter_updates,
                 merge,
-            ).to_display(success_prefix="OK")
+            )
+            result = logic_result.to_display(success_prefix="OK")
+            if not logic_result.success:
+                return result
 
             try:
                 frontmatter = json.loads(frontmatter_updates)

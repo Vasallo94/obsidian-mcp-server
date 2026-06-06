@@ -12,6 +12,24 @@ from dataclasses import dataclass, field, fields
 from enum import Enum
 from typing import ClassVar, Optional
 
+# Standard Obsidian Canvas color slots. Obsidian renders these fixed hues for
+# the "1"-"6" preset colors; "0" (or empty) is the theme default (gray-ish).
+# Exposed so agents don't have to choose a color blindly (AFP issue #49).
+CANVAS_COLORS: dict[str, str] = {
+    "0": "default (gray)",
+    "1": "red",
+    "2": "orange",
+    "3": "yellow",
+    "4": "green",
+    "5": "cyan",
+    "6": "purple",
+}
+
+
+def describe_canvas_colors() -> str:
+    """Return a one-line legend of the standard Obsidian canvas colors."""
+    return ", ".join(f'"{slot}"={name}' for slot, name in CANVAS_COLORS.items())
+
 
 class TaskState(str, Enum):
     """Color-coded task states for the Kanvas workflow."""

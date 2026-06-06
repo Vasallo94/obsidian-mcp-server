@@ -167,7 +167,8 @@ To dive deeper into how the server works and how to customize it, check our deta
 3. [Server Configuration](docs/configuration.md): Guide on environment variables and technical configuration.
 4. [Agent Setup](docs/agent-folder-setup.md): How to organize your vault (`.agents/`) with skills and contextual rules.
 5. [Semantic Search](docs/semantic-search.md): ObsidianRAG integration and legacy RAG migration notes.
-6. [Future Roadmap](docs/FUTURE.md): Planned improvements and next steps for the server.
+6. [Agent Feedback](docs/agent-feedback.md): How agents can report MCP friction with AFP out-of-band.
+7. [Future Roadmap](docs/FUTURE.md): Planned improvements and next steps for the server.
 
 ---
 

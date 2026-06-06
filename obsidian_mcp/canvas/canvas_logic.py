@@ -13,7 +13,7 @@ from ..config import get_vault_path
 from ..result import Result
 from ..utils import get_logger
 from . import engine
-from .models import CanvasFile, Edge, Node
+from .models import CanvasFile, Edge, Node, describe_canvas_colors
 
 logger = get_logger(__name__)
 
@@ -70,6 +70,22 @@ def _format_node_summary(node: Node) -> str:
     return f"  [{node.id}] {label}{color}"
 
 
+def _find_legend_card(text_nodes: list[Node]) -> Node | None:
+    """Return a card that looks like a color legend, if any.
+
+    A legend card is a text node whose first heading line mentions
+    "legend" or "leyenda". Surfacing it lets agents follow the board's
+    color convention instead of guessing (AFP issue #49).
+    """
+    for node in text_nodes:
+        first_line = node.text.split("\n", 1)[0].lower() if node.text else ""
+        if first_line.startswith("#") and (
+            "legend" in first_line or "leyenda" in first_line
+        ):
+            return node
+    return None
+
+
 def read_canvas(canvas_path: str) -> Result[str]:
     """Read a canvas and return a human-readable summary."""
     load_result = _load(canvas_path)
@@ -102,6 +118,15 @@ def read_canvas(canvas_path: str) -> Result[str]:
         lines.append("Edges:")
         for e in canvas.edges:  # type: ignore[union-attr]
             lines.append(f"  [{e.id}] {e.from_node} → {e.to_node}")
+        lines.append("")
+
+    lines.append(f"Colors (Obsidian standard): {describe_canvas_colors()}")
+    legend = _find_legend_card(text_nodes)
+    if legend is not None:
+        lines.append("")
+        lines.append(f"Board legend (card [{legend.id}]):")
+        for legend_line in legend.text.splitlines():
+            lines.append(f"  {legend_line}")
 
     return Result.ok("\n".join(lines))
 
@@ -275,6 +300,72 @@ def update_card(
         return save_result
 
     return Result.ok(f"Card [{node_id}] updated.")
+
+
+def move_card(canvas_path: str, node_id: str, x: int, y: int) -> Result[str]:
+    """Reposition a node by setting its absolute x/y coordinates."""
+    load_result = _load(canvas_path)
+    if not load_result.success:
+        return Result.fail(load_result.error)  # type: ignore[arg-type]
+
+    canvas = load_result.data
+    node = engine.find_node(canvas, node_id)  # type: ignore[arg-type]
+    if node is None:
+        return Result.fail(f"Node '{node_id}' not found.")
+
+    engine.update_node(canvas, node_id, x=x, y=y)  # type: ignore[arg-type]
+
+    save_result = _save(canvas)  # type: ignore[arg-type]
+    if not save_result.success:
+        return save_result
+
+    return Result.ok(f"Node [{node_id}] moved to ({x}, {y}).")
+
+
+def remove_group(
+    canvas_path: str,
+    group_id: str,
+    remove_contents: bool = False,
+) -> Result[str]:
+    """Remove a group node.
+
+    By default only the group container is removed and the cards it visually
+    contained stay on the canvas. Pass ``remove_contents=True`` to also delete
+    every node inside the group's bounding box (and their edges).
+    """
+    load_result = _load(canvas_path)
+    if not load_result.success:
+        return Result.fail(load_result.error)  # type: ignore[arg-type]
+
+    canvas = load_result.data
+    group = engine.find_node(canvas, group_id)  # type: ignore[arg-type]
+    if group is None:
+        return Result.fail(f"Group '{group_id}' not found.")
+    if group.type != "group":
+        return Result.fail(f"Node '{group_id}' is not a group.")
+
+    removed_contents = 0
+    if remove_contents:
+        contained = [
+            n
+            for n in canvas.nodes  # type: ignore[union-attr]
+            if n.id != group_id and engine.find_group_for_node(canvas, n) is group  # type: ignore[arg-type]
+        ]
+        for node in contained:
+            engine.remove_node(canvas, node.id)  # type: ignore[arg-type]
+            removed_contents += 1
+
+    engine.remove_node(canvas, group_id)  # type: ignore[arg-type]
+
+    save_result = _save(canvas)  # type: ignore[arg-type]
+    if not save_result.success:
+        return save_result
+
+    if removed_contents:
+        return Result.ok(
+            f"Group [{group_id}] removed along with {removed_contents} card(s)."
+        )
+    return Result.ok(f"Group [{group_id}] removed.")
 
 
 def remove_card(canvas_path: str, node_id: str) -> Result[str]:

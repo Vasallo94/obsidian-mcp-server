@@ -740,6 +740,7 @@ def create_note(
     # Preparar contenido final
     contenido_final = ""
     ahora = datetime.now().strftime("%Y-%m-%d")
+    tags_list = [t.strip() for t in etiquetas.split(",") if t.strip()]
 
     # Si se usa plantilla
     if plantilla:
@@ -801,12 +802,26 @@ def create_note(
             # Procesar todas las fechas con formatos
             plantilla_content = _process_date_placeholders(plantilla_content)
 
-            contenido_final = plantilla_content
+            template_metadata, template_body = _extract_frontmatter_from_content(
+                plantilla_content
+            )
+            extra_metadata, contenido_limpio = _extract_frontmatter_from_content(
+                contenido
+            )
+            combined_metadata = dict(template_metadata)
+            combined_metadata.update(extra_metadata)
+
+            contenido_final = _build_frontmatter(
+                titulo=titulo,
+                ahora=ahora,
+                tags_list=tags_list,
+                agente_creador=agente_creador,
+                extra_metadata=combined_metadata if combined_metadata else None,
+            )
+            contenido_final += template_body
+
             # Si hay contenido adicional, añadirlo al final
             if contenido:
-                # Extraer frontmatter del contenido si existe
-                # para evitar duplicación con la plantilla
-                _, contenido_limpio = _extract_frontmatter_from_content(contenido)
                 if contenido_final.endswith("\n\n"):
                     contenido_final += contenido_limpio
                 else:
@@ -815,8 +830,6 @@ def create_note(
             return Result.fail(f"No se encontró la plantilla '{plantilla}'")
     else:
         # Sin plantilla: detectar si el contenido ya tiene frontmatter
-        tags_list = [t.strip() for t in etiquetas.split(",") if t.strip()]
-
         # Extraer frontmatter del contenido si existe
         extra_metadata, contenido_limpio = _extract_frontmatter_from_content(contenido)
 
@@ -998,7 +1011,7 @@ def search_and_replace_global(
             resultado += f"- `{arch['ruta_rel']}` ({arch['ocurrencias']} ocurrencias)\n"
         if len(archivos_afectados) > 20:
             resultado += f"- ... y {len(archivos_afectados) - 20} archivos más\n"
-        resultado += "\n⚠️ Ejecuta con `solo_preview=False` para aplicar los cambios."
+        resultado += "\n⚠️ Usa `notes.apply_replace` para aplicar los cambios."
         return Result.ok(resultado)
 
     # Modo ejecución
@@ -1021,6 +1034,28 @@ def search_and_replace_global(
     resultado += f"- Reemplazos realizados: {total_reemplazos}\n"
     resultado += f"- `{buscar}` → `{reemplazar}`"
     return Result.ok(resultado)
+
+
+def inbox_capture_frontmatter(etiquetas: str = "") -> dict[str, Any]:
+    """Return the frontmatter that ``quick_capture`` writes for an inbox note.
+
+    Single source of truth for the inbox semantics (``type``/``status``/
+    ``created``/``updated`` plus parsed ``tags``). Exposed so the tool layer
+    can hand the real metadata to the rule middleware: otherwise a
+    ``required_fields`` vault rule fires a false "missing type/status/tags"
+    warning even though the note on disk has those fields.
+    """
+    ahora_fecha = datetime.now().strftime("%Y-%m-%d")
+    metadata: dict[str, Any] = {
+        "type": "inbox",
+        "status": "captura",
+        "created": ahora_fecha,
+        "updated": ahora_fecha,
+    }
+    tags = [t.strip() for t in etiquetas.split(",") if t.strip()]
+    if tags:
+        metadata["tags"] = tags
+    return metadata
 
 
 def quick_capture(texto: str, etiquetas: str = "") -> Result[str]:
@@ -1074,10 +1109,21 @@ def quick_capture(texto: str, etiquetas: str = "") -> Result[str]:
         if idea_template.exists():
             plantilla = "Idea.md"
 
-    # 4. Create the note
+    # 4. Create the note with inbox semantics preserved in frontmatter.
+    metadata = inbox_capture_frontmatter()
+    contenido = (
+        "---\n"
+        f"type: {metadata['type']}\n"
+        f"status: {metadata['status']}\n"
+        f"created: {metadata['created']}\n"
+        f"updated: {metadata['updated']}\n"
+        "---\n\n"
+        f"{texto}"
+    )
+
     return create_note(
         titulo=titulo,
-        contenido=texto,
+        contenido=contenido,
         carpeta=inbox_folder,
         etiquetas=etiquetas,
         plantilla=plantilla,
@@ -1234,6 +1280,11 @@ def update_frontmatter_logic(
         updates_dict = json.loads(frontmatter_updates)
     except json.JSONDecodeError:
         return Result.fail("frontmatter_updates debe ser un JSON string válido.")
+
+    if not isinstance(updates_dict, dict):
+        return Result.fail(
+            "frontmatter_updates debe ser un objeto JSON codificado como string."
+        )
 
     try:
         with open(nota_path, "r", encoding="utf-8") as f:

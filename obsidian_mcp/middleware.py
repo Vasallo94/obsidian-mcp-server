@@ -262,6 +262,10 @@ TOOL_MODE_MAP: dict[str, str] = {
     "notes.patch": "edit",
     "notes.replace": "edit",
     "notes.update_frontmatter": "edit",
+    # Canvas card text is markdown too — enforce the same heading/body rules
+    # (AFP issue #50). Cards aren't notes, so prose isn't injected.
+    "canvas.add_card": "create",
+    "canvas.update_card": "edit",
 }
 
 

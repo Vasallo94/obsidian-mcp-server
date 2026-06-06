@@ -103,11 +103,20 @@ project instead of embedding a second RAG stack inside this MCP server.
 ### Other Packs
 
 - `agents_admin`: `skills.refresh_cache`, `skills.create`, `skills.suggest`,
-  `skills.sync`.
+  `skills.sync`, `rules.add`. `rules.add(rule_text)` registers a new global
+  rule in `.agents/REGLAS_GLOBALES.md` after interactive confirmation, so the
+  agent never edits that file directly.
 - `youtube`: `youtube.transcript`.
 - `legacy_semantic`: deprecated in-process semantic tools, disabled by default.
   Prefer `obsidianrag` for all new semantic-search deployments.
-- `canvas`: Obsidian Canvas read/write tools.
+- `canvas`: Obsidian Canvas read/write tools — `canvas.read` (surfaces the
+  standard color legend and any board "Legend"/"Leyenda" card), `canvas.list`,
+  `canvas.add_card`, `canvas.add_group`, `canvas.add_edge`, `canvas.update_card`,
+  `canvas.move_card` (reposition a node by x/y), `canvas.remove_card`,
+  `canvas.remove_group(group_id, remove_contents=False)`, and `canvas.remove_edge`.
+  Card text is validated against the vault rules (e.g. no emojis in headings),
+  just like `notes.*`. Standard colors: `"0"`=default, `"1"`=red, `"2"`=orange,
+  `"3"`=yellow, `"4"`=green, `"5"`=cyan, `"6"`=purple.
 - `kanvas`: workflow/task-board tools.
 - `secundo_selebro`: personal profile tools such as `inbox.capture`.
 

@@ -32,7 +32,7 @@ dependencies = [
     "PyYAML>=6.0.0",
     "cryptography>=46.0.7",
     "pygments>=2.20.0",
-    "pyjwt>=2.12.0",
+    "pyjwt>=2.13.0",
     "requests>=2.33.1",
 ]
 
@@ -75,6 +75,9 @@ dev = [
     "pylint>=3.0.0",
     "bandit[toml]>=1.8.0",
     "pip-audit>=2.10.0",
+    # uv seeds the dev venv with pip; pin >=26.1.2 to clear PYSEC-2026-196
+    # (the 26.1.1 seed otherwise fails the pip-audit pre-commit hook).
+    "pip>=26.1.2",
 ]
 
 [tool.hatch.build.targets.wheel]

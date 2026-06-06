@@ -98,3 +98,21 @@ def test_mcpb_manifest_contract():
     assert manifest["user_config"]["vaultPath"]["type"] == "directory"
     assert "toolSets" in manifest["user_config"]
     assert "obsidianRagApiUrl" in manifest["user_config"]
+
+
+def test_afp_manifest_contract():
+    manifest_path = Path("afp.json")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+
+    assert manifest == {
+        "afp_version": "0.2",
+        "subject_uri": "mcp://github.com/Vasallo94/obsidian-mcp-server",
+        "sink": {
+            "type": "github_issues",
+            "repo": "Vasallo94/obsidian-mcp-server",
+            "label": "afp-report",
+        },
+        "redaction": "required",
+        "accepts_remote": True,
+        "schema_extensions": [],
+    }
