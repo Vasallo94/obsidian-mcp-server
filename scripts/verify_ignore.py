@@ -1,4 +1,5 @@
 import shutil
+import sys
 from pathlib import Path
 
 from obsidian_mcp.utils.mcp_ignore import McpIgnore
@@ -14,17 +15,17 @@ def test_mcp_ignore():
     (base_path / "private").mkdir(exist_ok=True)
     (base_path / "public").mkdir(exist_ok=True)
 
-    with open(base_path / "private" / "secret.md", "w") as f:
+    with open(base_path / "private" / "secret.md", "w", encoding="utf-8") as f:
         f.write("secret")
 
-    with open(base_path / "public" / "hello.md", "w") as f:
+    with open(base_path / "public" / "hello.md", "w", encoding="utf-8") as f:
         f.write("hello")
 
-    with open(base_path / "finance.md", "w") as f:
+    with open(base_path / "finance.md", "w", encoding="utf-8") as f:
         f.write("money")
 
     # Create .mcpignore
-    with open(base_path / ".mcpignore", "w") as f:
+    with open(base_path / ".mcpignore", "w", encoding="utf-8") as f:
         f.write("private/\nfinance.md\n*.secret")
 
     # Initialize
@@ -56,7 +57,7 @@ def test_mcp_ignore():
         print("\nALL TESTS PASSED")
     else:
         print(f"\n{failures} TESTS FAILED")
-        exit(1)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
