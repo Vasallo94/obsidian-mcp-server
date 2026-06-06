@@ -32,8 +32,9 @@ def test_agent_tools_registration(mock_valid_vault):
     assert "rules.get" in tool_names
 
 
-def test_navigation_move_registration(mock_valid_vault):
+def test_navigation_move_registration(mock_valid_vault, monkeypatch):
     """Verify that move_note is registered when notes_write is enabled."""
+    monkeypatch.setenv("OBSIDIAN_MCP_TOOL_SETS", "notes_write")
     mcp = create_server()
     tool_names = _get_tool_names(mcp)
     assert "notes.move" in tool_names

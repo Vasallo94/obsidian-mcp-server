@@ -7,10 +7,12 @@ Skip the entire module if langchain_chroma is not available.
 
 import pytest
 
-# Skip entire module if RAG dependencies are not installed
+# Skip entire module if RAG dependencies are not installed.
 pytest.importorskip("langchain_chroma", reason="RAG dependencies not installed")
-
-from obsidian_mcp.semantic import indexer
+indexer = pytest.importorskip(
+    "obsidian_mcp.semantic.indexer",
+    reason="RAG semantic indexer dependencies not installed",
+)
 
 
 class TestImageCaptionExtraction:
@@ -76,8 +78,8 @@ class TestDocumentEnrichment:
         # typically this would be an integration test or use mocks
         # For simplicity, we can test logic if we extracted the enrichment function
         # But here we rely on the fact that we modified the function itself.
-        pass
+        pytest.skip("placeholder for future document enrichment integration coverage")
 
     def test_no_change_if_no_captions(self):
         """Document should stay same if no captions."""
-        pass
+        pytest.skip("placeholder for future document enrichment integration coverage")
