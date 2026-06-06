@@ -56,6 +56,9 @@ TOOL_SPECS: dict[str, ToolSpec] = {
     "skills.list": ToolSpec("List Skills"),
     "skills.read": ToolSpec("Read Skill"),
     "rules.get": ToolSpec("Get Global Rules"),
+    "rules.add": ToolSpec(
+        "Add Global Rule", "agents_admin", read_only=False, idempotent=False
+    ),
     "notes.validate": ToolSpec("Validate Note"),
     # Notes write pack
     "notes.suggest_location": ToolSpec(
@@ -180,8 +183,18 @@ TOOL_SPECS: dict[str, ToolSpec] = {
     "canvas.update_card": ToolSpec(
         "Update Canvas Card", "canvas", read_only=False, idempotent=False
     ),
+    "canvas.move_card": ToolSpec(
+        "Move Canvas Node", "canvas", read_only=False, idempotent=True
+    ),
     "canvas.remove_card": ToolSpec(
         "Remove Canvas Card",
+        "canvas",
+        read_only=False,
+        destructive=True,
+        idempotent=False,
+    ),
+    "canvas.remove_group": ToolSpec(
+        "Remove Canvas Group",
         "canvas",
         read_only=False,
         destructive=True,

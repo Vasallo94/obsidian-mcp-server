@@ -8,6 +8,7 @@ No workflow assumptions — these tools work with any canvas
 
 from fastmcp import FastMCP
 
+from ..middleware import enrich_response
 from ..tools.registry import register_tool
 from ..utils import get_logger
 from .canvas_logic import (
@@ -15,9 +16,11 @@ from .canvas_logic import (
     add_card,
     add_group,
     list_canvases,
+    move_card,
     read_canvas,
     remove_canvas_edge,
     remove_card,
+    remove_group,
     update_card,
 )
 
@@ -68,11 +71,19 @@ def register_canvas_tools(mcp: FastMCP) -> None:
     ) -> str:
         """Add a text card to a canvas file.
 
+        Standard Obsidian canvas colors: "0"=default (gray), "1"=red,
+        "2"=orange, "3"=yellow, "4"=green, "5"=cyan, "6"=purple. A board may
+        define its own color->status convention in a "Legend" card — call
+        canvas_read first to see it before choosing a color.
+
+        Card text is validated against the vault rules (e.g. no emojis in
+        headings); any violations are reported alongside the confirmation.
+
         Args:
             canvas_path: Path to the .canvas file
             text: Card text content
             group: Name of group to place the card in (optional)
-            color: Card color as string "0"-"6" (optional)
+            color: Card color as string "0"-"6" (optional, see legend above)
             width: Card width in pixels (default 280)
             height: Card height in pixels (default 160)
 
@@ -80,7 +91,14 @@ def register_canvas_tools(mcp: FastMCP) -> None:
             Confirmation with the new card ID
         """
         try:
-            return add_card(canvas_path, text, group, color, width, height).to_display()
+            result = add_card(
+                canvas_path, text, group, color, width, height
+            ).to_display()
+            return enrich_response(
+                tool_name="canvas.add_card",
+                result=result,
+                content=text,
+            )
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error adding card: {e}"
 
@@ -132,17 +150,30 @@ def register_canvas_tools(mcp: FastMCP) -> None:
     ) -> str:
         """Update the text and/or color of an existing card.
 
+        Standard Obsidian canvas colors: "0"=default (gray), "1"=red,
+        "2"=orange, "3"=yellow, "4"=green, "5"=cyan, "6"=purple. A board may
+        define its own color->status convention in a "Legend" card — call
+        canvas_read first to see it.
+
+        New text is validated against the vault rules (e.g. no emojis in
+        headings); any violations are reported alongside the confirmation.
+
         Args:
             canvas_path: Path to the .canvas file
             node_id: ID of the card to update
             text: New text content (leave empty to keep current)
-            color: New color "0"-"6" (leave empty to keep current)
+            color: New color "0"-"6" (leave empty to keep current, see legend above)
 
         Returns:
             Confirmation of the update
         """
         try:
-            return update_card(canvas_path, node_id, text, color).to_display()
+            result = update_card(canvas_path, node_id, text, color).to_display()
+            return enrich_response(
+                tool_name="canvas.update_card",
+                result=result,
+                content=text,
+            )
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error updating card: {e}"
 
@@ -161,6 +192,52 @@ def register_canvas_tools(mcp: FastMCP) -> None:
             return remove_card(canvas_path, node_id).to_display()
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error removing card: {e}"
+
+    @register_tool(mcp, "canvas.move_card")
+    def canvas_move_card(canvas_path: str, node_id: str, x: int, y: int) -> str:
+        """Reposition a node by setting its absolute x/y coordinates.
+
+        Works for any node (card or group). Use canvas_read to inspect current
+        positions; coordinates grow right (x) and down (y).
+
+        Args:
+            canvas_path: Path to the .canvas file
+            node_id: ID of the node to move
+            x: New x coordinate (pixels)
+            y: New y coordinate (pixels)
+
+        Returns:
+            Confirmation of the move
+        """
+        try:
+            return move_card(canvas_path, node_id, x, y).to_display()
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            return f"Error moving node: {e}"
+
+    @register_tool(mcp, "canvas.remove_group")
+    def canvas_remove_group(
+        canvas_path: str,
+        group_id: str,
+        remove_contents: bool = False,
+    ) -> str:
+        """Delete a group/area from a canvas.
+
+        By default only the group container is removed; the cards it visually
+        contained stay on the canvas. Set remove_contents=True to also delete
+        every card inside the group's bounding box.
+
+        Args:
+            canvas_path: Path to the .canvas file
+            group_id: ID of the group to remove
+            remove_contents: If True, also delete contained cards (default False)
+
+        Returns:
+            Confirmation of removal
+        """
+        try:
+            return remove_group(canvas_path, group_id, remove_contents).to_display()
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            return f"Error removing group: {e}"
 
     @register_tool(mcp, "canvas.remove_edge")
     def canvas_remove_edge(canvas_path: str, edge_id: str) -> str:

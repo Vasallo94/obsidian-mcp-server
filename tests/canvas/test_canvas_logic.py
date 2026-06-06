@@ -8,9 +8,11 @@ from obsidian_mcp.canvas.canvas_logic import (
     add_card,
     add_group,
     list_canvases,
+    move_card,
     read_canvas,
     remove_canvas_edge,
     remove_card,
+    remove_group,
     update_card,
 )
 
@@ -142,6 +144,67 @@ class TestRemoveCard:
     def test_remove_card_not_found(self, tmp_canvas):
         result = remove_card(str(tmp_canvas), "nonexistent")
         assert not result.success
+
+
+class TestMoveCard:
+    """Tests for canvas_move_card logic (AFP issue #51)."""
+
+    def test_move_card(self, tmp_canvas):
+        result = move_card(str(tmp_canvas), "t1", 500, 600)
+        assert result.success
+        data = json.loads(tmp_canvas.read_text(encoding="utf-8"))
+        node = next(n for n in data["nodes"] if n["id"] == "t1")
+        assert node["x"] == 500
+        assert node["y"] == 600
+
+    def test_move_group(self, tmp_canvas):
+        result = move_card(str(tmp_canvas), "grp1", 1000, 0)
+        assert result.success
+        data = json.loads(tmp_canvas.read_text(encoding="utf-8"))
+        group = next(n for n in data["nodes"] if n["id"] == "grp1")
+        assert group["x"] == 1000
+
+    def test_move_not_found(self, tmp_canvas):
+        result = move_card(str(tmp_canvas), "nonexistent", 0, 0)
+        assert not result.success
+        assert "not found" in result.error.lower()
+
+
+class TestRemoveGroup:
+    """Tests for canvas_remove_group logic (AFP issue #51)."""
+
+    def test_remove_group_keeps_contents(self, tmp_canvas):
+        result = remove_group(str(tmp_canvas), "grp1")
+        assert result.success
+        data = json.loads(tmp_canvas.read_text(encoding="utf-8"))
+        ids = [n["id"] for n in data["nodes"]]
+        assert "grp1" not in ids
+        # Cards that were inside the group stay on the canvas.
+        assert "t1" in ids
+        assert "t2" in ids
+
+    def test_remove_group_with_contents(self, tmp_canvas):
+        result = remove_group(str(tmp_canvas), "grp1", remove_contents=True)
+        assert result.success
+        data = json.loads(tmp_canvas.read_text(encoding="utf-8"))
+        ids = [n["id"] for n in data["nodes"]]
+        assert "grp1" not in ids
+        # t1 and t2 sit inside grp1's bounding box -> removed.
+        assert "t1" not in ids
+        assert "t2" not in ids
+        # Edges touching removed cards are gone too.
+        edge_ids = [e["id"] for e in data["edges"]]
+        assert "e1" not in edge_ids
+
+    def test_remove_group_not_found(self, tmp_canvas):
+        result = remove_group(str(tmp_canvas), "nonexistent")
+        assert not result.success
+        assert "not found" in result.error.lower()
+
+    def test_remove_group_rejects_non_group(self, tmp_canvas):
+        result = remove_group(str(tmp_canvas), "t1")
+        assert not result.success
+        assert "not a group" in result.error.lower()
 
 
 class TestRemoveEdge:

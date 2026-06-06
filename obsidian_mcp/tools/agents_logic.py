@@ -238,6 +238,58 @@ def get_global_rules() -> Result[str]:
         return Result.fail(f"Error: {e}")
 
 
+def add_global_rule(rule_text: str) -> Result[str]:
+    """Append a human-readable rule to the vault's global rules file.
+
+    Lets an agent register a rule the user dictated (e.g. "no hard-wrap of
+    markdown") without giving it raw file access to ``.agents/`` (AFP issue
+    #52). The rule is appended as a bullet to the prose body of
+    REGLAS_GLOBALES.md; the machine-readable ``validations`` frontmatter is
+    left untouched. Caller is responsible for human confirmation.
+
+    Args:
+        rule_text: The rule to register. Bullet/number prefixes are optional.
+
+    Returns:
+        Result with a confirmation message and the file location.
+    """
+    from ..middleware import invalidate_rules_cache
+
+    cleaned = rule_text.strip()
+    if not cleaned:
+        return Result.fail("La regla está vacía.")
+
+    vault_path = get_vault_path()
+    if not vault_path:
+        return Result.fail("La ruta del vault no está configurada.")
+
+    # Normalize to a single bullet item unless the user already formatted it.
+    bullet = cleaned
+    if not re.match(r"^([-*]|\d+[.)])\s", cleaned):
+        bullet = f"- {cleaned}"
+
+    rules_path = vault_path / ".agents" / "REGLAS_GLOBALES.md"
+
+    try:
+        if rules_path.exists():
+            existing = rules_path.read_text(encoding="utf-8")
+            separator = "" if existing.endswith("\n") else "\n"
+            rules_path.write_text(f"{existing}{separator}{bullet}\n", encoding="utf-8")
+        else:
+            rules_path.parent.mkdir(parents=True, exist_ok=True)
+            rules_path.write_text(
+                f"# Reglas Globales del Vault\n\n{bullet}\n",
+                encoding="utf-8",
+            )
+    except OSError as e:
+        return Result.fail(f"No se pudo escribir el fichero de reglas: {e}")
+
+    invalidate_rules_cache()
+
+    location = str(rules_path.relative_to(vault_path))
+    return Result.ok(f"Regla añadida a {location}:\n{bullet}")
+
+
 def refresh_skills_cache() -> Result[str]:
     """Invalidate and refresh existing skills cache."""
     invalidate_skills_cache()

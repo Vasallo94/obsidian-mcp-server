@@ -7,6 +7,7 @@ import pytest
 import yaml
 
 from obsidian_mcp.config import reset_settings
+from obsidian_mcp.middleware import invalidate_rules_cache
 from obsidian_mcp.server import create_server
 from obsidian_mcp.tools.analysis_logic import sync_tag_registry
 from obsidian_mcp.tools.creation_logic import (
@@ -42,6 +43,36 @@ def _set_vault(monkeypatch, tmp_path):
 class _AcceptCtx:
     async def elicit(self, *args, **kwargs):
         return SimpleNamespace(action="accept")
+
+
+class _DeclineCtx:
+    async def elicit(self, *args, **kwargs):
+        return SimpleNamespace(action="decline")
+
+
+def _set_canvas_vault(monkeypatch, tmp_path):
+    """Vault with the canvas + agents_admin tool sets enabled."""
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    monkeypatch.setenv("OBSIDIAN_VAULT_PATH", str(vault))
+    monkeypatch.setenv("OBSIDIAN_MCP_TOOL_SETS", "canvas,agents_admin")
+    reset_settings()
+    invalidate_note_cache()
+    # Start from a clean rules cache so these tests don't pick up validations
+    # written by an earlier test (the module-level cache is process-global).
+    invalidate_rules_cache()
+    return vault
+
+
+def _write_canvas(vault, name="Board.canvas", nodes=None, edges=None):
+    import json
+
+    canvas_path = vault / name
+    canvas_path.write_text(
+        json.dumps({"nodes": nodes or [], "edges": edges or []}),
+        encoding="utf-8",
+    )
+    return canvas_path
 
 
 def test_preview_replace_points_agents_to_apply_replace(tmp_path, monkeypatch):
@@ -242,3 +273,154 @@ def test_confirmed_write_tools_include_elapsed_time(tmp_path, monkeypatch):
     assert "Duración:" in apply_result
     assert "Duración:" in replace_result
     assert "Duración:" in delete_result
+
+
+# --- AFP issues #49-#52: canvas color legend, canvas rule validation,
+#     canvas move/remove_group, and rules.add ---
+
+
+def test_canvas_read_surfaces_color_legend(tmp_path, monkeypatch):
+    """#49: canvas_read documents the color mapping and the board legend."""
+    vault = _set_canvas_vault(monkeypatch, tmp_path)
+    _write_canvas(
+        vault,
+        nodes=[
+            {
+                "id": "legend",
+                "type": "text",
+                "x": 0,
+                "y": 0,
+                "width": 200,
+                "height": 200,
+                "text": "## Leyenda\nVerde=Hecho, Rojo=Pendiente",
+            },
+        ],
+    )
+    mcp = create_server()
+    read_tool = asyncio.run(mcp.get_tool("canvas.read"))
+
+    result = read_tool.fn("Board.canvas")
+
+    assert '"4"=green' in result
+    assert '"6"=purple' in result
+    assert "Board legend" in result
+    assert "Verde=Hecho" in result
+
+
+def test_canvas_add_card_validates_vault_rules(tmp_path, monkeypatch):
+    """#50: canvas_add_card surfaces rule violations like notes_* do."""
+    vault = _set_canvas_vault(monkeypatch, tmp_path)
+    rules_dir = vault / ".agents"
+    rules_dir.mkdir()
+    (rules_dir / "REGLAS_GLOBALES.md").write_text(
+        "---\n"
+        "validations:\n"
+        "  - id: no-emoji-headings\n"
+        "    scope: headings\n"
+        "    applies_to: [create, edit]\n"
+        '    pattern: "[🚀🎯✅]"\n'
+        '    warning: "Regla 1: sin emojis en cabeceras"\n'
+        "---\n\n# Reglas\n",
+        encoding="utf-8",
+    )
+    _write_canvas(vault)
+    mcp = create_server()
+    add_tool = asyncio.run(mcp.get_tool("canvas.add_card"))
+
+    result = add_tool.fn("Board.canvas", "## Tarea 🚀\nHacer algo")
+
+    assert "[WARNINGS:" in result
+    assert "Regla 1" in result
+
+
+def test_canvas_add_card_clean_heading_has_no_warnings(tmp_path, monkeypatch):
+    """#50: a compliant card text triggers no rule warnings."""
+    vault = _set_canvas_vault(monkeypatch, tmp_path)
+    rules_dir = vault / ".agents"
+    rules_dir.mkdir()
+    (rules_dir / "REGLAS_GLOBALES.md").write_text(
+        "---\n"
+        "validations:\n"
+        "  - id: no-emoji-headings\n"
+        "    scope: headings\n"
+        "    applies_to: [create, edit]\n"
+        '    pattern: "[🚀🎯✅]"\n'
+        '    warning: "Regla 1: sin emojis en cabeceras"\n'
+        "---\n\n# Reglas\n",
+        encoding="utf-8",
+    )
+    _write_canvas(vault)
+    mcp = create_server()
+    add_tool = asyncio.run(mcp.get_tool("canvas.add_card"))
+
+    result = add_tool.fn("Board.canvas", "## Tarea limpia\nHacer algo")
+
+    assert "[WARNINGS:" not in result
+
+
+def test_canvas_move_and_remove_group_tools_exist(tmp_path, monkeypatch):
+    """#51: move_card and remove_group are exposed and functional."""
+    vault = _set_canvas_vault(monkeypatch, tmp_path)
+    _write_canvas(
+        vault,
+        nodes=[
+            {
+                "id": "grp1",
+                "type": "group",
+                "x": 0,
+                "y": 0,
+                "width": 400,
+                "height": 800,
+                "label": "Columna",
+            },
+            {
+                "id": "card1",
+                "type": "text",
+                "x": 20,
+                "y": 50,
+                "width": 280,
+                "height": 160,
+                "text": "## Tarea",
+            },
+        ],
+    )
+    mcp = create_server()
+    tool_names = {tool.name for tool in asyncio.run(mcp.list_tools())}
+    assert "canvas.move_card" in tool_names
+    assert "canvas.remove_group" in tool_names
+
+    move_tool = asyncio.run(mcp.get_tool("canvas.move_card"))
+    remove_tool = asyncio.run(mcp.get_tool("canvas.remove_group"))
+
+    move_result = move_tool.fn("Board.canvas", "card1", 999, 111)
+    assert "moved" in move_result.lower()
+
+    remove_result = remove_tool.fn("Board.canvas", "grp1")
+    assert "removed" in remove_result.lower()
+
+
+def test_rules_add_appends_after_confirmation(tmp_path, monkeypatch):
+    """#52: rules.add registers a rule after the user accepts the elicit."""
+    vault = _set_canvas_vault(monkeypatch, tmp_path)
+    mcp = create_server()
+    add_tool = asyncio.run(mcp.get_tool("rules.add"))
+
+    result = asyncio.run(add_tool.fn("No hagas hard-wrap del markdown", _AcceptCtx()))
+
+    rules_file = vault / ".agents" / "REGLAS_GLOBALES.md"
+    assert rules_file.exists()
+    content = rules_file.read_text(encoding="utf-8")
+    assert "- No hagas hard-wrap del markdown" in content
+    assert "Regla añadida" in result
+
+
+def test_rules_add_declined_does_not_write(tmp_path, monkeypatch):
+    """#52: declining the confirmation leaves the vault untouched."""
+    vault = _set_canvas_vault(monkeypatch, tmp_path)
+    mcp = create_server()
+    add_tool = asyncio.run(mcp.get_tool("rules.add"))
+
+    result = asyncio.run(add_tool.fn("No escribas como commits de git", _DeclineCtx()))
+
+    assert not (vault / ".agents" / "REGLAS_GLOBALES.md").exists()
+    assert "cancelada" in result.lower()

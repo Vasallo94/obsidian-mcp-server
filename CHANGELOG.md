@@ -8,6 +8,8 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 ## [Unreleased]
 
 ### Added
+- **AFP #51 — Reposición y borrado de grupos en canvas**: Nuevas tools `canvas.move_card(node_id, x, y)` (reposiciona cualquier nodo) y `canvas.remove_group(group_id, remove_contents=False)` (borra un grupo y, opcionalmente, las tarjetas que contiene). Antes había que editar el `.canvas` a mano.
+- **AFP #52 — Registro de reglas del vault**: Nueva tool `rules.add(rule_text)` (pack `agents_admin`) para que el agente registre una regla en `.agents/REGLAS_GLOBALES.md` a petición del usuario, con confirmación interactiva (`elicit`) y sin acceso directo al fichero.
 - **Agent Feedback Protocol**: Añadido `afp.json` y una guía de uso out-of-band para que agentes y harnesses puedan generar drafts de fricción sin añadir tools MCP nuevas.
 - **Canvas Integration (22 nuevas herramientas)**: Soporte completo para ficheros `.canvas` de Obsidian con dos capas:
   - **8 herramientas genéricas** (`canvas.read`, `canvas.list`, `canvas.add_card`, `canvas.add_group`, `canvas.add_edge`, `canvas.update_card`, `canvas.remove_card`, `canvas.remove_edge`) para CRUD sobre cualquier canvas.
@@ -28,6 +30,8 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 - **Indexación Semántica de Imágenes**: El sistema ahora extrae descripciones de imágenes (`![[img|desc]]` o `![desc](img)`) y las inyecta como contexto semántico, haciendo buscable el contenido visual.
 
 ### Fixed
+- **AFP #50 — Reglas del vault en canvas**: `canvas.add_card` y `canvas.update_card` ahora validan el texto de las tarjetas contra las reglas del vault (p. ej. sin emojis en cabeceras) y devuelven `[WARNINGS: ...]`, igual que las tools `notes.*`. Antes la capa de reglas solo se aplicaba a notas.
+- **AFP #49 — Leyenda de colores en canvas**: `canvas.read` expone ahora el mapeo estándar de colores de Obsidian y, si existe, el contenido de la tarjeta "Legend"/"Leyenda" del board. Los docstrings de `canvas.add_card`/`canvas.update_card` documentan el significado de `"0"`-`"6"` para no elegir color a ciegas.
 - **Security**: Actualizado `starlette` a `1.2.0` para resolver la vulnerabilidad `PYSEC-2026-161` detectada por `pip-audit`.
 - **Semantic Hook Failures**: Ajustado `semantic_logic.py` para declarar explícitamente las capturas amplias esperadas en la capa de tool logic y refactorizados los tests de conexiones para evitar accesos protegidos y warnings de `pytest.importorskip`, permitiendo que `pre-commit` vuelva a pasar sin atajos.
 - **Actionable Errors**: Las herramientas ahora devuelven mensajes semánticos al modelo LLM ante errores (Ej: `❌ No se encontró la nota 'X', usa listar_notas primero`) en lugar de levantar excepciones nativas como `FileNotFoundError` que rompían el agente.
