@@ -39,6 +39,38 @@ def _json_serial(obj: Any) -> str:
 
 logger = get_logger(__name__)
 
+_FRONTMATTER_BLOCK_RE = re.compile(r"^(---\s*\n)(.*?\n)(---\s*\n)", re.DOTALL)
+
+
+def _normalize_frontmatter(content: str) -> str:
+    """Re-parse frontmatter through yaml round-trip to eliminate duplicate keys.
+
+    LLM clients sometimes generate YAML with repeated keys (e.g. two
+    ``created:`` lines).  ``yaml.safe_load`` silently keeps the last
+    value for each key; ``yaml.dump`` serialises the clean dict back.
+    """
+    match = _FRONTMATTER_BLOCK_RE.match(content)
+    if not match:
+        return content
+
+    raw_yaml = match.group(2)
+    try:
+        parsed = yaml.safe_load(raw_yaml)
+    except yaml.YAMLError:
+        return content
+
+    if not isinstance(parsed, dict):
+        return content
+
+    clean_yaml = yaml.dump(
+        parsed,
+        default_flow_style=False,
+        allow_unicode=True,
+        sort_keys=False,
+    )
+
+    return f"---\n{clean_yaml}---\n{content[match.end():]}"
+
 
 def _process_date_placeholders(content: str, date_obj: datetime | None = None) -> str:
     """
@@ -478,6 +510,7 @@ def edit_note(  # pylint: disable=too-many-locals,too-many-return-statements,too
         contenido_final = _update_frontmatter_date(
             contenido_final, user_set_updated=has_updated
         )
+        contenido_final = _normalize_frontmatter(contenido_final)
         with open(nota_path, "w", encoding="utf-8") as f:
             f.write(contenido_final)
         return Result.ok(f"Nota editada: {ruta_relativa} (reemplazo total)")
@@ -532,6 +565,7 @@ def edit_note(  # pylint: disable=too-many-locals,too-many-return-statements,too
 
     resultado = _process_date_placeholders(resultado)
     resultado = _update_frontmatter_date(resultado, user_set_updated=user_set_updated)
+    resultado = _normalize_frontmatter(resultado)
 
     with open(nota_path, "w", encoding="utf-8") as f:
         f.write(resultado)
@@ -852,6 +886,7 @@ def create_note(
 
     # Procesar cualquier placeholder de fecha restante en el contenido
     contenido_final = _process_date_placeholders(contenido_final)
+    contenido_final = _normalize_frontmatter(contenido_final)
 
     # Escribir archivo
     with open(nota_path, "w", encoding="utf-8") as f:
