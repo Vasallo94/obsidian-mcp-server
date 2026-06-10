@@ -189,7 +189,7 @@ class TestEditNoteAtomicFailure:
         original = sample_note.read_text(encoding="utf-8")
         result = edit_note("test_note.md", [{"old": "nonexistent text", "new": "x"}])
         assert not result.success
-        assert "No se encontro" in result.error
+        assert "No se encontró" in result.error
         assert sample_note.read_text(encoding="utf-8") == original  # unchanged
 
     def test_old_not_found_suggests_close_matches(self, temp_vault, monkeypatch):
@@ -211,7 +211,7 @@ class TestEditNoteAtomicFailure:
             ],
         )
         assert not result.success
-        assert "No se encontro" in result.error
+        assert "No se encontró" in result.error
         assert "Quiza quisiste decir" in result.error
         assert "Recomendaciones de Compra" in result.error
 
@@ -266,7 +266,7 @@ class TestEditNoteAtomicFailure:
             ],
         )
         assert not result.success
-        assert "unica operacion" in result.error
+        assert "única operación" in result.error
         assert sample_note.read_text(encoding="utf-8") == original
 
     def test_old_empty_new_empty(self, temp_vault, sample_note, monkeypatch):
