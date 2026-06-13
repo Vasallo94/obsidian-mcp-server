@@ -41,7 +41,7 @@ dependencies = [
 # the `obsidianrag` tool set, which delegates RAG to the external ObsidianRAG
 # service without embedding a second RAG stack in this MCP server.
 rag = [
-    "langchain>=0.3.0",
+    "langchain>=1.3.9",
     "langchain-community>=0.3.0",
     "langchain-core>=0.3.0",
     "langchain-ollama>=0.2.0",
