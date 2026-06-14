@@ -447,7 +447,10 @@ def _infer_route(
             notes,
         )
 
-    if _has_any(text, ["película", "pelicula", "serie", "libro", "kindle", "media"]):
+    has_media_workflow = "media" in standards or "update_media_item" in prompt_sets
+    if has_media_workflow and _has_any(
+        text, ["película", "pelicula", "serie", "libro", "kindle", "media"]
+    ):
         if "kindle" in text:
             return _route(
                 "import_kindle_highlights",
@@ -462,7 +465,7 @@ def _infer_route(
                     "Apply only if the dry-run is clean.",
                     "Report unmatched books.",
                 ],
-                "Uses the Secundo Selebro media workflow when the media standard is declared.",
+                "Uses the declared media workflow from the active vault profile.",
             )
         return _route(
             "update_media_item",
