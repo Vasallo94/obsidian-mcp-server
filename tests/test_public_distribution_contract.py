@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import subprocess
 import tarfile
 import tomllib
 from pathlib import Path
@@ -23,8 +24,14 @@ def test_project_metadata_has_public_urls_and_beta_classifier() -> None:
     assert "Development Status :: 5 - Production/Stable" not in project["classifiers"]
 
 
-def test_sdist_excludes_internal_agent_plans_and_personal_scripts() -> None:
-    sdist = next(Path("dist").glob("obsidian_mcp_server-*.tar.gz"))
+def test_sdist_excludes_internal_agent_plans_and_personal_scripts(
+    tmp_path: Path,
+) -> None:
+    subprocess.run(
+        ["uv", "build", "--sdist", "--out-dir", str(tmp_path)],
+        check=True,
+    )
+    sdist = next(tmp_path.glob("obsidian_mcp_server-*.tar.gz"))
 
     with tarfile.open(sdist, "r:gz") as archive:
         names = archive.getnames()
