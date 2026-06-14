@@ -76,94 +76,11 @@ For a detailed guide on how to configure the `.agents/` folder, refer to the [Ag
 > [!WARNING]
 > Never point `OBSIDIAN_VAULT_PATH` to a folder that contains sensitive private information outside of Obsidian, as the agent could read it if it has read permissions.
 
-## MCP Clients Integration
+## MCP client integration
 
-The server can be configured for multiple MCP clients. Below are the configurations for the most common ones.
-
-### Claude Code (CLI)
-
-```bash
-# Add at the user level (available in all projects)
-claude mcp add-json --scope user obsidian '{
-  "command": "uv",
-  "args": ["run", "--directory", "/path/to/obsidian-mcp-server", "obsidian-mcp-server"],
-  "env": {
-    "OBSIDIAN_VAULT_PATH": "/path/to/your/vault"
-  }
-}'
-```
-
-### Claude Desktop
-
-File: `%APPDATA%\Claude\claude_desktop_config.json` (Windows) or `~/.config/claude/claude_desktop_config.json` (Linux/Mac)
-
-```json
-{
-  "mcpServers": {
-    "obsidian": {
-      "command": "uv",
-      "args": ["run", "--directory", "/path/to/obsidian-mcp-server", "obsidian-mcp-server"],
-      "env": {
-        "OBSIDIAN_VAULT_PATH": "/path/to/your/vault"
-      }
-    }
-  }
-}
-```
-
-### VSCode (Claude Extension / GitHub Copilot)
-
-File: `~/.vscode/mcp.json`
-
-```json
-{
-  "servers": {
-    "obsidian": {
-      "command": "uv",
-      "args": ["run", "--directory", "/path/to/obsidian-mcp-server", "obsidian-mcp-server"],
-      "env": {
-        "OBSIDIAN_VAULT_PATH": "/path/to/your/vault"
-      }
-    }
-  }
-}
-```
-
-### Cursor / Cline
-
-You can add it as a new MCP server in their settings panel by specifying:
-- **Type**: `command`
-- **Command**: `uv run --directory /path/to/obsidian-mcp-server obsidian-mcp-server`
-- Ensure the `OBSIDIAN_VAULT_PATH` environment variable is available.
-
-### Gemini CLI
-
-File: `~/.gemini/settings.json`
-
-```json
-{
-  "mcpServers": {
-    "obsidian": {
-      "command": "uv",
-      "args": ["run", "--directory", "/path/to/obsidian-mcp-server", "obsidian-mcp-server"],
-      "env": {
-        "OBSIDIAN_VAULT_PATH": "/path/to/your/vault"
-      }
-    }
-  }
-}
-```
-
-### Windows Note
-
-On Windows, if you use `npx` or scripts that require a shell, use the `cmd /c` prefix:
-
-```json
-{
-  "command": "cmd",
-  "args": ["/c", "uv", "run", "--directory", "C:/path/to/server", "obsidian-mcp-server"]
-}
-```
+Client-specific setup lives in [Installation](installation.md). This page is
+kept focused on environment variables, vault configuration, tool sets, and
+profile behavior.
 
 ## Tool Sets and Client Roots
 

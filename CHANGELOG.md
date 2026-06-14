@@ -50,6 +50,7 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 - Prompt del asistente actualizado para priorizar el chequeo de `skills` disponibles.
 
 ### Docs
+- Añadida guía estándar de instalación para Claude Code, Codex, Hermes, Claude Desktop y MCPB.
 - Regla añadida en `AGENTS.md` exigiendo actualizar el `CHANGELOG.md` antes de cada commit.
 - Nueva guía: `docs/agent-folder-setup.md`.
 - Roadmap de mejoras futuras: `docs/FUTURE.md`.

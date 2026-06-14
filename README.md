@@ -59,12 +59,18 @@ Optional packs are enabled explicitly from `.agents/vault.yaml` or
    cd obsidian-mcp-server
    ```
 
-2. **Install**:
+2. **Run locally**:
 
    ```bash
    make install
-   # Optional legacy in-process semantic stack:
-   pip install "obsidian-mcp-server[rag]"
+   uv run obsidian-mcp-server
+   ```
+
+   For end-user installation in MCP clients, prefer `uvx` once the package is
+   published:
+
+   ```bash
+   uvx obsidian-mcp-server
    ```
 
 3. **Configure**:
@@ -77,6 +83,9 @@ Optional packs are enabled explicitly from `.agents/vault.yaml` or
 ---
 
 ## Usage
+
+For Claude Code, Codex, Hermes, Claude Desktop, and MCPB setup, see
+[Installation](docs/installation.md).
 
 The MCP server connects to compatible clients using the `uv run obsidian-mcp-server` command. Below are setup instructions for popular AI clients.
 

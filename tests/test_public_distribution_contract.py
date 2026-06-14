@@ -49,3 +49,32 @@ def test_sdist_excludes_internal_agent_plans_and_personal_scripts(
         if any(re.search(pattern, name) for pattern in forbidden_patterns)
     ]
     assert leaked == []
+
+
+def test_public_docs_do_not_recommend_pip_or_missing_start_script() -> None:
+    docs = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in [
+            Path("README.md"),
+            Path("docs/configuration.md"),
+            Path("docs/troubleshooting.md"),
+            Path("docs/installation.md"),
+        ]
+    )
+
+    assert "pip install" not in docs
+    assert "scripts/start-mcp.sh" not in docs
+
+
+def test_installation_docs_cover_target_harnesses() -> None:
+    text = Path("docs/installation.md").read_text(encoding="utf-8")
+
+    for required in [
+        "Claude Code",
+        "Codex",
+        "Hermes",
+        "Claude Desktop",
+        "uvx",
+        "OBSIDIAN_VAULT_PATH",
+    ]:
+        assert required in text
