@@ -30,5 +30,5 @@ format:
 	uv run ruff format .
 
 verify:
-	uv run python scripts/verify_agents.py
+	uv run python scripts/verify_ignore.py
 	uv run python scripts/verify_youtube.py

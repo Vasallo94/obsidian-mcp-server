@@ -13,7 +13,6 @@ from obsidian_mcp.tools.creation_logic import (
     edit_note,
 )
 
-
 # --- Unit tests for _normalize_frontmatter ---
 
 
@@ -33,13 +32,7 @@ class TestNormalizeFrontmatter:
         assert "# Body" in result
 
     def test_last_value_wins(self):
-        content = (
-            "---\n"
-            "title: First\n"
-            "title: Second\n"
-            "---\n\n"
-            "body\n"
-        )
+        content = "---\ntitle: First\ntitle: Second\n---\n\nbody\n"
         result = _normalize_frontmatter(content)
         assert result.count("title:") == 1
         assert "Second" in result
@@ -50,14 +43,7 @@ class TestNormalizeFrontmatter:
 
     def test_valid_frontmatter_roundtrips_cleanly(self):
         content = (
-            "---\n"
-            "title: Clean\n"
-            "created: 2026-01-01\n"
-            "tags:\n"
-            "- one\n"
-            "- two\n"
-            "---\n\n"
-            "body\n"
+            "---\ntitle: Clean\ncreated: 2026-01-01\ntags:\n- one\n- two\n---\n\nbody\n"
         )
         result = _normalize_frontmatter(content)
         assert "title:" in result
@@ -66,13 +52,7 @@ class TestNormalizeFrontmatter:
 
     def test_body_preserved_after_normalization(self):
         body = "## Section\n\nParagraph with `code` and **bold**.\n"
-        content = (
-            "---\n"
-            "title: X\n"
-            "title: Y\n"
-            "---\n\n"
-            + body
-        )
+        content = "---\ntitle: X\ntitle: Y\n---\n\n" + body
         result = _normalize_frontmatter(content)
         assert body in result
 
