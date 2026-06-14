@@ -11,8 +11,8 @@ uv run ruff check .
 uv run pyright
 ```
 
-Use `uv` for all Python dependency management. Do not use `pip install` or
-`uv pip install` in this repository.
+Use `uv` for all Python dependency management. Do not use `pip` or `uv pip`
+to install packages in this repository.
 
 ## Pull request checklist
 

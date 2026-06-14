@@ -8,6 +8,17 @@ import tarfile
 import tomllib
 from pathlib import Path
 
+PUBLIC_GUIDANCE_PATHS = [
+    Path("README.md"),
+    Path("docs/configuration.md"),
+    Path("docs/troubleshooting.md"),
+    Path("docs/installation.md"),
+    Path("CONTRIBUTING.md"),
+    Path("SECURITY.md"),
+    Path("docs/release-checklist.md"),
+    Path("scripts/diagnose.py"),
+]
+
 
 def _pyproject() -> dict:
     return tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
@@ -40,6 +51,7 @@ def test_sdist_excludes_internal_agent_plans_and_personal_scripts(
         r"/docs/superpowers/",
         r"/\.agents/",
         r"/scripts/batch_integrate_journal\.py$",
+        r"/scripts/diagnose_backup\.py$",
         r"/scripts/vault_analytics\.py$",
         r"/AGENTS\.md$",
     ]
@@ -52,17 +64,10 @@ def test_sdist_excludes_internal_agent_plans_and_personal_scripts(
 
 
 def test_public_docs_do_not_recommend_pip_or_missing_start_script() -> None:
-    docs = "\n".join(
-        path.read_text(encoding="utf-8")
-        for path in [
-            Path("README.md"),
-            Path("docs/configuration.md"),
-            Path("docs/troubleshooting.md"),
-            Path("docs/installation.md"),
-        ]
-    )
+    docs = "\n".join(path.read_text(encoding="utf-8") for path in PUBLIC_GUIDANCE_PATHS)
 
     assert "pip install" not in docs
+    assert "uv run main.py" not in docs
     assert "scripts/start-mcp.sh" not in docs
 
 
