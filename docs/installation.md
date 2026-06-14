@@ -163,5 +163,15 @@ Common tool sets: `notes_write`, `vault_analysis`, `agents_admin`, `youtube`,
 ## MCPB
 
 MCPB bundles are intended for one-click local installation in apps that support
-the `.mcpb` format. Use the release artifact for your operating system rather
-than the source tree.
+the `.mcpb` format. MCPB bundles are release artifacts, so use the published
+bundle for your operating system when one is available.
+
+Until a release artifact is published for your operating system, use the
+Git-source install path for pre-release testing:
+
+```bash
+uvx --from git+https://github.com/Vasallo94/obsidian-mcp-server.git obsidian-mcp-server
+```
+
+Source bundle build tooling belongs to the release pipeline and is not a manual
+installation step here yet.

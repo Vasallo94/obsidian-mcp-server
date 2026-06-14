@@ -84,6 +84,18 @@ def test_public_docs_do_not_reference_missing_python_scripts() -> None:
     assert missing_scripts == []
 
 
+def test_mcpb_docs_describe_release_artifacts_and_prerelease_git_install() -> None:
+    text = Path("docs/installation.md").read_text(encoding="utf-8")
+    mcpb_section = text.split("## MCPB", maxsplit=1)[1]
+
+    assert "MCPB bundles are release artifacts" in mcpb_section
+    assert (
+        "uvx --from git+https://github.com/Vasallo94/obsidian-mcp-server.git "
+        "obsidian-mcp-server"
+    ) in mcpb_section
+    assert "scripts/build_mcpb.py" not in mcpb_section
+
+
 def test_readme_configures_vault_path_before_local_run() -> None:
     text = Path("README.md").read_text(encoding="utf-8")
 
