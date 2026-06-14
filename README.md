@@ -87,26 +87,6 @@ Optional packs are enabled explicitly from `.agents/vault.yaml` or
 For Claude Code, Codex, Hermes, Claude Desktop, and MCPB setup, see
 [Installation](docs/installation.md).
 
-The MCP server connects to compatible clients using the `uv run obsidian-mcp-server` command. Below are setup instructions for popular AI clients.
-
-### Claude Desktop Integration
-
-Add the following to your `claude_desktop_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "obsidian": {
-      "command": "uv",
-      "args": ["run", "obsidian-mcp-server"],
-      "env": {
-        "OBSIDIAN_VAULT_PATH": "/Absolute/Path/To/Your/Vault"
-      }
-    }
-  }
-}
-```
-
 ### Optional Tool Sets
 
 Enable optional tools from the client environment:
@@ -157,15 +137,6 @@ profile:
 Then read `obsidian://integrations/obsidianrag/setup` or call
 `rag.setup_status`. Agents should show setup commands before installing
 dependencies, starting services, pulling models, or rebuilding the index.
-
-### Cursor & Cline Integration
-
-For other clients like Cursor or Cline, you can add it as a new MCP server in their settings panel by specifying:
-- **Type**: `command`
-- **Command**: `uv run obsidian-mcp-server`
-- Ensure the `OBSIDIAN_VAULT_PATH` environment variable is available to the instance running the command.
-
----
 
 ## Technical Documentation
 

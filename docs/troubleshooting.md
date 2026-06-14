@@ -22,7 +22,7 @@ cd /path/to/obsidian-mcp-server
 uv sync
 ```
 
-For MCP clients, prefer the `uvx` install path in `docs/installation.md`, or
+For MCP clients, prefer the `uvx` install path in [Installation](installation.md), or
 use `uv run --directory /path/to/obsidian-mcp-server obsidian-mcp-server` for a
 local checkout.
 

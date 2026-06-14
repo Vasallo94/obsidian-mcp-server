@@ -66,6 +66,24 @@ def test_public_docs_do_not_recommend_pip_or_missing_start_script() -> None:
     assert "scripts/start-mcp.sh" not in docs
 
 
+def test_public_docs_do_not_reference_missing_python_scripts() -> None:
+    docs = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in [
+            Path("README.md"),
+            Path("docs/configuration.md"),
+            Path("docs/troubleshooting.md"),
+            Path("docs/installation.md"),
+        ]
+    )
+
+    script_paths = set(re.findall(r"scripts/[A-Za-z0-9_./-]+\.py", docs))
+    missing_scripts = sorted(
+        script_path for script_path in script_paths if not Path(script_path).exists()
+    )
+    assert missing_scripts == []
+
+
 def test_installation_docs_cover_target_harnesses() -> None:
     text = Path("docs/installation.md").read_text(encoding="utf-8")
 
@@ -78,3 +96,20 @@ def test_installation_docs_cover_target_harnesses() -> None:
         "OBSIDIAN_VAULT_PATH",
     ]:
         assert required in text
+
+    assert (
+        "uvx --from git+https://github.com/Vasallo94/obsidian-mcp-server.git "
+        "obsidian-mcp-server"
+    ) in text
+    assert (
+        '"--from", "git+https://github.com/Vasallo94/obsidian-mcp-server.git"' in text
+    )
+    assert (
+        '"--from",\n  "git+https://github.com/Vasallo94/obsidian-mcp-server.git",'
+    ) in text
+    assert (
+        '- "--from"\n      - "git+https://github.com/Vasallo94/obsidian-mcp-server.git"'
+    ) in text
+    assert (
+        '"--from",\n        "git+https://github.com/Vasallo94/obsidian-mcp-server.git",'
+    ) in text

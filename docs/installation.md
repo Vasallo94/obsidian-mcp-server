@@ -64,6 +64,23 @@ tool_timeout_sec = 120
 OBSIDIAN_VAULT_PATH = "/absolute/path/to/your/vault"
 ```
 
+For a Git install before PyPI publication:
+
+```toml
+[mcp_servers.obsidian]
+command = "uvx"
+args = [
+  "--from",
+  "git+https://github.com/Vasallo94/obsidian-mcp-server.git",
+  "obsidian-mcp-server",
+]
+startup_timeout_sec = 30
+tool_timeout_sec = 120
+
+[mcp_servers.obsidian.env]
+OBSIDIAN_VAULT_PATH = "/absolute/path/to/your/vault"
+```
+
 ## Hermes
 
 Add this to `~/.hermes/config.yaml`:
@@ -73,6 +90,20 @@ mcp_servers:
   obsidian:
     command: "uvx"
     args: ["obsidian-mcp-server"]
+    env:
+      OBSIDIAN_VAULT_PATH: "/absolute/path/to/your/vault"
+```
+
+For a Git install before PyPI publication:
+
+```yaml
+mcp_servers:
+  obsidian:
+    command: "uvx"
+    args:
+      - "--from"
+      - "git+https://github.com/Vasallo94/obsidian-mcp-server.git"
+      - "obsidian-mcp-server"
     env:
       OBSIDIAN_VAULT_PATH: "/absolute/path/to/your/vault"
 ```
@@ -87,6 +118,26 @@ Add this to `claude_desktop_config.json`:
     "obsidian": {
       "command": "uvx",
       "args": ["obsidian-mcp-server"],
+      "env": {
+        "OBSIDIAN_VAULT_PATH": "/absolute/path/to/your/vault"
+      }
+    }
+  }
+}
+```
+
+For a Git install before PyPI publication:
+
+```json
+{
+  "mcpServers": {
+    "obsidian": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/Vasallo94/obsidian-mcp-server.git",
+        "obsidian-mcp-server"
+      ],
       "env": {
         "OBSIDIAN_VAULT_PATH": "/absolute/path/to/your/vault"
       }
@@ -113,8 +164,4 @@ Common tool sets: `notes_write`, `vault_analysis`, `agents_admin`, `youtube`,
 
 MCPB bundles are intended for one-click local installation in apps that support
 the `.mcpb` format. Use the release artifact for your operating system rather
-than the source tree. Development builds are produced with:
-
-```bash
-uv run python scripts/build_mcpb.py
-```
+than the source tree.
