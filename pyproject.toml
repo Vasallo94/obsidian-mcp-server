@@ -8,9 +8,11 @@ version = "1.0.0"
 description = "MCP server for working with Obsidian vaults"
 readme = "README.md"
 requires-python = ">=3.11"
+authors = [{ name = "Enrique Book" }]
+license = "MIT"
 keywords = ["obsidian", "mcp", "claude", "knowledge-management", "notes"]
 classifiers = [
-    "Development Status :: 5 - Production/Stable",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
@@ -18,7 +20,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Topic :: Text Processing :: Markup :: Markdown",
-    "Topic :: Office/Business :: Groupware"
+    "Topic :: Office/Business :: Groupware",
 ]
 dependencies = [
     "aiofiles>=25.1.0",
@@ -59,6 +61,12 @@ rag = [
 [project.scripts]
 obsidian-mcp-server = "obsidian_mcp.server:main"
 
+[project.urls]
+Homepage = "https://github.com/Vasallo94/obsidian-mcp-server"
+Repository = "https://github.com/Vasallo94/obsidian-mcp-server"
+Documentation = "https://github.com/Vasallo94/obsidian-mcp-server/tree/main/docs"
+Issues = "https://github.com/Vasallo94/obsidian-mcp-server/issues"
+
 [dependency-groups]
 dev = [
     "pytest>=8.4.1",
@@ -78,10 +86,20 @@ dev = [
     # uv seeds the dev venv with pip; pin >=26.1.2 to clear PYSEC-2026-196
     # (the 26.1.1 seed otherwise fails the pip-audit pre-commit hook).
     "pip>=26.1.2",
+    "pyinstaller>=6.21.0",
 ]
 
 [tool.hatch.build.targets.wheel]
 packages = ["obsidian_mcp"]
+
+[tool.hatch.build.targets.sdist]
+exclude = [
+    "/.agents",
+    "/docs/superpowers",
+    "/scripts/batch_integrate_journal.py",
+    "/scripts/vault_analytics.py",
+    "/AGENTS.md",
+]
 
 [tool.ruff]
 line-length = 88

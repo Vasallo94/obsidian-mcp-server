@@ -43,6 +43,7 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 - **Import circular** en `security.py` que impedía el arranque del servidor MCP. El import de `vault_config` se movió a nivel de función para romper el ciclo de dependencias.
 
 ### Changed
+- Preparada la metadata pública del paquete y limpiado el sdist para excluir planes internos, scripts personales y configuración de agentes local.
 - Refactorizado `vault_config.py` para un enfoque minimalista y no prescriptivo.
 - Herramientas de navegación, creación y seguridad migradas para usar la nueva arquitectura dinámica e inputs validados.
 - Prompt del asistente actualizado para priorizar el chequeo de `skills` disponibles.
