@@ -84,6 +84,15 @@ def test_public_docs_do_not_reference_missing_python_scripts() -> None:
     assert missing_scripts == []
 
 
+def test_readme_configures_vault_path_before_local_run() -> None:
+    text = Path("README.md").read_text(encoding="utf-8")
+
+    configure_index = text.index("Set OBSIDIAN_VAULT_PATH")
+    run_index = text.index("uv run obsidian-mcp-server")
+
+    assert configure_index < run_index
+
+
 def test_installation_docs_cover_target_harnesses() -> None:
     text = Path("docs/installation.md").read_text(encoding="utf-8")
 

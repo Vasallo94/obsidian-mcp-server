@@ -59,25 +59,31 @@ Optional packs are enabled explicitly from `.agents/vault.yaml` or
    cd obsidian-mcp-server
    ```
 
-2. **Run locally**:
+2. **Install**:
 
    ```bash
    make install
-   uv run obsidian-mcp-server
-   ```
-
-   For end-user installation in MCP clients, prefer `uvx` once the package is
-   published:
-
-   ```bash
-   uvx obsidian-mcp-server
    ```
 
 3. **Configure**:
 
    ```bash
    cp .env.example .env
-   # Edit .env with the absolute path to your Obsidian vault
+   # Set OBSIDIAN_VAULT_PATH to the absolute path to your Obsidian vault
+   ```
+
+4. **Run locally**:
+
+   ```bash
+   uv run obsidian-mcp-server
+   ```
+
+   Local runs require `OBSIDIAN_VAULT_PATH` to be configured first. For
+   end-user installation in MCP clients, prefer `uvx` once the package is
+   published:
+
+   ```bash
+   uvx obsidian-mcp-server
    ```
 
 ---
