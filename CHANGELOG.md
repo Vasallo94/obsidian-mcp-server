@@ -51,6 +51,9 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 - Herramientas de navegación, creación y seguridad migradas para usar la nueva arquitectura dinámica e inputs validados.
 - Prompt del asistente actualizado para priorizar el chequeo de `skills` disponibles.
 
+### Removed
+- Eliminados planes internos de desarrollo y scripts personales/backup que contenían rutas locales antes de publicar el repositorio.
+
 ### Docs
 - Añadidos documentos públicos de contribución, seguridad y checklist de release.
 - Añadida guía estándar de instalación para Claude Code, Codex, Hermes, Claude Desktop y MCPB.

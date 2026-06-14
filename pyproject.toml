@@ -95,10 +95,6 @@ packages = ["obsidian_mcp"]
 [tool.hatch.build.targets.sdist]
 exclude = [
     "/.agents",
-    "/docs/superpowers",
-    "/scripts/batch_integrate_journal.py",
-    "/scripts/diagnose_backup.py",
-    "/scripts/vault_analytics.py",
     "/AGENTS.md",
 ]
 

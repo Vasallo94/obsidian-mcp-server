@@ -48,11 +48,7 @@ def test_sdist_excludes_internal_agent_plans_and_personal_scripts(
         names = archive.getnames()
 
     forbidden_patterns = [
-        r"/docs/superpowers/",
         r"/\.agents/",
-        r"/scripts/batch_integrate_journal\.py$",
-        r"/scripts/diagnose_backup\.py$",
-        r"/scripts/vault_analytics\.py$",
         r"/AGENTS\.md$",
     ]
     leaked = [
@@ -150,3 +146,14 @@ def test_public_governance_docs_exist() -> None:
     ]
 
     assert [path for path in required if not path.is_file()] == []
+
+
+def test_public_source_tree_has_no_private_local_artifacts() -> None:
+    forbidden_paths = [
+        Path("docs/superpowers"),
+        Path("scripts/batch_integrate_journal.py"),
+        Path("scripts/diagnose_backup.py"),
+        Path("scripts/vault_analytics.py"),
+    ]
+
+    assert [path for path in forbidden_paths if path.exists()] == []
