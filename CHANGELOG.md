@@ -8,6 +8,7 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 ## [Unreleased]
 
 ### Added
+- Pipeline de MCPB con binario local para generar bundles instalables por plataforma sin depender del Python del usuario.
 - **AFP #51 — Reposición y borrado de grupos en canvas**: Nuevas tools `canvas.move_card(node_id, x, y)` (reposiciona cualquier nodo) y `canvas.remove_group(group_id, remove_contents=False)` (borra un grupo y, opcionalmente, las tarjetas que contiene). Antes había que editar el `.canvas` a mano.
 - **AFP #52 — Registro de reglas del vault**: Nueva tool `rules.add(rule_text)` (pack `agents_admin`) para que el agente registre una regla en `.agents/REGLAS_GLOBALES.md` a petición del usuario, con confirmación interactiva (`elicit`) y sin acceso directo al fichero.
 - **Agent Feedback Protocol**: Añadido `afp.json` y una guía de uso out-of-band para que agentes y harnesses puedan generar drafts de fricción sin añadir tools MCP nuevas.
