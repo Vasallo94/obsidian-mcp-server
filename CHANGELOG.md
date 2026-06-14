@@ -31,6 +31,7 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 - **Indexación Semántica de Imágenes**: El sistema ahora extrae descripciones de imágenes (`![[img|desc]]` o `![desc](img)`) y las inyecta como contexto semántico, haciendo buscable el contenido visual.
 
 ### Fixed
+- MCPB ahora tiene una única fuente de verdad binaria, genera artefactos versionados por plataforma en `dist/mcpb/` y evita dejar ficheros `.spec` en la raíz del repositorio.
 - Evitado que `route.task` recomiende workflows personales de media en vaults genéricos sin estándar `media` declarado.
 - **`inbox.capture` — warning falso de frontmatter**: la tool pasaba `frontmatter={}` al middleware de reglas, por lo que cualquier regla `required_fields` (scope `frontmatter`, `applies_to: [create]`) disparaba un `[WARNINGS: Frontmatter incompleto: faltan type, status, tags]` falso aunque la nota creada en disco sí tenía esos campos. Ahora `inbox.capture` propaga el frontmatter real (`type`/`status`/`created`/`updated`/`tags`) vía el nuevo helper `inbox_capture_frontmatter`. El fixture de tests AFP limpia además el caché global de reglas entre tests para eliminar la dependencia de orden que enmascaraba el bug.
 - **AFP #50 — Reglas del vault en canvas**: `canvas.add_card` y `canvas.update_card` ahora validan el texto de las tarjetas contra las reglas del vault (p. ej. sin emojis en cabeceras) y devuelven `[WARNINGS: ...]`, igual que las tools `notes.*`. Antes la capa de reglas solo se aplicaba a notas.

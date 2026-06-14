@@ -103,6 +103,10 @@ def test_mcpb_manifest_contract():
     assert "runtimes" not in manifest.get("compatibility", {})
 
 
+def test_legacy_mcpb_manifest_is_not_a_source_of_truth():
+    assert not Path("mcpb/manifest.json").exists()
+
+
 def test_afp_manifest_contract():
     manifest_path = Path("afp.json")
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
