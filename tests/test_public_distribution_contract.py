@@ -134,3 +134,14 @@ def test_installation_docs_cover_target_harnesses() -> None:
     assert (
         '"--from",\n        "git+https://github.com/Vasallo94/obsidian-mcp-server.git",'
     ) in text
+
+
+def test_public_governance_docs_exist() -> None:
+    required = [
+        Path("SECURITY.md"),
+        Path("CONTRIBUTING.md"),
+        Path("docs/release-checklist.md"),
+        Path("LICENSE"),
+    ]
+
+    assert [path for path in required if not path.is_file()] == []

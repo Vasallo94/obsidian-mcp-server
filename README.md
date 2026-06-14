@@ -156,6 +156,10 @@ To dive deeper into how the server works and how to customize it, check our deta
 6. [Agent Feedback](docs/agent-feedback.md): How agents can report MCP friction with AFP out-of-band.
 7. [Future Roadmap](docs/FUTURE.md): Planned improvements and next steps for the server.
 
+For contribution, release, and security process, see
+[CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), and
+[Release Checklist](docs/release-checklist.md).
+
 ---
 
 ## Development & Quality
