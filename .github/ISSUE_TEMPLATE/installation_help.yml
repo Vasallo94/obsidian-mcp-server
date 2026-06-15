@@ -1,0 +1,35 @@
+name: Installation help
+description: Ask for help connecting the server to an MCP client.
+title: "install: "
+labels: ["installation", "question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before opening this issue, check `docs/installation.md` and `docs/troubleshooting.md`.
+  - type: dropdown
+    id: client
+    attributes:
+      label: MCP client or harness
+      options:
+        - Codex
+        - Claude Code
+        - Hermes
+        - Claude Desktop
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: config
+    attributes:
+      label: MCP configuration
+      description: Redact private paths and secrets.
+      render: toml
+    validations:
+      required: true
+  - type: textarea
+    id: error
+    attributes:
+      label: Error or symptom
+    validations:
+      required: true

@@ -1,0 +1,38 @@
+name: Beta feedback
+description: Share feedback from trying the public beta.
+title: "feedback: "
+labels: ["beta-feedback"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this for rough edges, confusing flows, missing docs, or ideas from real use.
+  - type: textarea
+    id: use-case
+    attributes:
+      label: What were you trying to do?
+      placeholder: I wanted Codex to read/search/edit notes in my vault...
+    validations:
+      required: true
+  - type: dropdown
+    id: client
+    attributes:
+      label: MCP client or harness
+      options:
+        - Codex
+        - Claude Code
+        - Hermes
+        - Claude Desktop
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: friction
+    attributes:
+      label: What felt confusing or missing?
+    validations:
+      required: true
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: What would make it better?

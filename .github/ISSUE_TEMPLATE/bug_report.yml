@@ -1,0 +1,43 @@
+name: Bug report
+description: Report something that is not working as expected.
+title: "bug: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for testing Obsidian MCP Server. Please avoid sharing private vault content in public issues.
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: Describe the bug and what you expected instead.
+    validations:
+      required: true
+  - type: input
+    id: client
+    attributes:
+      label: MCP client or harness
+      placeholder: Codex, Claude Code, Hermes, Claude Desktop, etc.
+    validations:
+      required: true
+  - type: textarea
+    id: config
+    attributes:
+      label: Relevant configuration
+      description: Redact private paths, tokens, and vault content.
+      render: toml
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or error output
+      render: shell
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I have removed private vault content and secrets from this report.
+          required: true
+        - label: I have checked the installation guide and troubleshooting docs.
+          required: false
