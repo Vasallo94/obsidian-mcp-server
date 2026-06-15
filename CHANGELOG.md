@@ -55,6 +55,7 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 - Eliminados planes internos de desarrollo y scripts personales/backup que contenían rutas locales antes de publicar el repositorio.
 
 ### Docs
+- Reorganizada la documentación como wiki pública con `docs/index.md`, arquitectura actualizada, guía `.agents` vigente, página de semantic search con ObsidianRAG y contratos contra links rotos/nombres antiguos de tools.
 - Pulido el README para la beta pública con instalación Git/uvx visible, ejemplo de Codex, grafo del vault y clientes actuales.
 - Añadidas plantillas de issues para bugs, ayuda de instalación y feedback de beta.
 - Añadidos documentos públicos de contribución, seguridad y checklist de release.

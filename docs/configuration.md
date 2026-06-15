@@ -1,44 +1,58 @@
-# Configuration Guide
+# Configuration
 
-For the MCP server to function correctly, you need to configure the environment and understand the structure of the special folders the server expects to find in your vault.
+This page covers environment variables, vault profile configuration, tool sets,
+and integration settings.
+
+For client-specific snippets, see [Installation](installation.md).
 
 ## Environment Variables (.env)
 
-The `.env` file at the root of the project is essential:
+Local development can use a `.env` file at the root of this repository.
+Installed MCP clients usually set the same values in their MCP configuration.
 
 | Variable | Required | Description |
 | :--- | :---: | :--- |
 | `OBSIDIAN_VAULT_PATH` | Yes | **Absolute** path to the root folder of your Obsidian vault. |
 | `OBSIDIAN_MCP_TOOL_SETS` | No | Comma-separated optional tool sets, for example `notes_write,vault_analysis`. |
-| `LOG_LEVEL` | No | Log detail level (`INFO`, `DEBUG`, `ERROR`). Defaults to `INFO`. |
+| `OBSIDIAN_MCP_PROFILE_NAME` | No | Optional active profile name exposed to prompts/resources. |
+| `OBSIDIAN_SEARCH_TIMEOUT_SECONDS` | No | Search timeout override. |
+| `OBSIDIAN_MAX_SEARCH_RESULTS` | No | Maximum default search result count. |
+| `OBSIDIAN_CACHE_TTL_SECONDS` | No | Cache TTL for vault-derived context. |
+| `LOG_LEVEL` | No | Log detail level (`DEBUG`, `INFO`, `WARNING`, `ERROR`). Defaults to `INFO`. |
 
 Example `.env`:
 ```ini
-OBSIDIAN_VAULT_PATH="/Users/enrique/Documents/MyDigitalBrain"
+OBSIDIAN_VAULT_PATH="/absolute/path/to/your/vault"
 OBSIDIAN_MCP_TOOL_SETS="notes_write,vault_analysis"
 LOG_LEVEL="DEBUG"
 ```
 
 ## Security and Exclusions
 
-By design, the server ignores system and hidden folders to prevent information leaks or corruption of Obsidian metadata:
+By design, the server ignores system and hidden folders to prevent information
+leaks or corruption of Obsidian metadata:
+
 - `.obsidian`
 - `.git`
 - `.trash`
 - Other automatically configured directories.
 
-To protect additional folders, use the `.forbidden_paths` file at the root of the server or the `private_paths` configuration in `vault.yaml`.
+To protect additional folders, use `.forbidden_paths` or
+`private_paths` in `.agents/vault.yaml`.
 
-## Vault-Agnostic Architecture
+## Vault-agnostic behavior
 
-The server is designed to be **vault-independent**. It does not impose any mandatory folder structure and uses an intelligent auto-detection logic.
+The server does not impose a folder structure. It auto-detects templates and
+reads optional configuration from the vault.
 
 ### 1. Auto-detection
 The server automatically tries to find key folders:
 - **Templates**: It searches for any folder containing "template" or "plantilla" in its name (e.g., `ZZ_Templates`, `Templates`, `06_Templates`).
 
-### 2. Optional Configuration (`vault.yaml`)
-If you have a non-standard structure or want more granular control, you can create a `.agents/vault.yaml` file at the root of your vault:
+### Optional vault configuration
+
+Create `.agents/vault.yaml` at the root of your vault when you want explicit
+tool sets, profile resources, or integration settings:
 
 ```yaml
 # .agents/vault.yaml
@@ -71,7 +85,7 @@ profile:
         OBSIDIANRAG_LLM_MODEL: "gemma3"
 ```
 
-For a detailed guide on how to configure the `.agents/` folder, refer to the [Agent Folder Setup Guide](agent-folder-setup.md).
+For the full `.agents/` contract, see [Agent folder setup](agent-folder-setup.md).
 
 > [!WARNING]
 > Never point `OBSIDIAN_VAULT_PATH` to a folder that contains sensitive private information outside of Obsidian, as the agent could read it if it has read permissions.
@@ -84,8 +98,8 @@ profile behavior.
 
 ## Tool Sets and Client Roots
 
-The MCP server exposes a small core by default. Extra capabilities are explicit
-opt-ins:
+The MCP server exposes the `core` tool set by default. Extra capabilities are
+explicit opt-ins:
 
 - `notes_write`: note creation and mutation.
 - `vault_analysis`: stats, tags, links, backlinks, and graph helpers.
@@ -94,7 +108,7 @@ opt-ins:
 - `obsidianrag`: semantic search through the external ObsidianRAG backend.
 - `canvas` and `kanvas`: visual canvas and workflow helpers.
 - `legacy_semantic`: deprecated in-process semantic search. Prefer
-  `obsidianrag`; this pack is kept only for backwards compatibility.
+  `obsidianrag`; this pack is kept only for backward compatibility.
 
 Use `client.roots()` to inspect roots advertised by clients that support
 the MCP `roots/list` capability. This is useful during setup because an agent
@@ -102,9 +116,9 @@ can confirm which workspaces or vault folders the client has made visible.
 
 ## ObsidianRAG Guided Setup
 
-This project does not embed a second advanced RAG implementation. When semantic
-search is needed, enable the `obsidianrag` tool set and declare the local
-ObsidianRAG integration in `.agents/vault.yaml`.
+This project does not embed a second advanced RAG implementation by default.
+When semantic search is needed, enable the `obsidianrag` tool set and declare
+the local ObsidianRAG integration in `.agents/vault.yaml`.
 
 The older `legacy_semantic` tool set is deprecated because it embeds ChromaDB,
 LangChain retrievers, sentence-transformers, and PyTorch directly in the MCP
@@ -121,14 +135,15 @@ The server then exposes:
 Agents must ask for consent before installing dependencies, pulling models,
 starting local services, or rebuilding a large index.
 
-## Skills and Global Rules (in your Vault)
+## Skills and global rules
 
-The MCP server can read **skills** (AI personalities/roles) and **global rules** directly from your Obsidian vault. These files **are not in the MCP repository**, but in your personal vault.
+The MCP server can read skills and global rules directly from your vault. These
+files are not part of this repository.
 
-### Expected Structure in your Vault
+### Expected structure
 
 ```text
-Your_Vault/
+your-vault/
 ├── .agents/
 │   ├── REGLAS_GLOBALES.md      # General instructions for the assistant
 │   └── skills/
@@ -142,16 +157,17 @@ Your_Vault/
 
 ### SKILL.md Format
 
-Each skill is defined with a `SKILL.md` file containing YAML frontmatter and the prompt:
+Each skill is defined with a `SKILL.md` file containing YAML frontmatter and
+instructions:
 
 ```markdown
 ---
 name: Technical Writer
 description: Specialist in clear and concise documentation
 tools:
-  - create_note
-  - patch_note
-  - search_notes
+  - notes.read
+  - notes.search
+  - notes.patch
 ---
 
 # Instructions
@@ -174,7 +190,8 @@ You are a technical writer specializing in...
 
 ### REGLAS_GLOBALES.md
 
-This file contains instructions that apply to **all** interactions with the assistant, regardless of the active skill. For example:
+This file contains instructions that apply to all interactions with the
+assistant, regardless of the active skill. For example:
 
 ```markdown
 # Vault Global Rules

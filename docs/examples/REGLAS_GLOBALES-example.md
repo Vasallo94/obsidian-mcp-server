@@ -21,11 +21,11 @@ description: >
 - *Exception*: Only allowed in content if semantically necessary
 
 ### 2. Golden Rule of Editing
-When using `editar_nota()`:
-1. **FIRST** read the note with `leer_nota()`
-2. Send `operaciones` as a list of `{"old": "exact text", "new": "replacement"}`
+When using `notes.patch()`:
+1. **FIRST** read the note with `notes.read()`
+2. Send `operations` as a list of `{"old": "exact text", "new": "replacement"}`
 3. `old` must be **UNIQUE** in the note — include more context if ambiguous
-4. For full replace: `[{"old": "", "new": "complete content"}]`
+4. For full-note replacement, prefer `notes.replace()` when the client supports confirmation
 
 ### 3. Access Restrictions
 - Don't access files in `.forbidden_paths`
@@ -38,11 +38,11 @@ When using `editar_nota()`:
 ### Step 1: Verify Vault Context
 ```python
 # ALWAYS run first:
-leer_contexto_vault()
+vault.context()
 ```
 
 ### Step 2: Verify Correct Location
-- Use `sugerir_ubicacion()` to confirm destination
+- Use `notes.suggest_location()` to confirm destination
 - Ask user for confirmation before creating
 
 ### Step 3: Use Real Frontmatter
