@@ -120,9 +120,9 @@ This project does not embed a second advanced RAG implementation by default.
 When semantic search is needed, enable the `obsidianrag` tool set and declare
 the local ObsidianRAG integration in `.agents/vault.yaml`.
 
-The older `legacy_semantic` tool set is deprecated because it embeds ChromaDB,
-LangChain retrievers, sentence-transformers, and PyTorch directly in the MCP
-server. New deployments should use ObsidianRAG instead.
+The older `legacy_semantic` tool set is deprecated because it embeds ChromaDB
+and LangChain retrievers directly in the MCP server. It now keeps only the
+minimal Ollama embedding path; new deployments should use ObsidianRAG instead.
 
 The server then exposes:
 

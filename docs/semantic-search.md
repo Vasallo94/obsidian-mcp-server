@@ -73,7 +73,9 @@ The `legacy_semantic` tool set still exists for backward compatibility:
 - `semantic.suggest_connections`
 
 It is disabled by default and deprecated for new deployments. It requires the
-optional `[rag]` dependency extra and loads ChromaDB, LangChain, sentence
-transformers, and PyTorch inside the MCP server process.
+optional `[rag]` dependency extra and keeps a minimal local stack around
+ChromaDB, LangChain, and Ollama embeddings. The older HuggingFace/PyTorch
+fallback is no longer bundled; use `obsidianrag` for a maintained semantic
+backend.
 
 Prefer `obsidianrag` unless you are maintaining an older local setup.

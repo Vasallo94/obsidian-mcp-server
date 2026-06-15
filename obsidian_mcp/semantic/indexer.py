@@ -11,7 +11,6 @@ import yaml
 from langchain_chroma import Chroma  # type: ignore
 from langchain_core.documents import Document  # type: ignore
 from langchain_core.embeddings import Embeddings  # type: ignore
-from langchain_huggingface import HuggingFaceEmbeddings  # type: ignore
 from langchain_ollama import OllamaEmbeddings  # type: ignore
 from langchain_text_splitters import (
     MarkdownHeaderTextSplitter,  # type: ignore
@@ -69,18 +68,14 @@ def get_embeddings(
     ollama_base_url: str = "http://localhost:11434",
 ) -> Embeddings:
     """Get configured embeddings model based on provider setting."""
-    if provider == "ollama":
-        logger.info("Loading Ollama embeddings", extra={"model": model})
-        return OllamaEmbeddings(model=model, base_url=ollama_base_url)
+    if provider != "ollama":
+        raise ValueError(
+            "Legacy semantic embeddings only support provider='ollama'. "
+            "Use the obsidianrag tool set for new semantic-search deployments."
+        )
 
-    # Fallback to HuggingFace
-    logger.info(
-        "Initializing HuggingFace embeddings: "
-        "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
-    )
-    return HuggingFaceEmbeddings(
-        model_name="sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
-    )
+    logger.info("Loading Ollama embeddings", extra={"model": model})
+    return OllamaEmbeddings(model=model, base_url=ollama_base_url)
 
 
 _HEADERS_TO_SPLIT_ON = [
