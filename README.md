@@ -5,10 +5,28 @@
 <br>
 [![MCP Compatible](https://img.shields.io/badge/MCP-Compatible-5c3cfa?style=flat)](https://modelcontextprotocol.io/)
 [![Obsidian Integration](https://img.shields.io/badge/Obsidian-Vault-483699?style=flat&logo=obsidian&logoColor=white)](https://obsidian.md/)
-[![Claude Desktop](https://img.shields.io/badge/Claude-Desktop-D97757?style=flat&logo=anthropic&logoColor=white)](https://claude.ai/)
+[![Claude Code](https://img.shields.io/badge/Claude-Code-D97757?style=flat&logo=anthropic&logoColor=white)](https://claude.ai/)
+[![Codex](https://img.shields.io/badge/OpenAI-Codex-10A37F?style=flat&logo=openai&logoColor=white)](https://openai.com/codex/)
 [![Custom Skills](https://img.shields.io/badge/AI-Skills-10A37F?style=flat)](https://github.com/Vasallo94/obsidian-mcp-server/blob/main/docs/agent-folder-setup.md)
 
-An **MCP (Model Context Protocol)** server that makes an Obsidian vault useful to AI clients such as Claude Desktop, Claude Code, Cursor, and Cline. It is designed as a public, reusable core with optional tool sets and vault-specific profiles layered on top.
+An **MCP (Model Context Protocol)** server that lets AI agents work inside an Obsidian vault: read notes, search context, inspect links, follow vault-specific rules, and optionally create or edit notes safely.
+
+It is designed for clients and harnesses such as **Codex**, **Claude Code**, **Hermes**, and **Claude Desktop**. The core stays reusable; each vault can layer its own profiles, rules, skills, and optional tool sets on top.
+
+> Tools are generic. Behavior comes from the vault.
+
+![Example Obsidian vault graph generated through the MCP server](docs/vault-graph.png)
+
+```mermaid
+flowchart LR
+    Clients["Codex, Claude Code, Hermes, Claude Desktop"] --> MCP["Obsidian MCP Server"]
+    MCP --> Core["Core tools: read, search, inspect, route"]
+    MCP --> Optional["Optional tool sets: write, graph, canvas, ObsidianRAG"]
+    Core --> Vault["Obsidian vault"]
+    Optional --> Vault
+    Vault --> Profile[".agents/vault.yaml, rules, skills, standards"]
+    Profile --> MCP
+```
 
 ---
 
@@ -43,55 +61,62 @@ Optional packs are enabled explicitly from `.agents/vault.yaml` or
 - **Safe by default**: Write tools are opt-in, protected paths are blocked, and large reads are capped.
 - **External RAG by integration**: Advanced semantic search delegates to ObsidianRAG instead of duplicating a RAG stack inside the MCP server.
 
-## Quick Setup
+## Quick Start
 
 ### Prerequisites
 
-- Python 3.11+
-- [uv](https://github.com/astral-sh/uv) (Recommended)
+- [uv](https://github.com/astral-sh/uv)
+- An Obsidian vault path you are comfortable exposing to an MCP client
 
-### Steps
+### Beta install from Git
 
-1. **Clone**:
+Until the package is published to PyPI, install directly from GitHub with
+`uvx`:
 
-   ```bash
-   git clone https://github.com/Vasallo94/obsidian-mcp-server.git
-   cd obsidian-mcp-server
-   ```
+```bash
+uvx --from git+https://github.com/Vasallo94/obsidian-mcp-server.git obsidian-mcp-server
+```
 
-2. **Install**:
+For Codex, add this to `~/.codex/config.toml`:
 
-   ```bash
-   make install
-   ```
+```toml
+[mcp_servers.obsidian]
+command = "uvx"
+args = [
+  "--from",
+  "git+https://github.com/Vasallo94/obsidian-mcp-server.git",
+  "obsidian-mcp-server",
+]
+startup_timeout_sec = 30
+tool_timeout_sec = 120
 
-3. **Configure**:
+[mcp_servers.obsidian.env]
+OBSIDIAN_VAULT_PATH = "/absolute/path/to/your/vault"
+```
 
-   ```bash
-   cp .env.example .env
-   # Set OBSIDIAN_VAULT_PATH to the absolute path to your Obsidian vault
-   ```
+For Claude Code, Hermes, Claude Desktop, and MCPB setup, see
+[Installation](docs/installation.md).
 
-4. **Run locally**:
+### Local development
 
-   ```bash
-   uv run obsidian-mcp-server
-   ```
+```bash
+git clone https://github.com/Vasallo94/obsidian-mcp-server.git
+cd obsidian-mcp-server
+make install
+cp .env.example .env
+# Set OBSIDIAN_VAULT_PATH to the absolute path to your Obsidian vault
+uv run obsidian-mcp-server
+```
 
-   Local runs require `OBSIDIAN_VAULT_PATH` to be configured first. For
-   end-user installation in MCP clients, prefer `uvx` once the package is
-   published:
+Once the package is published to PyPI, client configs can use:
 
-   ```bash
-   uvx obsidian-mcp-server
-   ```
+```bash
+uvx obsidian-mcp-server
+```
 
 ---
 
 ## Usage
-
-For Claude Code, Codex, Hermes, Claude Desktop, and MCPB setup, see
-[Installation](docs/installation.md).
 
 ### Optional Tool Sets
 
@@ -167,9 +192,9 @@ For contribution, release, and security process, see
 | Command | Description |
 | :--- | :--- |
 | `make test` | Run the test suite (pytest) |
-| `make lint` | Run static checks (Ruff + Mypy + Pylint) |
+| `make lint` | Run static checks (Ruff + Pyright) |
 | `make format` | Automatically format code |
-| `make dev` | Run the MCP inspector for live testing |
+| `make dev` | Run the MCP server locally |
 
 ---
 

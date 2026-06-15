@@ -55,6 +55,8 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 - Eliminados planes internos de desarrollo y scripts personales/backup que contenían rutas locales antes de publicar el repositorio.
 
 ### Docs
+- Pulido el README para la beta pública con instalación Git/uvx visible, ejemplo de Codex, grafo del vault y clientes actuales.
+- Añadidas plantillas de issues para bugs, ayuda de instalación y feedback de beta.
 - Añadidos documentos públicos de contribución, seguridad y checklist de release.
 - Añadida guía estándar de instalación para Claude Code, Codex, Hermes, Claude Desktop y MCPB.
 - Regla añadida en `AGENTS.md` exigiendo actualizar el `CHANGELOG.md` antes de cada commit.
