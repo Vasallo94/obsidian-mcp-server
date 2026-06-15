@@ -10,13 +10,33 @@ from pathlib import Path
 
 PUBLIC_GUIDANCE_PATHS = [
     Path("README.md"),
+    Path("docs/index.md"),
+    Path("docs/architecture.md"),
     Path("docs/configuration.md"),
+    Path("docs/agent-folder-setup.md"),
+    Path("docs/tool-reference.md"),
+    Path("docs/semantic-search.md"),
     Path("docs/troubleshooting.md"),
     Path("docs/installation.md"),
     Path("CONTRIBUTING.md"),
     Path("SECURITY.md"),
     Path("docs/release-checklist.md"),
     Path("scripts/diagnose.py"),
+]
+
+CURRENT_DOC_PATHS = [
+    Path("README.md"),
+    Path("docs/index.md"),
+    Path("docs/architecture.md"),
+    Path("docs/configuration.md"),
+    Path("docs/agent-folder-setup.md"),
+    Path("docs/agent-quickstart.md"),
+    Path("docs/tool-reference.md"),
+    Path("docs/semantic-search.md"),
+    Path("docs/troubleshooting.md"),
+    Path("docs/installation.md"),
+    Path("docs/examples/REGLAS_GLOBALES-example.md"),
+    Path("docs/examples/SKILL-writer-example.md"),
 ]
 
 
@@ -83,6 +103,58 @@ def test_public_docs_do_not_reference_missing_python_scripts() -> None:
         script_path for script_path in script_paths if not Path(script_path).exists()
     )
     assert missing_scripts == []
+
+
+def test_public_markdown_links_point_to_existing_files() -> None:
+    markdown_paths = [
+        Path("README.md"),
+        *sorted(Path("docs").rglob("*.md")),
+    ]
+    missing_links: list[str] = []
+
+    for path in markdown_paths:
+        text = path.read_text(encoding="utf-8")
+        for raw_target in re.findall(r"\[[^\]]+\]\(([^)#][^)]+)\)", text):
+            if "://" in raw_target or raw_target.startswith("mailto:"):
+                continue
+            target = raw_target.split("#", maxsplit=1)[0]
+            if not target or target.startswith("<"):
+                continue
+            resolved = (path.parent / target).resolve()
+            if not resolved.exists():
+                missing_links.append(f"{path}: {raw_target}")
+
+    assert not missing_links
+
+
+def test_current_docs_use_public_tool_names_not_legacy_spanish_names() -> None:
+    docs = "\n".join(path.read_text(encoding="utf-8") for path in CURRENT_DOC_PATHS)
+
+    forbidden_terms = [
+        "editar_nota",
+        "crear_nota",
+        "leer_nota",
+        "leer_contexto_vault",
+        "sugerir_ubicacion",
+        "listar_agentes",
+        "obtener_instrucciones_agente",
+        "obtener_reglas_globales",
+        "create_note",
+        "patch_note",
+        "search_notes",
+    ]
+
+    leaked_terms = [term for term in forbidden_terms if term in docs]
+    assert leaked_terms == []
+
+
+def test_tool_reference_mentions_every_registered_public_tool() -> None:
+    from obsidian_mcp.tools.registry import TOOL_SPECS
+
+    text = Path("docs/tool-reference.md").read_text(encoding="utf-8")
+    missing_tools = sorted(name for name in TOOL_SPECS if name not in text)
+
+    assert missing_tools == []
 
 
 def test_mcpb_docs_describe_release_artifacts_and_prerelease_git_install() -> None:

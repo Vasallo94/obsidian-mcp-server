@@ -2,6 +2,11 @@
 
 Recommendations from an agent that ran a heavy vault audit + cleanup session.
 
+> Historical AFP report. Some tool names in this document use the pre-namespace
+> API (`create_note`, `patch_note`, `kanvas_*`, etc.) because they describe the
+> original feedback that led to the current public names such as `notes.create`,
+> `notes.patch`, and `kanvas.start`.
+
 ## Context
 
 - **Session goal**: bootstrap a Nadir astronomy profile + audit + clean up `05_Recursos/Astrofotografía/` (21 notes + 2 project notes in `04_Proyectos/`).

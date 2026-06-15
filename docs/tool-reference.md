@@ -107,7 +107,8 @@ project instead of embedding a second RAG stack inside this MCP server.
   rule in `.agents/REGLAS_GLOBALES.md` after interactive confirmation, so the
   agent never edits that file directly.
 - `youtube`: `youtube.transcript`.
-- `legacy_semantic`: deprecated in-process semantic tools, disabled by default.
+- `legacy_semantic`: deprecated in-process semantic tools, disabled by default:
+  `semantic.index`, `semantic.search`, and `semantic.suggest_connections`.
   Prefer `obsidianrag` for all new semantic-search deployments.
 - `canvas`: Obsidian Canvas read/write tools — `canvas.read` (surfaces the
   standard color legend and any board "Legend"/"Leyenda" card), `canvas.list`,
@@ -117,8 +118,13 @@ project instead of embedding a second RAG stack inside this MCP server.
   Card text is validated against the vault rules (e.g. no emojis in headings),
   just like `notes.*`. Standard colors: `"0"`=default, `"1"`=red, `"2"`=orange,
   `"3"`=yellow, `"4"`=green, `"5"`=cyan, `"6"`=purple.
-- `kanvas`: workflow/task-board tools.
-- `secundo_selebro`: personal profile tools such as `inbox.capture`.
+- `kanvas`: workflow/task-board tools — `kanvas.init`, `kanvas.status`,
+  `kanvas.task`, `kanvas.ready`, `kanvas.blocked`, `kanvas.start`,
+  `kanvas.finish`, `kanvas.pause`, `kanvas.approve`, `kanvas.complete`,
+  `kanvas.edit_task`, `kanvas.add_dependency`, `kanvas.propose_task`, and
+  `kanvas.propose_group`.
+- Profile-specific packs such as `secundo_selebro`: local tools enabled only by
+  a matching vault profile, for example `inbox.capture` and `random.concept`.
 
 ## Resources
 
@@ -141,8 +147,9 @@ Tool names follow two patterns by intent:
 
 - **Verb-first** for generic note operations: `notes.create`, `notes.read`,
   `notes.patch`, `notes.move`, `notes.delete`, `links.analyze`, `links.find_orphans`.
-- **Namespace-prefixed** for domain-specific tool families: `canvas_*` (Obsidian
-  Canvas), `kanvas_*` (workflow boards), `rag_*` / `rag.ask` (semantic search).
+- **Namespace-prefixed** for domain-specific tool families: `canvas.*`
+  (Obsidian Canvas), `kanvas.*` (workflow boards), and `rag.*`
+  (semantic search).
 
 Renaming public tools is a breaking change for MCP clients, so the mix is
 intentional. When in doubt, search this reference first; the function-name

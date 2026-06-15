@@ -173,13 +173,15 @@ dependencies, starting services, pulling models, or rebuilding the index.
 
 To dive deeper into how the server works and how to customize it, check our detailed guides located in the `docs/` folder:
 
-1. [Architecture](docs/architecture.md): Modular structure and data flow of the project.
-2. [Tool Reference](docs/tool-reference.md): Complete list of available MCP tools and their parameters.
-3. [Server Configuration](docs/configuration.md): Guide on environment variables and technical configuration.
-4. [Agent Setup](docs/agent-folder-setup.md): How to organize your vault (`.agents/`) with skills and contextual rules.
-5. [Semantic Search](docs/semantic-search.md): ObsidianRAG integration and legacy RAG migration notes.
-6. [Agent Feedback](docs/agent-feedback.md): How agents can report MCP friction with AFP out-of-band.
-7. [Future Roadmap](docs/FUTURE.md): Planned improvements and next steps for the server.
+1. [Documentation Home](docs/index.md): Wiki-style map of the project docs.
+2. [Installation](docs/installation.md): Setup for Codex, Claude Code, Hermes, Claude Desktop, and MCPB.
+3. [Architecture](docs/architecture.md): Runtime architecture, tool sets, resources, prompts, and security model.
+4. [Tool Reference](docs/tool-reference.md): Complete list of public MCP tools.
+5. [Server Configuration](docs/configuration.md): Environment variables, vault profiles, tool sets, and integrations.
+6. [Agent Setup](docs/agent-folder-setup.md): How to organize your vault (`.agents/`) with skills and contextual rules.
+7. [Semantic Search](docs/semantic-search.md): ObsidianRAG integration and legacy RAG migration notes.
+8. [Agent Feedback](docs/agent-feedback.md): How agents can report MCP friction with AFP out-of-band.
+9. [Future Roadmap](docs/FUTURE.md): Planned improvements and next steps for the server.
 
 For contribution, release, and security process, see
 [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), and
