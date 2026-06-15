@@ -15,25 +15,16 @@ uv sync
 
 Then reconnect the MCP from Claude Code (`/mcp` > reconnect).
 
-**Permanent fix**: Use the wrapper script `scripts/start-mcp.sh` instead of calling `uv run` directly. This script runs `uv sync --quiet` before launching the server, ensuring dependencies are always ready.
+**Permanent fix**: pre-warm dependencies before reconnecting:
 
-Update your `.mcp.json` (or `claude_desktop_config.json`) to use:
-
-```json
-{
-  "mcpServers": {
-    "obsidian": {
-      "command": "bash",
-      "args": [
-        "C:/Users/ldaevf1/Programs/obsidian-mcp-server/scripts/start-mcp.sh"
-      ],
-      "env": {
-        "OBSIDIAN_VAULT_PATH": "/Absolute/Path/To/Your/Vault"
-      }
-    }
-  }
-}
+```bash
+cd /path/to/obsidian-mcp-server
+uv sync
 ```
+
+For MCP clients, prefer the `uvx` install path in [Installation](installation.md), or
+use `uv run --directory /path/to/obsidian-mcp-server obsidian-mcp-server` for a
+local checkout.
 
 ## FastMCP version check hangs in corporate networks
 

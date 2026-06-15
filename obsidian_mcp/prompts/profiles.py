@@ -31,7 +31,7 @@ def register_profile_prompts(mcp: FastMCP) -> None:
             opinion: str = "",
         ) -> str:
             """
-            Update a movie, series, or book in the Secundo Selebro media library.
+            Update a movie, series, or book in the active vault media library.
 
             Args:
                 work: Title or free-form description of the work.
@@ -65,7 +65,7 @@ def register_profile_prompts(mcp: FastMCP) -> None:
             clippings_path: str = "/Volumes/Kindle/documents/My Clippings.txt",
         ) -> str:
             """
-            Import Kindle highlights into Secundo Selebro media notes.
+            Import Kindle highlights into the active vault media notes.
 
             Args:
                 clippings_path: Path to My Clippings.txt.

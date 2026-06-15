@@ -69,7 +69,7 @@ def _normalize_frontmatter(content: str) -> str:
         sort_keys=False,
     )
 
-    return f"---\n{clean_yaml}---\n{content[match.end():]}"
+    return f"---\n{clean_yaml}---\n{content[match.end() :]}"
 
 
 def _process_date_placeholders(content: str, date_obj: datetime | None = None) -> str:
@@ -310,7 +310,7 @@ def append_to_note(
 
     nota_path = find_note_by_name(nombre_archivo)
     if not nota_path:
-        return Result.fail(f"No se encontro la nota '{nombre_archivo}'")
+        return Result.fail(f"No se encontró la nota '{nombre_archivo}'")
 
     is_allowed, error = check_path_access(nota_path, vault_path, "modificar")
     if not is_allowed:
@@ -352,7 +352,7 @@ def delete_note(nombre_archivo: str, confirmar: bool = False) -> Result[str]:
 
     nota_path = find_note_by_name(nombre_archivo)
     if not nota_path:
-        return Result.fail(f"No se encontro la nota '{nombre_archivo}'")
+        return Result.fail(f"No se encontró la nota '{nombre_archivo}'")
 
     is_allowed, error = check_path_access(nota_path, vault_path, "eliminar")
     if not is_allowed:
@@ -472,14 +472,14 @@ def edit_note(  # pylint: disable=too-many-locals,too-many-return-statements,too
 
     nota_path = find_note_by_name(nombre_archivo)
     if not nota_path:
-        return Result.fail(f"No se encontro la nota '{nombre_archivo}'")
+        return Result.fail(f"No se encontró la nota '{nombre_archivo}'")
 
     is_allowed, error = check_path_access(nota_path, vault_path, "editar")
     if not is_allowed:
         return Result.fail(error)
 
     if not operaciones:
-        return Result.fail("Debe incluir al menos una operacion.")
+        return Result.fail("Debe incluir al menos una operación.")
 
     if len(operaciones) > 50:
         return Result.fail("Maximo 50 operaciones por llamada.")
@@ -498,7 +498,7 @@ def edit_note(  # pylint: disable=too-many-locals,too-many-return-statements,too
     if any(op["old"] == "" for op in operaciones):
         if len(operaciones) != 1:
             return Result.fail(
-                "El reemplazo total (old vacio) debe ser la unica operacion en la lista."
+                "El reemplazo total (old vacío) debe ser la única operación en la lista."
             )
         op = operaciones[0]
         if op["new"] == "":
@@ -527,7 +527,7 @@ def edit_note(  # pylint: disable=too-many-locals,too-many-return-statements,too
             preview = old_text[:80] + ("..." if len(old_text) > 80 else "")
             suggestions = _suggest_close_matches(old_text, contenido_actual)
             base_msg = (
-                f"No se encontro el texto: '{preview}' en la nota {ruta_relativa}"
+                f"No se encontró el texto: '{preview}' en la nota {ruta_relativa}"
             )
             if suggestions:
                 hint_lines = "\n".join(f"  - {s!r}" for s in suggestions)

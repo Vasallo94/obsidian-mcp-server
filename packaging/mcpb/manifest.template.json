@@ -2,25 +2,28 @@
   "$schema": "https://raw.githubusercontent.com/anthropics/mcpb/main/schemas/mcpb-manifest-v0.4.schema.json",
   "manifest_version": "0.4",
   "name": "obsidian-mcp-server",
+  "display_name": "Obsidian MCP Server",
   "version": "1.0.0",
   "description": "Local MCP server for reading, searching, and maintaining Obsidian vaults.",
   "author": {
     "name": "Enrique Book"
   },
+  "keywords": [
+    "obsidian",
+    "mcp",
+    "notes",
+    "knowledge-management"
+  ],
   "server": {
-    "type": "python",
-    "entry_point": "server/obsidian_mcp_server.py",
+    "type": "binary",
+    "entry_point": "server/obsidian-mcp-server",
     "mcp_config": {
-      "command": "python",
-      "args": [
-        "${__dirname}/server/obsidian_mcp_server.py"
-      ],
+      "command": "${__dirname}/server/obsidian-mcp-server",
       "env": {
         "OBSIDIAN_VAULT_PATH": "${user_config.vaultPath}",
         "OBSIDIAN_MCP_TOOL_SETS": "${user_config.toolSets}",
         "OBSIDIAN_MCP_PROFILE_NAME": "${user_config.profileName}",
-        "OBSIDIANRAG_API_URL": "${user_config.obsidianRagApiUrl}",
-        "PYTHONPATH": "${__dirname}/server/vendor:${__dirname}/server/package"
+        "OBSIDIANRAG_API_URL": "${user_config.obsidianRagApiUrl}"
       }
     }
   },
@@ -54,11 +57,8 @@
     "claude_desktop": ">=1.0.0",
     "platforms": [
       "darwin",
-      "win32",
-      "linux"
-    ],
-    "runtimes": {
-      "python": ">=3.11"
-    }
+      "linux",
+      "win32"
+    ]
   }
 }

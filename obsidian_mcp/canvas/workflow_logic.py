@@ -79,14 +79,26 @@ def _has_task_like_text(node: Node) -> bool:
 
 
 def generate_group_prefix(label: str, existing_prefixes: list[str]) -> str:
-    """Generate a 1-3 letter prefix from a group label."""
-    words = label.strip().split()
+    """Generate a 1-3 letter prefix from a group label.
+
+    El prefijo debe ser parseable por TASK_ID_RE ([A-Z]{1,3}): un label como
+    '5.0 Paquetes' no puede producir '5P', o los IDs emitidos serían
+    invisibles para extract_task_id (contador clavado en -01 y status ciego).
+    Por eso solo se consideran letras ASCII del label.
+    """
+    words = [
+        "".join(c for c in w if c.isascii() and c.isalpha())
+        for w in label.strip().split()
+    ]
+    words = [w for w in words if w]
+    if not words:
+        words = ["GRP"]
     if len(words) > 1:
         prefix = "".join(w[0].upper() for w in words)[:3]
         if prefix not in existing_prefixes:
             return prefix
 
-    word = label.strip().upper()
+    word = "".join(words).upper()
 
     # Try single-letter first
     if word[:1] not in existing_prefixes:

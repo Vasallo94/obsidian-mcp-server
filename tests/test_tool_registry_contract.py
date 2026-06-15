@@ -89,15 +89,22 @@ def test_write_tool_annotations_are_exposed(tmp_path, monkeypatch):
 
 
 def test_mcpb_manifest_contract():
-    manifest_path = Path("mcpb/manifest.json")
+    manifest_path = Path("packaging/mcpb/manifest.template.json")
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
 
     assert manifest["manifest_version"] == "0.4"
-    assert manifest["server"]["type"] == "python"
-    assert manifest["server"]["mcp_config"]["env"]["OBSIDIAN_VAULT_PATH"]
+    assert manifest["server"]["type"] == "binary"
+    config = manifest["server"]["mcp_config"]
+    assert config["command"].startswith("${__dirname}/server/obsidian-mcp-server")
+    assert config["env"]["OBSIDIAN_VAULT_PATH"] == "${user_config.vaultPath}"
+    assert config["env"]["OBSIDIAN_MCP_TOOL_SETS"] == "${user_config.toolSets}"
     assert manifest["user_config"]["vaultPath"]["type"] == "directory"
-    assert "toolSets" in manifest["user_config"]
-    assert "obsidianRagApiUrl" in manifest["user_config"]
+    assert manifest["user_config"]["toolSets"]["default"] == "core"
+    assert "runtimes" not in manifest.get("compatibility", {})
+
+
+def test_legacy_mcpb_manifest_is_not_a_source_of_truth():
+    assert not Path("mcpb/manifest.json").exists()
 
 
 def test_afp_manifest_contract():

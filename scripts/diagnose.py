@@ -69,19 +69,19 @@ def diagnose_setup():
         print("✅ FastMCP instalado")
     else:
         print("❌ ERROR: FastMCP no instalado")
-        print("💡 Instala con: pip install fastmcp")
+        print("💡 Instala las dependencias con: uv sync")
         return False
 
     if find_spec("dotenv"):
         print("✅ python-dotenv instalado")
     else:
         print("❌ ERROR: python-dotenv no instalado")
-        print("💡 Instala con: pip install python-dotenv")
+        print("💡 Instala las dependencias con: uv sync")
         return False
 
     print("\n🎉 ¡Configuración válida! El servidor debería funcionar correctamente.")
     print("\n🚀 Para ejecutar el servidor:")
-    print("   uv run main.py")
+    print("   uv run obsidian-mcp-server")
     print("\n💡 Nuevas funcionalidades disponibles:")
     print("   - Guardar prompts refinados en tu vault")
     print("   - Gestionar biblioteca de prompts")

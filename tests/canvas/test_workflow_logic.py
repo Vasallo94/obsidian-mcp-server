@@ -316,3 +316,45 @@ class TestGetWorkflowMode:
     def test_no_kanvas_metadata(self):
         canvas = CanvasFile(path="/tmp/t.canvas", nodes=[], edges=[])
         assert get_workflow_mode(canvas) == WorkflowMode.STRICT  # default
+
+
+class TestGroupPrefixParseable:
+    """El prefijo generado debe ser siempre parseable por TASK_ID_RE.
+
+    Bug (AFP afp_1443cfa3): '5.0 Paquetes' generaba el prefijo '5P', que
+    TASK_ID_RE ([A-Z]{1,3}) no reconoce; get_next_task_id nunca veía los IDs
+    ya emitidos (todos los tasks del grupo salían como 5P-01) y kanvas_status
+    reportaba 4 tareas de 19.
+    """
+
+    def test_digit_leading_label_yields_letter_prefix(self):
+        import re
+
+        prefix = generate_group_prefix("5.0 Paquetes", [])
+        assert re.fullmatch(r"[A-Z]{1,3}", prefix), prefix
+
+    def test_all_numeric_label_falls_back_to_letters(self):
+        import re
+
+        prefix = generate_group_prefix("5.0", [])
+        assert re.fullmatch(r"[A-Z]{1,3}", prefix), prefix
+
+    def test_accented_label_yields_ascii_prefix(self):
+        import re
+
+        prefix = generate_group_prefix("Difusión Ágil", [])
+        assert re.fullmatch(r"[A-Z]{1,3}", prefix), prefix
+
+    def test_numbered_phases_get_distinct_parseable_prefixes(self):
+        import re
+
+        existing: list[str] = []
+        for label in ["5.0 Paquetes", "5.1 Credibilidad", "5.2 Comunidad MCP"]:
+            prefix = generate_group_prefix(label, existing)
+            assert re.fullmatch(r"[A-Z]{1,3}", prefix), (label, prefix)
+            assert prefix not in existing, (label, prefix)
+            existing.append(prefix)
+
+    def test_generated_id_roundtrips_through_extract(self):
+        prefix = generate_group_prefix("5.0 Paquetes", [])
+        assert extract_task_id(f"## {prefix}-01 Decidir nombres") == f"{prefix}-01"
