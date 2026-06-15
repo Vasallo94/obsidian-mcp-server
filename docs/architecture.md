@@ -177,8 +177,8 @@ The recommended semantic path is `obsidianrag`, which calls an external
 ObsidianRAG service over loopback HTTP.
 
 The old in-process semantic stack remains behind `legacy_semantic` for backward
-compatibility. It is deprecated because it pulls ChromaDB, LangChain,
-sentence-transformers, and PyTorch into the MCP server process.
+compatibility. It is deprecated because it pulls ChromaDB and LangChain
+retrievers into the MCP server process; new deployments should use ObsidianRAG.
 
 See [Semantic search](semantic-search.md).
 
