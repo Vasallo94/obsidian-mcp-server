@@ -144,6 +144,25 @@ def test_diagnostic_tools_are_registered_and_report_profile(tmp_path, monkeypatc
     assert "ObsidianRAG" in str(media_search_route)
 
 
+def test_generic_media_request_does_not_route_to_personal_profile(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setenv("OBSIDIAN_VAULT_PATH", str(tmp_path))
+    reset_settings()
+    invalidate_vault_config_cache()
+    invalidate_skills_cache()
+
+    from obsidian_mcp.tools.context_logic import route_task_request
+
+    result = route_task_request("actualiza una película en mi vault")
+
+    assert result.success
+    assert result.data is not None
+    assert "Secundo Selebro" not in result.data
+    assert "update_media_item" not in result.data
+    assert "assistant_overview" in result.data
+
+
 def test_obsidianrag_pack_registers_resources_and_tools(tmp_path, monkeypatch):
     _write_vault_profile(tmp_path, extra_tool_sets=["obsidianrag"])
     _write_skill(tmp_path, "explorador")

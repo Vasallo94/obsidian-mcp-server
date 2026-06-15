@@ -8,6 +8,7 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 ## [Unreleased]
 
 ### Added
+- Pipeline de MCPB con binario local para generar bundles instalables por plataforma sin depender del Python del usuario.
 - **AFP #51 — Reposición y borrado de grupos en canvas**: Nuevas tools `canvas.move_card(node_id, x, y)` (reposiciona cualquier nodo) y `canvas.remove_group(group_id, remove_contents=False)` (borra un grupo y, opcionalmente, las tarjetas que contiene). Antes había que editar el `.canvas` a mano.
 - **AFP #52 — Registro de reglas del vault**: Nueva tool `rules.add(rule_text)` (pack `agents_admin`) para que el agente registre una regla en `.agents/REGLAS_GLOBALES.md` a petición del usuario, con confirmación interactiva (`elicit`) y sin acceso directo al fichero.
 - **Agent Feedback Protocol**: Añadido `afp.json` y una guía de uso out-of-band para que agentes y harnesses puedan generar drafts de fricción sin añadir tools MCP nuevas.
@@ -30,6 +31,8 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 - **Indexación Semántica de Imágenes**: El sistema ahora extrae descripciones de imágenes (`![[img|desc]]` o `![desc](img)`) y las inyecta como contexto semántico, haciendo buscable el contenido visual.
 
 ### Fixed
+- MCPB ahora tiene una única fuente de verdad binaria, genera artefactos versionados por plataforma en `dist/mcpb/` y evita dejar ficheros `.spec` en la raíz del repositorio.
+- Evitado que `route.task` recomiende workflows personales de media en vaults genéricos sin estándar `media` declarado.
 - **`inbox.capture` — warning falso de frontmatter**: la tool pasaba `frontmatter={}` al middleware de reglas, por lo que cualquier regla `required_fields` (scope `frontmatter`, `applies_to: [create]`) disparaba un `[WARNINGS: Frontmatter incompleto: faltan type, status, tags]` falso aunque la nota creada en disco sí tenía esos campos. Ahora `inbox.capture` propaga el frontmatter real (`type`/`status`/`created`/`updated`/`tags`) vía el nuevo helper `inbox_capture_frontmatter`. El fixture de tests AFP limpia además el caché global de reglas entre tests para eliminar la dependencia de orden que enmascaraba el bug.
 - **AFP #50 — Reglas del vault en canvas**: `canvas.add_card` y `canvas.update_card` ahora validan el texto de las tarjetas contra las reglas del vault (p. ej. sin emojis en cabeceras) y devuelven `[WARNINGS: ...]`, igual que las tools `notes.*`. Antes la capa de reglas solo se aplicaba a notas.
 - **AFP #49 — Leyenda de colores en canvas**: `canvas.read` expone ahora el mapeo estándar de colores de Obsidian y, si existe, el contenido de la tarjeta "Legend"/"Leyenda" del board. Los docstrings de `canvas.add_card`/`canvas.update_card` documentan el significado de `"0"`-`"6"` para no elegir color a ciegas.
@@ -43,11 +46,17 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 - **Import circular** en `security.py` que impedía el arranque del servidor MCP. El import de `vault_config` se movió a nivel de función para romper el ciclo de dependencias.
 
 ### Changed
+- Preparada la metadata pública del paquete y limpiado el sdist para excluir planes internos, scripts personales y configuración de agentes local.
 - Refactorizado `vault_config.py` para un enfoque minimalista y no prescriptivo.
 - Herramientas de navegación, creación y seguridad migradas para usar la nueva arquitectura dinámica e inputs validados.
 - Prompt del asistente actualizado para priorizar el chequeo de `skills` disponibles.
 
+### Removed
+- Eliminados planes internos de desarrollo y scripts personales/backup que contenían rutas locales antes de publicar el repositorio.
+
 ### Docs
+- Añadidos documentos públicos de contribución, seguridad y checklist de release.
+- Añadida guía estándar de instalación para Claude Code, Codex, Hermes, Claude Desktop y MCPB.
 - Regla añadida en `AGENTS.md` exigiendo actualizar el `CHANGELOG.md` antes de cada commit.
 - Nueva guía: `docs/agent-folder-setup.md`.
 - Roadmap de mejoras futuras: `docs/FUTURE.md`.

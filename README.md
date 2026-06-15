@@ -63,40 +63,35 @@ Optional packs are enabled explicitly from `.agents/vault.yaml` or
 
    ```bash
    make install
-   # Optional legacy in-process semantic stack:
-   pip install "obsidian-mcp-server[rag]"
    ```
 
 3. **Configure**:
 
    ```bash
    cp .env.example .env
-   # Edit .env with the absolute path to your Obsidian vault
+   # Set OBSIDIAN_VAULT_PATH to the absolute path to your Obsidian vault
+   ```
+
+4. **Run locally**:
+
+   ```bash
+   uv run obsidian-mcp-server
+   ```
+
+   Local runs require `OBSIDIAN_VAULT_PATH` to be configured first. For
+   end-user installation in MCP clients, prefer `uvx` once the package is
+   published:
+
+   ```bash
+   uvx obsidian-mcp-server
    ```
 
 ---
 
 ## Usage
 
-The MCP server connects to compatible clients using the `uv run obsidian-mcp-server` command. Below are setup instructions for popular AI clients.
-
-### Claude Desktop Integration
-
-Add the following to your `claude_desktop_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "obsidian": {
-      "command": "uv",
-      "args": ["run", "obsidian-mcp-server"],
-      "env": {
-        "OBSIDIAN_VAULT_PATH": "/Absolute/Path/To/Your/Vault"
-      }
-    }
-  }
-}
-```
+For Claude Code, Codex, Hermes, Claude Desktop, and MCPB setup, see
+[Installation](docs/installation.md).
 
 ### Optional Tool Sets
 
@@ -149,15 +144,6 @@ Then read `obsidian://integrations/obsidianrag/setup` or call
 `rag.setup_status`. Agents should show setup commands before installing
 dependencies, starting services, pulling models, or rebuilding the index.
 
-### Cursor & Cline Integration
-
-For other clients like Cursor or Cline, you can add it as a new MCP server in their settings panel by specifying:
-- **Type**: `command`
-- **Command**: `uv run obsidian-mcp-server`
-- Ensure the `OBSIDIAN_VAULT_PATH` environment variable is available to the instance running the command.
-
----
-
 ## Technical Documentation
 
 To dive deeper into how the server works and how to customize it, check our detailed guides located in the `docs/` folder:
@@ -169,6 +155,10 @@ To dive deeper into how the server works and how to customize it, check our deta
 5. [Semantic Search](docs/semantic-search.md): ObsidianRAG integration and legacy RAG migration notes.
 6. [Agent Feedback](docs/agent-feedback.md): How agents can report MCP friction with AFP out-of-band.
 7. [Future Roadmap](docs/FUTURE.md): Planned improvements and next steps for the server.
+
+For contribution, release, and security process, see
+[CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), and
+[Release Checklist](docs/release-checklist.md).
 
 ---
 
