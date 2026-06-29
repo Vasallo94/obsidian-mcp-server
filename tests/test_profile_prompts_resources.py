@@ -8,8 +8,10 @@ from obsidian_mcp.config import reset_settings
 from obsidian_mcp.server import create_server
 from obsidian_mcp.tools.agents_logic import invalidate_skills_cache
 from obsidian_mcp.tools.obsidianrag import (
+    ask_rag,
     build_obsidianrag_setup_resource,
     check_rag_health,
+    rebuild_rag_database,
 )
 from obsidian_mcp.vault_config import invalidate_vault_config_cache
 
@@ -206,6 +208,46 @@ def test_obsidianrag_rejects_non_loopback_api_url(tmp_path, monkeypatch):
 
     assert not health.success
     assert "loopback" in (health.error or "")
+
+
+def _point_rag_at_dead_port(vault: Path) -> None:
+    """Rewrite the profile so the ObsidianRAG API points at a closed port."""
+    config_path = vault / ".agents" / "vault.yaml"
+    config_path.write_text(
+        config_path.read_text(encoding="utf-8").replace(
+            "http://127.0.0.1:8000", "http://127.0.0.1:59599"
+        ),
+        encoding="utf-8",
+    )
+
+
+def test_rag_ask_unreachable_message_names_backend_and_url(tmp_path, monkeypatch):
+    """AFP afp_c83a565: rag.ask must explain the backend is down, not just fail."""
+    _write_vault_profile(tmp_path, extra_tool_sets=["obsidianrag"])
+    _point_rag_at_dead_port(tmp_path)
+    monkeypatch.setenv("OBSIDIAN_VAULT_PATH", str(tmp_path))
+
+    result = ask_rag("¿Qué hay en el vault?")
+
+    assert not result.success
+    message = result.error or ""
+    assert "59599" in message
+    assert "rag.health" in message
+    assert "backend" in message.lower()
+
+
+def test_rag_rebuild_unreachable_message_names_backend_and_url(tmp_path, monkeypatch):
+    """AFP afp_c83a565: rag.rebuild_index must point at the stopped backend."""
+    _write_vault_profile(tmp_path, extra_tool_sets=["obsidianrag"])
+    _point_rag_at_dead_port(tmp_path)
+    monkeypatch.setenv("OBSIDIAN_VAULT_PATH", str(tmp_path))
+
+    result = rebuild_rag_database()
+
+    assert not result.success
+    message = result.error or ""
+    assert "59599" in message
+    assert "backend" in message.lower()
 
 
 def test_obsidianrag_setup_uses_shell_safe_paths(tmp_path, monkeypatch):

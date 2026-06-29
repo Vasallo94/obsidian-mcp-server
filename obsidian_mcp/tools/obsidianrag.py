@@ -150,13 +150,13 @@ def ask_rag(question: str, session_id: str | None = None) -> Result[str]:
     if session_id:
         payload["session_id"] = session_id
 
-    result = _request_json(
-        "POST", f"{data['api_url'].rstrip('/')}/ask", payload, timeout=120
-    )
+    api_url = str(data["api_url"]).rstrip("/")
+    result = _request_json("POST", f"{api_url}/ask", payload, timeout=120)
     if not result.success:
         return Result.fail(
-            "ObsidianRAG query failed. Check `rag.health` and "
-            "`obsidian://integrations/obsidianrag/setup`."
+            f"ObsidianRAG query failed: the backend at {api_url} is unreachable. "
+            "Start it (see `obsidian://integrations/obsidianrag/setup`) and "
+            "verify with `rag.health`."
         )
 
     response = result.data or {}
@@ -180,12 +180,14 @@ def rebuild_rag_database() -> Result[str]:
     if not config.success:
         return Result.fail(config.error or "ObsidianRAG integration is not configured.")
     data = config.data or {}
-    result = _request_json(
-        "POST", f"{data['api_url'].rstrip('/')}/rebuild_db", timeout=1800
-    )
+    api_url = str(data["api_url"]).rstrip("/")
+    result = _request_json("POST", f"{api_url}/rebuild_db", timeout=1800)
     if not result.success:
         return Result.fail(
-            "Could not rebuild ObsidianRAG index. Check `rag.health` first."
+            f"Could not rebuild ObsidianRAG index: the backend at {api_url} is "
+            "unreachable. Start it (see "
+            "`obsidian://integrations/obsidianrag/setup`) and verify with "
+            "`rag.health` first."
         )
     return Result.ok(json.dumps(result.data, ensure_ascii=False, indent=2))
 

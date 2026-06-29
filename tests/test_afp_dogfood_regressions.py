@@ -1,7 +1,6 @@
 """Regression tests from AFP dogfooding reports."""
 
 import asyncio
-from types import SimpleNamespace
 
 import pytest
 import yaml
@@ -41,16 +40,6 @@ def _set_vault(monkeypatch, tmp_path):
     reset_settings()
     invalidate_note_cache()
     return vault
-
-
-class _AcceptCtx:
-    async def elicit(self, *args, **kwargs):
-        return SimpleNamespace(action="accept")
-
-
-class _DeclineCtx:
-    async def elicit(self, *args, **kwargs):
-        return SimpleNamespace(action="decline")
 
 
 def _set_canvas_vault(monkeypatch, tmp_path):
@@ -170,10 +159,9 @@ def test_notes_delete_requires_explicit_confirm_argument(tmp_path, monkeypatch):
     note.write_text("temporary", encoding="utf-8")
     mcp = create_server()
     delete_tool = asyncio.run(mcp.get_tool("notes.delete"))
-    ctx = SimpleNamespace(elicit=lambda *args, **kwargs: None)
 
     assert delete_tool.parameters["properties"]["confirm"]["default"] is False
-    result = asyncio.run(delete_tool.fn("scratch.md", ctx, confirm=False))
+    result = delete_tool.fn("scratch.md", confirm=False)
 
     assert "confirm" in result.lower()
     assert note.exists()
@@ -263,15 +251,11 @@ def test_confirmed_write_tools_include_elapsed_time(tmp_path, monkeypatch):
     replace_tool = asyncio.run(mcp.get_tool("notes.replace"))
     delete_tool = asyncio.run(mcp.get_tool("notes.delete"))
 
-    apply_result = asyncio.run(
-        apply_tool.fn("target", "replacement", _AcceptCtx(), folder="Project")
+    apply_result = apply_tool.fn(
+        "target", "replacement", folder="Project", confirm=True
     )
-    replace_result = asyncio.run(
-        replace_tool.fn("Project/scratch.md", "# Replaced\n", _AcceptCtx())
-    )
-    delete_result = asyncio.run(
-        delete_tool.fn("Project/scratch.md", _AcceptCtx(), confirm=True)
-    )
+    replace_result = replace_tool.fn("Project/scratch.md", "# Replaced\n", confirm=True)
+    delete_result = delete_tool.fn("Project/scratch.md", confirm=True)
 
     assert "Duración:" in apply_result
     assert "Duración:" in replace_result
@@ -402,13 +386,13 @@ def test_canvas_move_and_remove_group_tools_exist(tmp_path, monkeypatch):
     assert "removed" in remove_result.lower()
 
 
-def test_rules_add_appends_after_confirmation(tmp_path, monkeypatch):
-    """#52: rules.add registers a rule after the user accepts the elicit."""
+def test_rules_add_appends_with_confirm(tmp_path, monkeypatch):
+    """#52: rules.add registers a rule when confirm=True."""
     vault = _set_canvas_vault(monkeypatch, tmp_path)
     mcp = create_server()
     add_tool = asyncio.run(mcp.get_tool("rules.add"))
 
-    result = asyncio.run(add_tool.fn("No hagas hard-wrap del markdown", _AcceptCtx()))
+    result = add_tool.fn("No hagas hard-wrap del markdown", confirm=True)
 
     rules_file = vault / ".agents" / "REGLAS_GLOBALES.md"
     assert rules_file.exists()
@@ -417,13 +401,13 @@ def test_rules_add_appends_after_confirmation(tmp_path, monkeypatch):
     assert "Regla añadida" in result
 
 
-def test_rules_add_declined_does_not_write(tmp_path, monkeypatch):
-    """#52: declining the confirmation leaves the vault untouched."""
+def test_rules_add_without_confirm_does_not_write(tmp_path, monkeypatch):
+    """#52: omitting confirm leaves the vault untouched."""
     vault = _set_canvas_vault(monkeypatch, tmp_path)
     mcp = create_server()
     add_tool = asyncio.run(mcp.get_tool("rules.add"))
 
-    result = asyncio.run(add_tool.fn("No escribas como commits de git", _DeclineCtx()))
+    result = add_tool.fn("No escribas como commits de git")
 
     assert not (vault / ".agents" / "REGLAS_GLOBALES.md").exists()
-    assert "cancelada" in result.lower()
+    assert "confirm=True" in result

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastmcp import Context, FastMCP
+from fastmcp import FastMCP
 
 from ..messages import ERRORS
 from .agents_generator import generate_skill, suggest_skills_for_vault, sync_skills
@@ -21,13 +21,6 @@ from .agents_logic import (
     refresh_skills_cache as refresh_skills_cache_logic,
 )
 from .registry import register_tool
-
-
-def _cancellation_reason(action: str) -> str:
-    """Map an elicit() action to a specific Spanish reason."""
-    if action == "cancel":
-        return ERRORS.OPERATION_DISMISSED
-    return ERRORS.OPERATION_DECLINED
 
 
 def register_agent_tools(mcp: FastMCP) -> None:
@@ -49,34 +42,28 @@ def register_agent_tools(mcp: FastMCP) -> None:
         return get_global_rules_logic().to_display()
 
     @register_tool(mcp, "rules.add")
-    async def add_global_rule(rule_text: str, ctx: Context) -> str:
-        """Register a new global vault rule after explicit user confirmation.
+    def add_global_rule(rule_text: str, confirm: bool = False) -> str:
+        """Register a new global vault rule. Destructive: requires confirm=True.
 
         Use this when the user dictates a rule for how the vault should be
         written (e.g. "no hard-wrap markdown", "don't write like git commits").
         The rule is appended as a bullet to .agents/REGLAS_GLOBALES.md; the
-        agent never edits that file directly. Requires interactive confirmation
-        (elicit) before writing.
+        agent never edits that file directly. Pass confirm=True to write; the
+        host shows its own permission prompt before the call runs.
 
         Args:
             rule_text: The rule to register, in the user's own words.
+            confirm: Must be True to append the rule.
 
         Returns:
-            Confirmation with the rule and its location, or a cancellation reason.
+            Confirmation with the rule and its location, or the confirm hint.
         """
         cleaned = rule_text.strip()
         if not cleaned:
             return "Error: la regla está vacía."
 
-        try:
-            result = await ctx.elicit(
-                f"Añadir esta regla global al vault?\n\n  {cleaned}",
-                response_type=None,
-            )
-            if result.action != "accept":
-                return _cancellation_reason(result.action)
-        except Exception:  # pylint: disable=broad-exception-caught
-            return ERRORS.OPERATION_CANCELLED_NO_CONFIRM
+        if not confirm:
+            return ERRORS.WRITE_REQUIRES_CONFIRM
 
         return add_global_rule_logic(cleaned).to_display()
 
