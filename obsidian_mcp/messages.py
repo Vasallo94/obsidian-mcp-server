@@ -41,16 +41,14 @@ class ErrorMessages:
     SEMANTIC_NOT_AVAILABLE: str = "Servicio semantico no disponible."
     TIMEOUT: str = "Operacion excedio el tiempo limite ({seconds}s)."
 
-    # Confirmation flow (Issue #1: surface specific reason, not opaque "cancelled")
-    OPERATION_DECLINED: str = (
-        "Operacion cancelada: el usuario rechazo explicitamente la confirmacion."
-    )
-    OPERATION_DISMISSED: str = (
-        "Operacion cancelada: el usuario cerro la confirmacion sin responder."
-    )
-    OPERATION_CANCELLED_NO_CONFIRM: str = (
-        "Operacion cancelada: este cliente no soporta confirmacion interactiva. "
-        "Usa un cliente compatible con elicit() o invoca preview_replace_in_notes primero."
+    # Confirmation gate (AFP afp_98bb01: elicit() has no reachable approval path
+    # on clients without the elicitation capability, so destructive writes use an
+    # explicit confirm=True argument; the host's permission prompt is the human
+    # approval surface).
+    WRITE_REQUIRES_CONFIRM: str = (
+        "Operacion destructiva sin confirmar. Vuelve a invocar con confirm=True "
+        "para sobrescribir o eliminar; el cliente mostrara su propia confirmacion "
+        "de permisos antes de escribir."
     )
 
 

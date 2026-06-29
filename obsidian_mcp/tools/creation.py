@@ -3,7 +3,7 @@
 import json
 from time import perf_counter
 
-from fastmcp import Context, FastMCP
+from fastmcp import FastMCP
 
 from ..messages import ERRORS
 from ..middleware import enrich_response, invalidate_rules_cache
@@ -35,18 +35,6 @@ from .creation_logic import (
     quick_capture as quick_capture_logic,
 )
 from .registry import register_tool
-
-
-def _cancellation_reason(action: str) -> str:
-    """Map elicit() action to a specific Spanish reason (Issue #1).
-
-    `action` values per MCP spec: 'accept', 'decline', 'cancel'.
-    """
-    if action == "decline":
-        return ERRORS.OPERATION_DECLINED
-    if action == "cancel":
-        return ERRORS.OPERATION_DISMISSED
-    return ERRORS.OPERATION_DECLINED
 
 
 def _with_duration(result: str, started_at: float) -> str:
@@ -96,7 +84,25 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
         creator: str = "",
         description: str = "",
     ) -> str:
-        """Create a new Markdown note in the vault."""
+        """Create a new Markdown note in the vault.
+
+        Paths are vault-relative. `folder` is a path relative to the vault root
+        (e.g. "Projects/AFP"); missing parent folders are created automatically.
+        Leave `folder` empty to auto-suggest a location (falls back to the vault
+        root). The `.md` extension is added if omitted. Does not require
+        confirmation, so this never overwrites an existing note: if one already
+        exists at the target path, creation fails instead of replacing it (use
+        notes.replace with confirm=True to overwrite).
+
+        Args:
+            title: Note title; also the filename (sanitized).
+            content: Markdown body, optionally with YAML frontmatter.
+            folder: Vault-relative target folder; parents auto-created.
+            tags: Comma-separated tags.
+            template: Template file name to apply.
+            creator: Name of the creating agent.
+            description: Short description for template placeholders.
+        """
         try:
             result = create_note_logic(
                 title,
@@ -154,20 +160,15 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
             return f"Error appending to note: {e}"
 
     @register_tool(mcp, "notes.delete")
-    async def delete_note(note_path: str, ctx: Context, confirm: bool = False) -> str:
-        """Delete a note after explicit client confirmation."""
-        if not confirm:
-            return "Error: confirm=True is required to delete a note."
+    def delete_note(note_path: str, confirm: bool = False) -> str:
+        """Delete a note from the vault. Destructive: requires confirm=True.
 
-        try:
-            confirmation = await ctx.elicit(
-                f"Permanently delete '{note_path}'? This cannot be undone.",
-                response_type=None,
-            )
-            if confirmation.action != "accept":
-                return _cancellation_reason(confirmation.action)
-        except Exception:  # pylint: disable=broad-exception-caught
-            return ERRORS.OPERATION_CANCELLED_NO_CONFIRM
+        Pass confirm=True to proceed. The host shows its own permission prompt
+        before the call runs, so that is the human approval surface; this gate
+        just prevents accidental deletes.
+        """
+        if not confirm:
+            return ERRORS.WRITE_REQUIRES_CONFIRM
 
         try:
             started_at = perf_counter()
@@ -215,17 +216,15 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
             return f"Error patching note: {e}"
 
     @register_tool(mcp, "notes.replace")
-    async def replace_note(note_path: str, content: str, ctx: Context) -> str:
-        """Replace the full content of a note after explicit confirmation."""
-        try:
-            confirmation = await ctx.elicit(
-                f"Replace all content in '{note_path}'? This overwrites the note.",
-                response_type=None,
-            )
-            if confirmation.action != "accept":
-                return _cancellation_reason(confirmation.action)
-        except Exception:  # pylint: disable=broad-exception-caught
-            return ERRORS.OPERATION_CANCELLED_NO_CONFIRM
+    def replace_note(note_path: str, content: str, confirm: bool = False) -> str:
+        """Overwrite the full content of a note. Destructive: requires confirm=True.
+
+        Pass confirm=True to proceed. The host shows its own permission prompt
+        before the call runs, so that is the human approval surface; this gate
+        just prevents accidental overwrites.
+        """
+        if not confirm:
+            return ERRORS.WRITE_REQUIRES_CONFIRM
 
         try:
             started_at = perf_counter()
@@ -261,24 +260,20 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
             return f"Error previewing replacement: {e}"
 
     @register_tool(mcp, "notes.apply_replace")
-    async def apply_replace_in_notes(
+    def apply_replace_in_notes(
         search: str,
         replacement: str,
-        ctx: Context,
         folder: str = "",
         limit: int = 100,
+        confirm: bool = False,
     ) -> str:
-        """Apply a literal search/replace across notes after confirmation."""
-        try:
-            confirmation = await ctx.elicit(
-                f"Replace '{search}' with '{replacement}' in up to {limit} notes"
-                f"{f' under {folder}' if folder else ''}?",
-                response_type=None,
-            )
-            if confirmation.action != "accept":
-                return _cancellation_reason(confirmation.action)
-        except Exception:  # pylint: disable=broad-exception-caught
-            return ERRORS.OPERATION_CANCELLED_NO_CONFIRM
+        """Apply a literal search/replace across notes. Destructive: requires confirm=True.
+
+        Preview first with preview_replace_in_notes, then pass confirm=True to
+        write. The host shows its own permission prompt before the call runs.
+        """
+        if not confirm:
+            return ERRORS.WRITE_REQUIRES_CONFIRM
 
         try:
             started_at = perf_counter()

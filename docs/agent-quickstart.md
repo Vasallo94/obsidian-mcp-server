@@ -21,8 +21,8 @@ After those two calls you have enough context to write correctly. Everything bel
 | Create a note | `notes.create(title, content, folder, tags, ...)` — embed YAML frontmatter in `content` and it'll be merged with parameters |
 | Lint a note before writing | `notes.validate(content, title, mode='create')` — pre-flight, no write |
 | Edit fragments of a note | `notes.patch(note_path, operations=[{old, new}, ...])` — fuzzy suggestions on miss |
-| Replace whole note body | `notes.replace(note_path, content)` — requires client elicit() support |
-| Delete a note | `notes.delete(note_path)` — requires client elicit() support |
+| Replace whole note body | `notes.replace(note_path, content, confirm=True)` — destructive, needs `confirm=True` |
+| Delete a note | `notes.delete(note_path, confirm=True)` — destructive, needs `confirm=True` |
 | Rename a note + update wikilinks | `notes.rename(source, new_name, update_links=True)` |
 | Move a note | `notes.move(source, destination, update_links=True)` |
 | Find broken wikilinks across the vault | `links.find_broken(limit=100)` — returns source file + line + fuzzy suggestions |
@@ -37,7 +37,7 @@ After those two calls you have enough context to write correctly. Everything bel
 - **`notes.read_many` argument name** is `paths` (a list), not `query`. Pydantic will reject `query=`.
 - **Tags passed as a string** like `"astro, equipo"` are normalized to a YAML list in frontmatter. This is intentional but undocumented in the field name.
 - **Embedded frontmatter wins**: if your `notes.create` content starts with `---...---`, fields like `type` and `status` are preserved over parameter-derived defaults (since v post-2026-05-17).
-- **`notes.delete` / `notes.replace`** require an MCP client that supports `elicit()` for confirmation. If your host can't surface the prompt you'll get a specific Spanish error explaining what to try instead — don't fall back to `rm` or full-file `notes.patch` without checking the message.
+- **Destructive writes (`notes.delete`, `notes.replace`, `notes.apply_replace`, `rules.add`)** need an explicit `confirm=True` argument. Without it the server returns a Spanish hint and does nothing — re-invoke with `confirm=True`. Your host shows its own permission prompt before the call runs, so that is the human approval surface (no `elicit()` capability required). Don't fall back to `rm` or full-file `notes.patch`.
 - **Vault-rule warnings** appear in the response of `notes.create` / `notes.patch` etc. when content violates the rules. The full rule prose is only attached when violations are present; for clean writes the server emits a compact pointer back to `rules.get()`.
 - **`notes.list` is paginated** at 500 notes by default. Pass `limit=0` for "everything" on small vaults, or watch the `Truncated:` footer for the next `offset`.
 

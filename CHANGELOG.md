@@ -10,7 +10,7 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 ### Added
 - Pipeline de MCPB con binario local para generar bundles instalables por plataforma sin depender del Python del usuario.
 - **AFP #51 — Reposición y borrado de grupos en canvas**: Nuevas tools `canvas.move_card(node_id, x, y)` (reposiciona cualquier nodo) y `canvas.remove_group(group_id, remove_contents=False)` (borra un grupo y, opcionalmente, las tarjetas que contiene). Antes había que editar el `.canvas` a mano.
-- **AFP #52 — Registro de reglas del vault**: Nueva tool `rules.add(rule_text)` (pack `agents_admin`) para que el agente registre una regla en `.agents/REGLAS_GLOBALES.md` a petición del usuario, con confirmación interactiva (`elicit`) y sin acceso directo al fichero.
+- **AFP #52 — Registro de reglas del vault**: Nueva tool `rules.add(rule_text, confirm=True)` (pack `agents_admin`) para que el agente registre una regla en `.agents/REGLAS_GLOBALES.md` a petición del usuario, con gate de confirmación (`confirm=True`) y sin acceso directo al fichero.
 - **Agent Feedback Protocol**: Añadido `afp.json` y una guía de uso out-of-band para que agentes y harnesses puedan generar drafts de fricción sin añadir tools MCP nuevas.
 - **Canvas Integration (22 nuevas herramientas)**: Soporte completo para ficheros `.canvas` de Obsidian con dos capas:
   - **8 herramientas genéricas** (`canvas.read`, `canvas.list`, `canvas.add_card`, `canvas.add_group`, `canvas.add_edge`, `canvas.update_card`, `canvas.remove_card`, `canvas.remove_edge`) para CRUD sobre cualquier canvas.
@@ -31,6 +31,9 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 - **Indexación Semántica de Imágenes**: El sistema ahora extrae descripciones de imágenes (`![[img|desc]]` o `![desc](img)`) y las inyecta como contexto semántico, haciendo buscable el contenido visual.
 
 ### Fixed
+- **AFP — Confirmación de escrituras destructivas inalcanzable**: `notes.replace`, `notes.apply_replace`, `notes.delete` y `rules.add` dependían de `ctx.elicit()`, que en clientes sin la capability de *elicitation* (p. ej. Claude Code) se auto-rechaza sin mostrar ningún diálogo, devolviendo "el usuario rechazó explícitamente la confirmación" y bloqueando toda sobrescritura o borrado de notas existentes. Ahora el gate es un argumento explícito `confirm=True`; la aprobación humana real es el propio prompt de permisos del host. Se eliminó la dependencia de `elicit()` y los mensajes `OPERATION_*` asociados.
+- **AFP — `rag.ask` / `rag.rebuild_index` con backend caído**: los errores ahora nombran la URL del backend ObsidianRAG y explican que debe arrancarse (con puntero al recurso de setup y a `rag.health`), en vez de un genérico "query failed".
+- **AFP — Contrato de `notes.create` ambiguo**: el docstring documenta ahora que `folder` es vault-relative, que las carpetas padre se crean automáticamente y que la tool nunca sobrescribe una nota existente.
 - Saneada la higiene de dependencias: `pip-audit` queda limpio tras subir `cryptography`, `starlette`, `python-multipart`, `tqdm` y `pip-audit`, y el extra legacy `[rag]` deja de arrastrar PyTorch.
 - MCPB ahora tiene una única fuente de verdad binaria, genera artefactos versionados por plataforma en `dist/mcpb/` y evita dejar ficheros `.spec` en la raíz del repositorio.
 - Evitado que `route.task` recomiende workflows personales de media en vaults genéricos sin estándar `media` declarado.
