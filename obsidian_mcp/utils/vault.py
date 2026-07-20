@@ -11,6 +11,7 @@ from time import time
 from typing import Any, Dict, List, Optional, Tuple
 
 import aiofiles
+import yaml
 
 from ..config import get_vault_path, get_vault_settings
 
@@ -192,6 +193,61 @@ async def write_note_async(note_path: Path, content: str) -> None:
 
 # --- Tag and Link Extraction ---
 
+_FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n?", re.DOTALL)
+_FENCED_CODE_BLOCK_RE = re.compile(r"```.*?```", re.DOTALL)
+_INLINE_CODE_RE = re.compile(r"`[^`\n]+`")
+_HEX_COLOR_RE = re.compile(r"^([0-9a-fA-F]{3}){1,2}$")
+
+
+def _split_frontmatter(content: str) -> Tuple[Optional[Dict[str, Any]], str]:
+    """Separa el bloque de frontmatter YAML (si existe) del resto del cuerpo.
+
+    Devuelve (None, content) cuando no hay frontmatter o no es YAML válido,
+    para distinguir "no hay metadata" de "metadata vacía" ({}).
+    """
+    match = _FRONTMATTER_RE.match(content)
+    if not match:
+        return None, content
+
+    body = content[match.end() :]
+    try:
+        metadata = yaml.safe_load(match.group(1))
+    except yaml.YAMLError:
+        return None, body
+
+    if not isinstance(metadata, dict):
+        return None, body
+
+    return metadata, body
+
+
+def _tags_from_frontmatter_value(raw_tags: Any) -> List[str]:
+    """Normaliza el valor del campo `tags:` del frontmatter a una lista de tags.
+
+    Soporta lista YAML (bloque `- tag` o inline `[a, b]`), string simple y
+    string separado por comas.
+    """
+    tags: List[str] = []
+
+    if isinstance(raw_tags, list):
+        for item in raw_tags:
+            if item is None:
+                continue
+            cleaned = str(item).strip().lstrip("#")
+            if cleaned:
+                tags.append(cleaned)
+    elif isinstance(raw_tags, str):
+        for part in raw_tags.split(","):
+            cleaned = part.strip().lstrip("#")
+            if cleaned:
+                tags.append(cleaned)
+    elif raw_tags is not None:
+        cleaned = str(raw_tags).strip().lstrip("#")
+        if cleaned:
+            tags.append(cleaned)
+
+    return tags
+
 
 def extract_tags_from_content(content: str) -> List[str]:
     """
@@ -205,43 +261,21 @@ def extract_tags_from_content(content: str) -> List[str]:
     """
     tags = set()
 
-    # 1. Extraer del YAML frontmatter
-    if content.startswith("---"):
-        parts = content.split("---", 2)
-        if len(parts) >= 3:
-            frontmatter = parts[1]
-            # Buscar línea de tags: tags: [a, b] o tags: a, b
-            tags_match = re.search(r"^tags:\s*(.*)$", frontmatter, re.MULTILINE)
-            if tags_match:
-                tags_raw = tags_match.group(1).strip()
-                # Caso [tag1, tag2]
-                if tags_raw.startswith("[") and tags_raw.endswith("]"):
-                    tags_list = tags_raw[1:-1].split(",")
-                    for t in tags_list:
-                        tags.add(t.strip().lstrip("#"))
-                # Caso lista YAML o string simple
-                else:
-                    # Intentar buscar formato de lista - tag
-                    fm_list = re.findall(r"^\s*-\s*([\w-]+)", frontmatter, re.MULTILINE)
-                    if fm_list:
-                        for t in fm_list:
-                            tags.add(t.strip())
-                    else:
-                        # Caso simple separado por comas
-                        for t in tags_raw.split(","):
-                            cleaned = t.strip().lstrip("#")
-                            if cleaned:
-                                tags.add(cleaned)
+    # 1. Extraer del YAML frontmatter (parseo YAML real, no regex por línea)
+    metadata, body = _split_frontmatter(content)
+    if metadata:
+        tags.update(_tags_from_frontmatter_value(metadata.get("tags")))
 
-    # 2. Extraer del cuerpo (formato #tag)
-    # Regex mejorado: captura palabras con guiones pero no hashtags de headings
-    body_tags = re.findall(r"(?<!\w)#([\w-]+)", content)
+    # 2. Extraer del cuerpo (formato #tag), excluyendo bloques de código
+    # para no confundir referencias como "(#80)" en changelogs/logs pegados.
+    body_sin_codigo = _FENCED_CODE_BLOCK_RE.sub("", body)
+    body_sin_codigo = _INLINE_CODE_RE.sub("", body_sin_codigo)
+    body_tags = re.findall(r"(?<!\w)#([\w-]+)", body_sin_codigo)
     for t in body_tags:
         tags.add(t)
 
     # 3. Filter out hex color codes (e.g., #fff, #0f0f0f, #e1f5fe)
-    hex_color_re = re.compile(r"^([0-9a-fA-F]{3}){1,2}$")
-    tags = {t for t in tags if not hex_color_re.match(t)}
+    tags = {t for t in tags if not _HEX_COLOR_RE.match(t)}
 
     return sorted(list(tags))
 

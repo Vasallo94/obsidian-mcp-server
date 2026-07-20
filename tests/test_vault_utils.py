@@ -80,6 +80,81 @@ Regular text here.
         tags = extract_tags_from_content(content)
         assert tags.count("python") == 1
 
+    def test_extract_tags_from_yaml_block_list_quoted(self):
+        """Should parse a YAML block list of quoted tags (real bug report).
+
+        Regression test for the '#- "media"' bug: notes under
+        05_Recursos/Media/* use this exact frontmatter shape, and the old
+        line-by-line regex extractor produced a single garbage tag
+        literally equal to '- "media"' instead of parsing the YAML list.
+        """
+        content = """---
+title: "Inception"
+tags:
+  - "media"
+  - "media/peliculas"
+date: 2024-01-01
+---
+
+Body content here.
+"""
+        tags = extract_tags_from_content(content)
+        assert "media" in tags
+        assert "media/peliculas" in tags
+        # No garbage entries carrying the raw YAML list-item syntax.
+        assert not any(t.startswith("-") or '"' in t for t in tags)
+        assert len(tags) == 2
+
+    def test_extract_tags_from_yaml_block_list_unquoted(self):
+        """Should parse a YAML block list of unquoted tags."""
+        content = """---
+tags:
+  - proyecto
+  - obsidian-mcp
+---
+
+Body.
+"""
+        tags = extract_tags_from_content(content)
+        assert "proyecto" in tags
+        assert "obsidian-mcp" in tags
+
+    def test_extract_tags_from_yaml_frontmatter_string_scalar(self):
+        """Should parse a single scalar tag (no list, no array)."""
+        content = """---
+tags: solo-tag
+---
+
+Body.
+"""
+        tags = extract_tags_from_content(content)
+        assert tags == ["solo-tag"]
+
+    def test_inline_tags_ignore_fenced_code_blocks(self):
+        """Inline #tag detection must skip fenced code blocks.
+
+        Otherwise pasted changelog/log snippets like '(#80)' get treated
+        as tags, producing garbage entries such as '#40'-'#45'.
+        """
+        content = """Some note about #realtag here.
+
+```
+chore(deps): update pyyaml requirement (#80)
+chore(deps): bump langsmith from 0.8.3 to 0.8.18 (#84)
+```
+"""
+        tags = extract_tags_from_content(content)
+        assert "realtag" in tags
+        assert "80" not in tags
+        assert "84" not in tags
+
+    def test_inline_tags_ignore_inline_code_spans(self):
+        """Inline #tag detection must skip inline code spans."""
+        content = "Real #tag1 but not `#notatag` in code span."
+        tags = extract_tags_from_content(content)
+        assert "tag1" in tags
+        assert "notatag" not in tags
+
 
 class TestExtractInternalLinks:
     """Tests for internal link extraction."""
