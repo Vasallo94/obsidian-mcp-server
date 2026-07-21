@@ -27,7 +27,7 @@ from ..utils import (
     get_logger,
     sanitize_filename,
 )
-from ..vault_config import get_vault_config
+from ..vault_config import get_vault_config, resolve_role
 
 
 def _json_serial(obj: Any) -> str:
@@ -575,7 +575,7 @@ def edit_note(  # pylint: disable=too-many-locals,too-many-return-statements,too
 
 
 def suggest_folder_location(titulo: str, contenido: str, etiquetas: str = "") -> str:
-    # pylint: disable=too-many-return-statements,too-many-branches
+    # pylint: disable=too-many-return-statements,too-many-branches,too-many-locals
     """Helper to suggest location based on semantics and keywords."""
 
     # 1. Try Semantic Suggestion (multi-candidate)
@@ -638,6 +638,14 @@ def suggest_folder_location(titulo: str, contenido: str, etiquetas: str = "") ->
 
     texto = (titulo + " " + contenido + " " + etiquetas).lower()
 
+    # Parent folders come from the vault's declared taxonomy so suggestions
+    # survive layout renames; fall back to this vault's current names.
+    vp = get_vault_path()
+    know_role = resolve_role(vp, "knowledge") if vp else None
+    crea_role = resolve_role(vp, "creations") if vp else None
+    know = know_role.name if know_role else "02_Conocimiento"
+    crea = crea_role.name if crea_role else "03_Creaciones"
+
     # IA / Machine Learning
     if any(
         k in texto
@@ -656,13 +664,13 @@ def suggest_folder_location(titulo: str, contenido: str, etiquetas: str = "") ->
             "modelo",
         ]
     ):
-        return "📂 Sugerencia: `02_Aprendizaje/IA`"
+        return f"📂 Sugerencia: `{know}/IA`"
 
     # Lógica simple de categorización basada en la estructura del vault
     if any(k in texto for k in ["poema", "poesía", "verso", "rima"]):
-        return "📂 Sugerencia: `03_Creaciones/Poemas`"
+        return f"📂 Sugerencia: `{crea}/Poemas`"
     if any(k in texto for k in ["reflexión", "pienso", "creo", "opinión"]):
-        return "📂 Sugerencia: `03_Creaciones/Reflexiones`"
+        return f"📂 Sugerencia: `{crea}/Reflexiones`"
     if any(
         k in texto
         for k in [
@@ -676,7 +684,7 @@ def suggest_folder_location(titulo: str, contenido: str, etiquetas: str = "") ->
             "docker",
         ]
     ):
-        return "📂 Sugerencia: `02_Aprendizaje/Programación`"
+        return f"📂 Sugerencia: `{know}/Programación`"
     if any(
         k in texto
         for k in [
@@ -689,11 +697,11 @@ def suggest_folder_location(titulo: str, contenido: str, etiquetas: str = "") ->
             "homelab",
         ]
     ):
-        return "📂 Sugerencia: `02_Aprendizaje/Sistemas`"
+        return f"📂 Sugerencia: `{know}/Sistemas`"
     if any(k in texto for k in ["filosofía", "ética", "aristóteles", "dualismo"]):
-        return "📂 Sugerencia: `02_Aprendizaje/Filosofía`"
+        return f"📂 Sugerencia: `{know}/Filosofía`"
     if any(k in texto for k in ["psicología", "cognitivo", "mente", "ego"]):
-        return "📂 Sugerencia: `02_Aprendizaje/Psicología`"
+        return f"📂 Sugerencia: `{know}/Psicología`"
 
     # Default fallback - scan for inbox-like folders or use root
     try:

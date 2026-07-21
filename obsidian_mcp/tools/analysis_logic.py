@@ -14,6 +14,19 @@ from datetime import datetime, timedelta
 from ..config import get_vault_path
 from ..result import Result
 from ..utils import extract_internal_links, extract_tags_from_content, get_logger
+from ..vault_config import resolve_local_doc
+
+_TAG_REGISTRY_FILENAME = "Registro de Tags del Vault.md"
+
+
+def _find_tag_registry(vault_path):
+    """Locate the tag registry via vault.yaml, falling back to a name search.
+
+    Returns the Path if found, else None. Prevents the class of bug where a
+    hardcoded folder rename silently makes the registry unreadable.
+    """
+    return resolve_local_doc(vault_path, "tag_registry", _TAG_REGISTRY_FILENAME)
+
 
 logger = get_logger(__name__)
 
@@ -120,14 +133,13 @@ def get_canonical_tags() -> Result[str]:
     if not vault_path:
         return Result.fail("La ruta del vault no está configurada.")
 
-    registry_path = (
-        vault_path / "04_Recursos" / "Obsidian" / "Registro de Tags del Vault.md"
-    )
+    registry_path = _find_tag_registry(vault_path)
 
-    if not registry_path.exists():
+    if not registry_path:
         return Result.fail(
-            "No se encontró el archivo de registro en "
-            "'04_Recursos/Obsidian/Registro de Tags del Vault.md'."
+            "No se encontró el registro de tags. Declara su ruta en "
+            "'.agents/vault.yaml' bajo profile.local_docs.tag_registry, o crea "
+            "un archivo llamado 'Registro de Tags del Vault.md' en el vault."
         )
 
     with open(registry_path, "r", encoding="utf-8") as f:
@@ -158,11 +170,9 @@ def analyze_tags() -> Result[str]:  # pylint: disable=too-many-locals,too-many-b
         return Result.fail("La ruta del vault no está configurada.")
 
     # Read canonical tags
-    registry_path = (
-        vault_path / "04_Recursos" / "Obsidian" / "Registro de Tags del Vault.md"
-    )
+    registry_path = _find_tag_registry(vault_path)
     tags_canonicas: set[str] = set()
-    if registry_path.exists():
+    if registry_path:
         with open(registry_path, "r", encoding="utf-8") as f:
             tags_canonicas = set(re.findall(r"- `([^`]+)`", f.read()))
 
@@ -264,15 +274,13 @@ def sync_tag_registry(  # pylint: disable=too-many-locals,too-many-branches
     if not vault_path:
         return Result.fail("La ruta del vault no está configurada.")
 
-    registry_path = (
-        vault_path / "04_Recursos" / "Obsidian" / "Registro de Tags del Vault.md"
-    )
-    if not registry_path.exists():
+    registry_path = _find_tag_registry(vault_path)
+    if not registry_path:
         return Result.fail(
-            "No se encontró el registro oficial de tags. "
-            "Crea el archivo en "
-            "'04_Recursos/Obsidian/Registro de Tags del Vault.md' "
-            "o usa tags.list/tags.analyze sin sincronización hasta inicializarlo."
+            "No se encontró el registro oficial de tags. Declara su ruta en "
+            "'.agents/vault.yaml' bajo profile.local_docs.tag_registry, o crea "
+            "un archivo llamado 'Registro de Tags del Vault.md' en el vault. "
+            "Mientras tanto puedes usar tags.list/tags.analyze sin sincronización."
         )
 
     # 1. Get tags from reality

@@ -12,6 +12,7 @@ from textwrap import dedent
 
 from ..config import get_vault_path
 from ..result import Result
+from ..vault_config import resolve_role
 
 # Template for new skills
 SKILL_TEMPLATE = dedent("""
@@ -104,8 +105,13 @@ def generate_skill(
         "- Cuando se mencione este tema o contexto específico."
     )
 
-    # Default location
-    ubicacion = ubicacion_defecto if ubicacion_defecto else "02_Aprendizaje/"
+    # Default location: caller-supplied, else the vault's knowledge root.
+    if ubicacion_defecto:
+        ubicacion = ubicacion_defecto
+    else:
+        vp = get_vault_path()
+        know = resolve_role(vp, "knowledge") if vp else None
+        ubicacion = f"{know.name}/" if know else "02_Conocimiento/"
 
     # Build skill content
     fecha = datetime.now().strftime("%Y-%m-%d")

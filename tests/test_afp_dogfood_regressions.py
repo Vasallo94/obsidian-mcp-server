@@ -236,8 +236,10 @@ def test_tag_registry_missing_error_includes_setup_path(tmp_path, monkeypatch):
     result = sync_tag_registry()
 
     assert not result.success
-    assert "04_Recursos/Obsidian/Registro de Tags del Vault.md" in result.error
-    assert "Crea" in result.error or "crear" in result.error.lower()
+    # Points at config + the expected filename, not a hardcoded folder that
+    # a vault reorg could invalidate (the bug this used to encode).
+    assert "vault.yaml" in result.error
+    assert "Registro de Tags del Vault.md" in result.error
 
 
 def test_confirmed_write_tools_include_elapsed_time(tmp_path, monkeypatch):

@@ -115,3 +115,64 @@ def register_core_prompts(mcp: FastMCP) -> None:
 
         Do not write to the vault unless the user explicitly asks for a change.
         """
+
+    @mcp.prompt(name="bootstrap_vault_config")
+    def bootstrap_vault_config() -> str:
+        """
+        Inspect an unknown vault and generate its .agents/vault.yaml.
+
+        Any agent or harness can run this once against a vault to derive a
+        declarative taxonomy, so tools and skills stop hardcoding folder
+        names. Inference happens here, once; at runtime the MCP only reads.
+        """
+        vault_path = get_vault_path()
+        vault_name = vault_path.name if vault_path else "the configured vault"
+        return f"""
+        Goal: create (or update) `.agents/vault.yaml` for **{vault_name}** by
+        inspecting how this vault is actually organised. Do NOT invent a
+        layout — derive it from what exists.
+
+        Steps:
+        1. List the top-level folders and read the vault stats
+           (`vault.stats` / `vault.context`).
+        2. Sample frontmatter across folders: which `type:` values appear,
+           and in which folders do they concentrate. Read a handful of notes
+           per top-level folder with `notes.read()`.
+        3. Read `.agents/REGLAS_GLOBALES.md` if it exists — its allowed `type`
+           values and location table are the source of truth; prefer them
+           over inference when they disagree.
+        4. Map each semantic role below to the real folder that plays it. Omit
+           a role if the vault has no such folder. Roles are a stable
+           vocabulary skills rely on; folders are vault-specific:
+             inbox, system, journal, knowledge, creations, projects, media,
+             personal, templates
+        5. Locate named documents the tools need, especially the tag registry
+           (a note titled like "Registro de Tags del Vault"), and record its
+           real path under `profile.local_docs.tag_registry`.
+
+        Write this shape (all keys optional; keep any existing keys intact):
+
+        ```yaml
+        taxonomy:
+          roles:
+            inbox: "<folder>"
+            knowledge: "<folder>"
+            creations: "<folder>"
+            projects: "<folder>"
+            # ...only roles that exist
+          types: [<the type values this vault actually uses>]
+        profile:
+          local_docs:
+            tag_registry: "<path to the tag registry note>"
+        ```
+
+        Validation before you finish:
+        - Every folder you reference must exist (check each path).
+        - `types` must match REGLAS_GLOBALES if that file defines them.
+        - After writing, call `vault.health` and confirm it passes.
+
+        Deliverable: write the file, then produce a short markdown report of
+        what you inferred (roles → folders, type vocabulary, tag registry
+        path, and anything ambiguous you had to guess). Commit both the
+        `vault.yaml` and the report, and push.
+        """

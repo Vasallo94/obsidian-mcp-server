@@ -73,6 +73,26 @@ class VaultProfileConfig(BaseModel):
     )
 
 
+class VaultTaxonomy(BaseModel):
+    """
+    Declarative description of how this vault is organised.
+
+    Lets tools and skills ask *where* things live instead of hardcoding
+    folder names, so the same skill works across vaults with different
+    layouts. Every field is optional: when absent, callers fall back to
+    their previous heuristics.
+    """
+
+    roles: dict[str, str] = Field(
+        default_factory=dict,
+        description="Semantic role to folder, e.g. {'inbox': '00_Bandeja'}",
+    )
+    types: list[str] = Field(
+        default_factory=list,
+        description="Valid frontmatter 'type' values for this vault",
+    )
+
+
 class VaultConfig(BaseModel):
     """
     Minimal vault configuration schema.
@@ -82,6 +102,10 @@ class VaultConfig(BaseModel):
     """
 
     version: str = Field(default="1.0", description="Config schema version")
+    taxonomy: VaultTaxonomy = Field(
+        default_factory=VaultTaxonomy,
+        description="Optional declarative description of the vault layout",
+    )
     templates_folder: Optional[str] = Field(
         default=None, description="Folder containing note templates"
     )
@@ -140,3 +164,57 @@ def get_vault_config(vault_path: Path) -> Optional[VaultConfig]:
 def invalidate_vault_config_cache() -> None:
     """Invalidate the vault config cache."""
     _load_vault_config_cached.cache_clear()
+
+
+def resolve_role(vault_path: Path, role: str) -> Optional[Path]:
+    """
+    Resolve a semantic role to an existing folder in this vault.
+
+    Args:
+        vault_path: Path to the Obsidian vault
+        role: Role name declared under taxonomy.roles, e.g. "inbox"
+
+    Returns:
+        The folder Path if declared and it exists, None otherwise.
+    """
+    config = get_vault_config(vault_path)
+    if not config:
+        return None
+
+    folder = config.taxonomy.roles.get(role)
+    if not folder:
+        return None
+
+    candidate = vault_path / folder
+    return candidate if candidate.is_dir() else None
+
+
+def resolve_local_doc(
+    vault_path: Path, name: str, fallback_filename: Optional[str] = None
+) -> Optional[Path]:
+    """
+    Resolve a named local document declared under profile.local_docs.
+
+    Falls back to searching the vault by filename so a stale or missing
+    config entry degrades to a search instead of silently reading nothing.
+
+    Args:
+        vault_path: Path to the Obsidian vault
+        name: Key under profile.local_docs, e.g. "tag_registry"
+        fallback_filename: Filename to search for when the config misses
+
+    Returns:
+        The document Path if found, None otherwise.
+    """
+    config = get_vault_config(vault_path)
+    if config:
+        declared = config.profile.local_docs.get(name)
+        if declared:
+            candidate = vault_path / declared
+            if candidate.is_file():
+                return candidate
+
+    if not fallback_filename:
+        return None
+
+    return next(vault_path.rglob(fallback_filename), None)
