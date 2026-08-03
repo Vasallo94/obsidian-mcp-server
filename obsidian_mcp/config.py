@@ -117,8 +117,9 @@ PROMPT_LIBRARY_DIR: str = "Prompt Library"
 
 
 def get_vault_path() -> Optional[Path]:
-    """Return the configured Obsidian vault path."""
-    return get_vault_settings().vault_path
+    """Return the canonical configured Obsidian vault path."""
+    vault_path = get_vault_settings().vault_path
+    return vault_path.expanduser().resolve() if vault_path else None
 
 
 def validate_vault_path(vault_path: Optional[Path]) -> Tuple[bool, str]:

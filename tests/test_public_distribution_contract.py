@@ -6,6 +6,7 @@ import re
 import subprocess
 import tarfile
 import tomllib
+import zipfile
 from pathlib import Path
 
 PUBLIC_GUIDANCE_PATHS = [
@@ -77,6 +78,17 @@ def test_sdist_excludes_internal_agent_plans_and_personal_scripts(
         if any(re.search(pattern, name) for pattern in forbidden_patterns)
     ]
     assert leaked == []
+
+
+def test_wheel_contains_packaged_forbidden_path_defaults(tmp_path: Path) -> None:
+    subprocess.run(
+        ["uv", "build", "--wheel", "--out-dir", str(tmp_path)],
+        check=True,
+    )
+    wheel = next(tmp_path.glob("obsidian_mcp_server-*.whl"))
+
+    with zipfile.ZipFile(wheel) as archive:
+        assert "obsidian_mcp/.forbidden_paths" in archive.namelist()
 
 
 def test_public_docs_do_not_recommend_pip_or_missing_start_script() -> None:

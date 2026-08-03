@@ -2,7 +2,6 @@
 Tests básicos para verificar que el servidor MCP funciona correctamente
 """
 
-import os
 from pathlib import Path
 from unittest.mock import patch
 
@@ -44,23 +43,10 @@ PROJECT_ROOT = Path(__file__).parent.parent
 class TestConfiguration:
     """Tests de configuración del proyecto"""
 
-    def test_env_file_exists(self):
-        """Verificar que el archivo .env existe"""
-        env_file = PROJECT_ROOT / ".env"
-        assert env_file.exists(), "Archivo .env no encontrado"
-
     def test_env_example_exists(self):
         """Verificar que el archivo .env.example existe"""
         env_example = PROJECT_ROOT / ".env.example"
         assert env_example.exists(), "Archivo .env.example no encontrado"
-
-    def test_obsidian_vault_path_configured(self):
-        """Verificar que OBSIDIAN_VAULT_PATH está configurado"""
-        vault_path = os.getenv("OBSIDIAN_VAULT_PATH")
-        assert vault_path is not None, "Variable OBSIDIAN_VAULT_PATH no configurada"
-        assert vault_path != "/ruta/a/tu/vault/de/obsidian", (
-            "OBSIDIAN_VAULT_PATH tiene valor por defecto"
-        )
 
     def test_vault_path_exists(self, vault_path):
         """Verificar que el path del vault existe (skips if not available)"""

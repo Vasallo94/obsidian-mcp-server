@@ -79,9 +79,14 @@ def generate_skill(
 
     # Validate name
     nombre_limpio = nombre.lower().strip().replace(" ", "-")
-    if not re.fullmatch(r"[a-z0-9][a-z0-9-]*", nombre_limpio):
+    if (
+        not nombre_limpio
+        or not nombre_limpio[0].isalnum()
+        or any(not (char.isalnum() or char in "-_") for char in nombre_limpio)
+    ):
         return Result.fail(
-            "Skill name must contain only lowercase letters, numbers, and hyphens."
+            "Skill name must start with a letter or number and contain only "
+            "letters, numbers, hyphens, or underscores."
         )
 
     # Check if skill already exists

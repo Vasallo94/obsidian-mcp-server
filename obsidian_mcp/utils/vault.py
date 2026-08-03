@@ -18,7 +18,7 @@ from .security import iter_safe_vault_files, resolve_vault_path
 
 # --- Note Cache ---
 # Simple time-based cache for find_note_by_name
-_note_cache: Dict[str, Tuple[float, Optional[Path]]] = {}
+_note_cache: Dict[Tuple[str, str], Tuple[float, Optional[Path]]] = {}
 
 
 def _get_cache_ttl() -> int:
@@ -39,8 +39,9 @@ def invalidate_note_cache(name: Optional[str] = None) -> None:
     if name is None:
         _note_cache.clear()
     else:
-        cache_key = name.lower().replace(".md", "")
-        _note_cache.pop(cache_key, None)
+        normalized_name = name.lower().replace(".md", "")
+        for cache_key in [key for key in _note_cache if key[1] == normalized_name]:
+            _note_cache.pop(cache_key, None)
 
 
 def get_vault_stats() -> Dict[str, Any]:
@@ -87,7 +88,10 @@ def find_note_by_name(name: str, use_cache: bool = True) -> Optional[Path]:
     Returns:
         Path de la nota si se encuentra, None en caso contrario
     """
-    cache_key = name.lower().replace(".md", "")
+    vault_path = get_vault_path()
+    if not vault_path:
+        return None
+    cache_key = (str(vault_path), name.lower().replace(".md", ""))
     cache_ttl = _get_cache_ttl()
 
     # Check cache

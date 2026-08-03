@@ -18,6 +18,7 @@ from ..utils import (
     extract_tags_from_content,
     get_logger,
     iter_safe_vault_files,
+    resolve_vault_path,
 )
 from ..vault_config import resolve_local_doc
 
@@ -518,12 +519,13 @@ def lint_vault(  # pylint: disable=too-many-locals,too-many-branches,too-many-st
     if limit < 0:
         return Result.fail("limit debe ser >= 0.")
 
-    if folder:
-        scan_root = vault_path / folder
-        if not scan_root.exists():
-            return Result.fail(f"Carpeta no existe: {folder}")
-    else:
-        scan_root = vault_path
+    scan_root, error = resolve_vault_path(
+        folder or vault_path, vault_path, "lint vault in"
+    )
+    if scan_root is None:
+        return Result.fail(error)
+    if not scan_root.is_dir():
+        return Result.fail(f"Carpeta no existe: {folder}")
 
     rules = load_vault_rules()
     if rule_ids:

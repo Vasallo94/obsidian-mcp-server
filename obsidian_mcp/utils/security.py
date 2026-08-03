@@ -46,7 +46,7 @@ def load_forbidden_patterns(
         return _forbidden_patterns
 
     patterns: List[str] = []
-    locations = [Path(__file__).parent.parent.parent / ".forbidden_paths"]
+    locations = [Path(__file__).parent.parent / ".forbidden_paths"]
     if vault_path:
         locations.append(vault_path / ".forbidden_paths")
 
@@ -78,70 +78,49 @@ def load_forbidden_patterns(
     return patterns
 
 
+def _matching_forbidden_pattern(relative_path: Path, patterns: List[str]) -> str:
+    """Return the first forbidden pattern matching a normalized vault path."""
+    relative_str = relative_path.as_posix()
+    for original_pattern in patterns:
+        pattern = original_pattern.replace("\\", "/")
+        if "**" in pattern:
+            parts = pattern.split("**")
+            if len(parts) == 2:
+                suffix = parts[1].lstrip("/")
+                if fnmatch.fnmatch(relative_str, f"*{suffix}") or fnmatch.fnmatch(
+                    relative_path.name, suffix.lstrip("*")
+                ):
+                    return original_pattern
+        elif fnmatch.fnmatch(relative_str, pattern) or relative_str.startswith(
+            pattern.rstrip("*")
+        ):
+            return original_pattern
+    return ""
+
+
 def is_path_forbidden(
     path: Path | str,
     vault_path: Optional[Path] = None,
 ) -> Tuple[bool, str]:
-    """
-    Check if a path matches any forbidden pattern.
-
-    Args:
-        path: Path to check (absolute or relative to vault)
-        vault_path: The vault root path. If None, retrieved from config.
-
-    Returns:
-        Tuple of (is_forbidden, matched_pattern)
-    """
+    """Check a canonical vault-relative path against all protection patterns."""
     if vault_path is None:
         vault_path = get_vault_path()
-
     if not vault_path:
-        return True, "Vault not configured"  # Fail safe
+        return True, "Vault not configured"
 
     try:
-        if isinstance(path, str):
-            path = Path(path)
-
-        # Make path relative to vault for pattern matching
-        if path.is_absolute():
-            try:
-                relative_path = path.relative_to(vault_path)
-            except ValueError:
-                # Path is not under vault
-                return True, "Path outside vault"
-        else:
-            relative_path = path
-
-        relative_str = str(relative_path)
-        patterns = load_forbidden_patterns(vault_path=vault_path)
-
-        for pattern in patterns:
-            # Handle ** patterns (recursive glob)
-            if "**" in pattern:
-                # Convert ** to work with fnmatch
-                # **/ matches any directory depth
-                pattern_parts = pattern.split("**")
-                if len(pattern_parts) == 2:
-                    _, suffix = pattern_parts
-                    suffix = suffix.lstrip("/")
-                    # Check if the path ends with the suffix pattern
-                    if fnmatch.fnmatch(relative_str, f"*{suffix}"):
-                        return True, pattern
-                    # Also check just the filename
-                    if fnmatch.fnmatch(relative_path.name, suffix.lstrip("*")):
-                        return True, pattern
-            else:
-                # Simple glob pattern
-                if fnmatch.fnmatch(relative_str, pattern):
-                    return True, pattern
-                # Also try matching with path starting with pattern base
-                if relative_str.startswith(pattern.rstrip("*")):
-                    return True, pattern
-
-        return False, ""
-
-    except (ValueError, AttributeError) as e:
-        return True, f"Error checking path: {e}"  # Fail safe
+        resolved_vault = vault_path.resolve()
+        candidate = Path(path)
+        if not candidate.is_absolute():
+            candidate = resolved_vault / candidate
+        relative_path = candidate.resolve().relative_to(resolved_vault)
+        pattern = _matching_forbidden_pattern(
+            relative_path,
+            load_forbidden_patterns(vault_path=resolved_vault),
+        )
+        return bool(pattern), pattern
+    except (ValueError, OSError, AttributeError) as exc:
+        return True, f"Error checking path: {exc}"
 
 
 def check_path_access(
@@ -149,33 +128,27 @@ def check_path_access(
     vault_path: Optional[Path] = None,
     operation: str = "access",
 ) -> Tuple[bool, str]:
-    """
-    Centralized access check for all path operations.
-    Combines path validation within vault and forbidden path checking.
-
-    Args:
-        path: Path to check
-        vault_path: The vault root path
-        operation: Description of the operation (for error message)
-
-    Returns:
-        Tuple of (is_allowed, error_message)
-        If is_allowed is True, error_message is empty.
-        If is_allowed is False, error_message contains the denial reason.
-    """
+    """Validate the canonical path and apply the vault protection policy."""
     if vault_path is None:
         vault_path = get_vault_path()
+    if not vault_path:
+        return False, "Security error: Vault path not configured"
 
-    # First: validate path is within vault
-    is_valid, error = validate_path_within_vault(path, vault_path)
-    if not is_valid:
-        return False, f"Security error: {error}"
+    try:
+        resolved_vault = vault_path.resolve()
+        candidate = Path(path)
+        if not candidate.is_absolute():
+            candidate = resolved_vault / candidate
+        relative_path = candidate.resolve().relative_to(resolved_vault)
+    except (ValueError, OSError) as exc:
+        return False, f"Security error: Path escapes vault directory: {exc}"
 
-    # Second: check if path is forbidden
-    is_forbidden, _ = is_path_forbidden(path, vault_path)
-    if is_forbidden:
+    pattern = _matching_forbidden_pattern(
+        relative_path,
+        load_forbidden_patterns(vault_path=resolved_vault),
+    )
+    if pattern:
         return False, f"Access denied: cannot {operation} protected paths"
-
     return True, ""
 
 
@@ -190,13 +163,15 @@ def resolve_vault_path(
     if not vault_path:
         return None, "Security error: Vault path not configured"
 
+    resolved_vault = vault_path.resolve()
     candidate = Path(path)
     if not candidate.is_absolute():
-        candidate = vault_path / candidate
-    is_allowed, error = check_path_access(candidate, vault_path, operation)
+        candidate = resolved_vault / candidate
+    candidate = candidate.resolve()
+    is_allowed, error = check_path_access(candidate, resolved_vault, operation)
     if not is_allowed:
         return None, error
-    return candidate.resolve(), ""
+    return candidate, ""
 
 
 def iter_safe_vault_files(
@@ -204,27 +179,38 @@ def iter_safe_vault_files(
     pattern: str = "*.md",
     root: Optional[Path] = None,
 ) -> Iterator[Path]:
-    """Yield regular vault files that pass the centralized access policy."""
-    scan_root, _ = resolve_vault_path(root or vault_path, vault_path, "scan")
+    """Yield allowed vault files with policy data resolved once per scan."""
+    resolved_vault = vault_path.resolve()
+    scan_root, _ = resolve_vault_path(root or resolved_vault, resolved_vault, "scan")
     if scan_root is None or not scan_root.is_dir():
         return
+    patterns = load_forbidden_patterns(vault_path=resolved_vault)
 
     for current, dirnames, filenames in os.walk(scan_root, followlinks=False):
         current_path = Path(current)
-        # Do not descend through directory symlinks or paths outside the policy.
-        dirnames[:] = [
-            name
-            for name in dirnames
-            if not (current_path / name).is_symlink()
-            and check_path_access(current_path / name, vault_path, "scan")[0]
-        ]
-        for name in filenames:
+        safe_directories: list[str] = []
+        for name in dirnames:
             candidate = current_path / name
-            if (
-                fnmatch.fnmatch(name, pattern)
-                and candidate.is_file()
-                and not candidate.is_symlink()
-                and check_path_access(candidate, vault_path, "scan")[0]
+            if candidate.is_symlink():
+                continue
+            relative = candidate.relative_to(resolved_vault)
+            if not _matching_forbidden_pattern(relative, patterns):
+                safe_directories.append(name)
+        dirnames[:] = safe_directories
+
+        for name in filenames:
+            if not fnmatch.fnmatch(name, pattern):
+                continue
+            candidate = current_path / name
+            resolved_candidate = (
+                candidate.resolve() if candidate.is_symlink() else candidate
+            )
+            try:
+                relative = resolved_candidate.relative_to(resolved_vault)
+            except ValueError:
+                continue
+            if resolved_candidate.is_file() and not _matching_forbidden_pattern(
+                relative, patterns
             ):
                 yield candidate
 

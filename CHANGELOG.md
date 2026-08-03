@@ -31,7 +31,7 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 - **Indexación Semántica de Imágenes**: El sistema ahora extrae descripciones de imágenes (`![[img|desc]]` o `![desc](img)`) y las inyecta como contexto semántico, haciendo buscable el contenido visual.
 
 ### Fixed
-- **Vault filesystem boundary**: Canvas/Kanvas, note creation, skill generation, templates, configured documents, search, analysis, graph, context, and wikilink operations now reject paths outside the vault and consistently skip protected files. Vault `.forbidden_paths` entries are merged with packaged defaults.
+- **Vault filesystem boundary**: Canvas/Kanvas, note creation, skill generation, templates, configured documents, search, analysis, graph, context, wikilink, and legacy semantic operations now canonicalize paths, reject traversal and symlink escapes, and consistently skip protected files. Vault `.forbidden_paths` entries are merged with defaults shipped inside the package.
 - **Test isolation**: The default test suite now uses a generated temporary vault instead of loading or traversing the developer's configured vault.
 - **ObsidianRAG resource secrets**: Integration config resources no longer expose raw environment mappings, and setup resources omit secret-like variables.
 - **Dependency security**: Updated `cryptography` to 50.0.0 to resolve CVE-2026-69247.
