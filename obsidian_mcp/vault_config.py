@@ -206,15 +206,23 @@ def resolve_local_doc(
     Returns:
         The document Path if found, None otherwise.
     """
+    # Local import avoids a module-level cycle: security loads vault config.
+    from .utils.security import (  # pylint: disable=import-outside-toplevel,cyclic-import
+        iter_safe_vault_files,
+        resolve_vault_path,
+    )
+
     config = get_vault_config(vault_path)
     if config:
         declared = config.profile.local_docs.get(name)
         if declared:
-            candidate = vault_path / declared
-            if candidate.is_file():
+            candidate, _ = resolve_vault_path(
+                declared, vault_path, "read configured document"
+            )
+            if candidate and candidate.is_file():
                 return candidate
 
     if not fallback_filename:
         return None
 
-    return next(vault_path.rglob(fallback_filename), None)
+    return next(iter_safe_vault_files(vault_path, fallback_filename), None)

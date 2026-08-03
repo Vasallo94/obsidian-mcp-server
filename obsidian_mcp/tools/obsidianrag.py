@@ -199,8 +199,9 @@ def build_obsidianrag_config_resource() -> str:
         return json.dumps(
             {"enabled": False, "error": config.error}, ensure_ascii=False, indent=2
         )
-    payload = {"enabled": True, **(config.data or {})}
-    return json.dumps(payload, ensure_ascii=False, indent=2)
+    data = dict(config.data or {})
+    data.pop("env", None)
+    return json.dumps({"enabled": True, **data}, ensure_ascii=False, indent=2)
 
 
 def build_obsidianrag_setup_resource() -> str:
@@ -258,7 +259,7 @@ silently.
 ## Environment
 
 The vault profile may declare integration environment variables under
-`profile.integrations.obsidianrag.env`. Only string-like values are surfaced here.
+`profile.integrations.obsidianrag.env`. Secret-like variables are never surfaced.
 
 ```bash
 {_format_env_export(env_vars)}
@@ -381,15 +382,16 @@ def _request_json(
 
 
 def _safe_env_vars(raw_env: Any) -> dict[str, str]:
-    """Return shell-safe environment values from integration config."""
+    """Return non-secret shell-safe environment values from integration config."""
     if not isinstance(raw_env, Mapping):
         return {}
     result: dict[str, str] = {}
+    sensitive_fragments = ("KEY", "TOKEN", "SECRET", "PASSWORD", "CREDENTIAL")
     for key, value in raw_env.items():
         name = str(key)
         if not name.replace("_", "").isalnum() or name.upper() != name:
             continue
-        if value is None:
+        if value is None or any(part in name for part in sensitive_fragments):
             continue
         result[name] = str(value)
     return result

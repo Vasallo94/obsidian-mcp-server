@@ -7,13 +7,23 @@ import sys
 from pathlib import Path
 
 import pytest
-from dotenv import load_dotenv
 
 # Agregar el directorio raíz al path para importar el módulo
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-# Cargar variables de entorno para los tests
-load_dotenv()
+
+@pytest.fixture(autouse=True)
+def isolated_vault(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """Keep the default test suite away from a developer's configured vault."""
+    vault = tmp_path
+    (vault / "sample.md").write_text("# Test note\n", encoding="utf-8")
+    monkeypatch.setenv("OBSIDIAN_VAULT_PATH", str(vault))
+
+    from obsidian_mcp.config import reset_settings
+
+    reset_settings()
+    yield vault
+    reset_settings()
 
 
 @pytest.fixture

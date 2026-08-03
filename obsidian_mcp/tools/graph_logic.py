@@ -15,6 +15,7 @@ from ..utils import (
     extract_tags_from_content,
     find_note_by_name,
     get_logger,
+    iter_safe_vault_files,
 )
 
 logger = get_logger(__name__)
@@ -40,7 +41,7 @@ def get_backlinks(nombre_nota: str) -> Result[str]:
 
         backlinks: List[Dict[str, str]] = []
 
-        for archivo in vault_path.rglob("*.md"):
+        for archivo in iter_safe_vault_files(vault_path):
             # Ignore self
             if archivo.stem == nombre_limpio:
                 continue
@@ -99,7 +100,7 @@ def get_notes_by_tag(tag: str) -> Result[str]:
         tag_limpia = tag.lstrip("#")
         notas_con_tag: List[Dict[str, str]] = []
 
-        for archivo in vault_path.rglob("*.md"):
+        for archivo in iter_safe_vault_files(vault_path):
             try:
                 with open(archivo, "r", encoding="utf-8") as f:
                     contenido = f.read()
@@ -147,7 +148,7 @@ def get_notes_by_tag(tag: str) -> Result[str]:
 def _find_backlinks(vault_path: Path, nombre_limpio: str) -> list[str]:
     """Scan vault for notes that link to the given note name."""
     backlinks = []
-    for archivo in vault_path.rglob("*.md"):
+    for archivo in iter_safe_vault_files(vault_path):
         if archivo.stem == nombre_limpio:
             continue
         try:
@@ -253,7 +254,7 @@ def find_orphan_notes() -> Result[str]:
         enlaces_salientes_por_nota: Dict[str, List[str]] = {}
         todos_los_enlaces: set = set()
 
-        for archivo in vault_path.rglob("*.md"):
+        for archivo in iter_safe_vault_files(vault_path):
             try:
                 with open(archivo, "r", encoding="utf-8") as f:
                     contenido = f.read()
@@ -266,7 +267,7 @@ def find_orphan_notes() -> Result[str]:
                 continue
 
         notas_huerfanas = []
-        for archivo in vault_path.rglob("*.md"):
+        for archivo in iter_safe_vault_files(vault_path):
             nombre = archivo.stem
             if any(x in str(archivo) for x in [".git", ".obsidian", "ZZ_"]):
                 continue

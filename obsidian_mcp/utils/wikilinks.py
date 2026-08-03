@@ -18,6 +18,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
+from .security import iter_safe_vault_files
+
 # Match [[...]] but NOT ![[...]] (embeds). The negative lookbehind keeps
 # the regex simple while filtering image/file transclusions.
 WIKILINK_RE = re.compile(r"(?<!\!)\[\[([^\]\n]+?)\]\]")
@@ -95,7 +97,7 @@ def build_stem_index(vault_path: Path) -> dict[str, list[Path]]:
     resolution.
     """
     index: dict[str, list[Path]] = {}
-    for md_file in vault_path.rglob("*.md"):
+    for md_file in iter_safe_vault_files(vault_path):
         stem = md_file.stem
         index.setdefault(stem, []).append(md_file)
     return index
@@ -134,7 +136,7 @@ def scan_broken_wikilinks(vault_path: Path) -> list[BrokenWikilink]:
     """Walk the vault and return every wikilink that can't be resolved."""
     stem_index = build_stem_index(vault_path)
     broken: list[BrokenWikilink] = []
-    for md_file in vault_path.rglob("*.md"):
+    for md_file in iter_safe_vault_files(vault_path):
         try:
             content = md_file.read_text(encoding="utf-8")
         except OSError:
@@ -203,7 +205,7 @@ def rewrite_wikilinks_in_vault(
     """
     total = 0
     touched: list[Path] = []
-    for md_file in vault_path.rglob("*.md"):
+    for md_file in iter_safe_vault_files(vault_path):
         try:
             content = md_file.read_text(encoding="utf-8")
         except OSError:

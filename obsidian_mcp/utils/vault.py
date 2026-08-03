@@ -14,6 +14,7 @@ import aiofiles
 import yaml
 
 from ..config import get_vault_path, get_vault_settings
+from .security import iter_safe_vault_files, resolve_vault_path
 
 # --- Note Cache ---
 # Simple time-based cache for find_note_by_name
@@ -61,15 +62,16 @@ def get_vault_stats() -> Dict[str, Any]:
             "last_scan": datetime.now().isoformat(),
         }
 
-    markdown_files = list(vault_path.glob("**/*.md"))
-    total_files = list(vault_path.glob("**/*.*"))
+    markdown_files = list(iter_safe_vault_files(vault_path))
+    total_files = list(iter_safe_vault_files(vault_path, pattern="*"))
+    folders = {path.parent for path in total_files}
 
     return {
         "vault_name": vault_path.name,
         "vault_path": str(vault_path),
         "total_files": len(total_files),
         "markdown_files": len(markdown_files),
-        "folders": len([p for p in vault_path.rglob("*") if p.is_dir()]),
+        "folders": len(folders),
         "last_scan": datetime.now().isoformat(),
     }
 
@@ -112,13 +114,13 @@ def _find_note_by_name_impl(name: str) -> Optional[Path]:
         return None
 
     # Si incluye ruta, buscar directamente
-    if "/" in name:
-        note_path = vault_path / name
-        return note_path if note_path.exists() else None
+    if "/" in name or "\\" in name:
+        note_path, _ = resolve_vault_path(name, vault_path, "find note")
+        return note_path if note_path and note_path.is_file() else None
 
     # Buscar en todo el vault (insensible a mayúsculas)
     name_lower = name.lower().replace(".md", "")
-    for file_path in vault_path.rglob("*.md"):
+    for file_path in iter_safe_vault_files(vault_path):
         if file_path.stem.lower() == name_lower:
             return file_path
 

@@ -7,11 +7,9 @@ All functions return Result[str].
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from ..config import get_vault_path
 from ..result import Result
-from ..utils import get_logger
+from ..utils import get_logger, iter_safe_vault_files, resolve_vault_path
 from . import engine
 from .models import CanvasFile, Edge, Node, describe_canvas_colors
 
@@ -27,10 +25,9 @@ def _resolve_canvas_path(canvas_path: str) -> Result[str]:
     if vault_path is None:
         return Result.fail("Vault path is not configured.")
 
-    abs_path = Path(canvas_path)
-    if not abs_path.is_absolute():
-        abs_path = vault_path / canvas_path
-
+    abs_path, error = resolve_vault_path(canvas_path, vault_path, "access canvas")
+    if abs_path is None:
+        return Result.fail(error)
     if abs_path.suffix != ".canvas":
         return Result.fail(f"Not a .canvas file: {canvas_path}")
 
@@ -137,11 +134,17 @@ def list_canvases(folder: str) -> Result[str]:
     if vault_path is None:
         return Result.fail("Vault path is not configured.")
 
-    search_path = vault_path / folder if folder else vault_path
+    search_path, error = resolve_vault_path(
+        folder or vault_path, vault_path, "list canvases in"
+    )
+    if search_path is None:
+        return Result.fail(error)
     if not search_path.is_dir():
         return Result.fail(f"Folder not found: {folder}")
 
-    canvas_files = sorted(search_path.rglob("*.canvas"))
+    canvas_files = sorted(
+        iter_safe_vault_files(vault_path, pattern="*.canvas", root=search_path)
+    )
     if not canvas_files:
         return Result.ok("No .canvas files found.")
 

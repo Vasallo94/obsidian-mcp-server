@@ -26,10 +26,10 @@ class TestReadCanvas:
         assert "DV-01" in result.data
         assert "Development" in result.data
 
-    def test_read_canvas_not_found(self):
+    def test_read_canvas_rejects_path_outside_vault(self):
         result = read_canvas("/nonexistent/path.canvas")
         assert not result.success
-        assert "not found" in result.error.lower()
+        assert "security error" in result.error.lower()
 
 
 class TestListCanvases:

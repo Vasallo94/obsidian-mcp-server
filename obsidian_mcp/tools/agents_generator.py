@@ -7,11 +7,13 @@ This module contains functions to:
 3. Synchronize and validate existing skills
 """
 
+import re
 from datetime import datetime
 from textwrap import dedent
 
 from ..config import get_vault_path
 from ..result import Result
+from ..utils import iter_safe_vault_files, resolve_vault_path
 from ..vault_config import resolve_role
 
 # Template for new skills
@@ -77,13 +79,20 @@ def generate_skill(
 
     # Validate name
     nombre_limpio = nombre.lower().strip().replace(" ", "-")
-    if not nombre_limpio:
-        return Result.fail("Skill name cannot be empty.")
+    if not re.fullmatch(r"[a-z0-9][a-z0-9-]*", nombre_limpio):
+        return Result.fail(
+            "Skill name must contain only lowercase letters, numbers, and hyphens."
+        )
 
     # Check if skill already exists
     skills_path = vault_path / ".agents" / "skills"
     skill_path = skills_path / nombre_limpio
-    skill_file = skill_path / "SKILL.md"
+    skill_file, error = resolve_vault_path(
+        skill_path / "SKILL.md", vault_path, "create skill in"
+    )
+    if skill_file is None:
+        return Result.fail(error)
+    skill_path = skill_file.parent
 
     if skill_file.exists():
         return Result.fail(
@@ -155,7 +164,7 @@ def suggest_skills_for_vault() -> Result[str]:  # pylint: disable=too-many-local
     # Excluded folders
     excluded = {".git", ".obsidian", ".trash", ".agents", "node_modules"}
 
-    for md_file in vault_path.rglob("*.md"):
+    for md_file in iter_safe_vault_files(vault_path):
         # Skip excluded
         if any(excl in md_file.parts for excl in excluded):
             continue
@@ -174,7 +183,6 @@ def suggest_skills_for_vault() -> Result[str]:  # pylint: disable=too-many-local
         # Extract tags from content
         try:
             content = md_file.read_text(encoding="utf-8")
-            import re
 
             # Inline tags
             inline_tags = re.findall(r"#([a-zA-ZáéíóúñÁÉÍÓÚÑ][a-zA-Z0-9_-]*)", content)
@@ -343,8 +351,6 @@ def sync_skills(actualizar: bool = False) -> Result[str]:
             )
             if actualizar:
                 # Add the caution block after the first heading
-                import re
-
                 new_content = re.sub(
                     r"(^# .+\n)",
                     r"\1\n> [!CAUTION]\n> **OBLIGATORIO**: Lee y aplica "

@@ -13,7 +13,12 @@ from datetime import datetime, timedelta
 
 from ..config import get_vault_path
 from ..result import Result
-from ..utils import extract_internal_links, extract_tags_from_content, get_logger
+from ..utils import (
+    extract_internal_links,
+    extract_tags_from_content,
+    get_logger,
+    iter_safe_vault_files,
+)
 from ..vault_config import resolve_local_doc
 
 _TAG_REGISTRY_FILENAME = "Registro de Tags del Vault.md"
@@ -57,7 +62,7 @@ def get_vault_stats() -> Result[str]:  # pylint: disable=too-many-locals
     # Analysis by date
     por_fecha: dict[str, int] = {}
 
-    for archivo in vault_path.rglob("*.md"):
+    for archivo in iter_safe_vault_files(vault_path):
         total_notas += 1
 
         # Folder
@@ -180,7 +185,7 @@ def analyze_tags() -> Result[str]:  # pylint: disable=too-many-locals,too-many-b
     conteo_etiquetas: dict[str, int] = {}
     archivos_con_etiquetas: list[str] = []
 
-    for archivo in vault_path.rglob("*.md"):
+    for archivo in iter_safe_vault_files(vault_path):
         try:
             # Ignore system folders or registry
             is_sys = ".github" in str(archivo)
@@ -285,7 +290,7 @@ def sync_tag_registry(  # pylint: disable=too-many-locals,too-many-branches
 
     # 1. Get tags from reality
     conteo_real: dict[str, int] = {}
-    for archivo in vault_path.rglob("*.md"):
+    for archivo in iter_safe_vault_files(vault_path):
         if (
             ".github" in str(archivo)
             or "Registro de Tags" in archivo.name
@@ -389,7 +394,7 @@ def list_all_tags() -> Result[str]:
 
     etiquetas_set: set[str] = set()
 
-    for archivo in vault_path.rglob("*.md"):
+    for archivo in iter_safe_vault_files(vault_path):
         try:
             with open(archivo, "r", encoding="utf-8") as f:
                 contenido = f.read()
@@ -418,9 +423,9 @@ def analyze_links() -> Result[str]:
 
     enlaces_por_archivo: dict[str, list[str]] = {}
     todos_los_enlaces: dict[str, int] = {}
-    archivos_existentes = {f.stem for f in vault_path.rglob("*.md")}
+    archivos_existentes = {f.stem for f in iter_safe_vault_files(vault_path)}
 
-    for archivo in vault_path.rglob("*.md"):
+    for archivo in iter_safe_vault_files(vault_path):
         try:
             with open(archivo, "r", encoding="utf-8") as f:
                 contenido = f.read()
@@ -534,7 +539,7 @@ def lint_vault(  # pylint: disable=too-many-locals,too-many-branches,too-many-st
     total_violations = 0
     files_scanned = 0
 
-    for md_file in scan_root.rglob("*.md"):
+    for md_file in iter_safe_vault_files(vault_path, root=scan_root):
         # Skip restricted/system folders (.agents, .obsidian, .trash, etc.).
         forbidden, _ = is_path_forbidden(md_file, vault_path)
         if forbidden:
@@ -689,7 +694,7 @@ def get_recent_activity(dias: int = 7) -> Result[str]:
     archivos_recientes: list[dict[str, str]] = []
     archivos_modificados: list[dict[str, str]] = []
 
-    for archivo in vault_path.rglob("*.md"):
+    for archivo in iter_safe_vault_files(vault_path):
         stats = archivo.stat()
         fecha_creacion = datetime.fromtimestamp(stats.st_ctime)
         fecha_modificacion = datetime.fromtimestamp(stats.st_mtime)

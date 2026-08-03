@@ -7,6 +7,8 @@ proper validation of restricted folder access.
 
 import fnmatch
 import logging
+import os
+from collections.abc import Iterator
 from pathlib import Path
 from typing import List, Optional, Tuple
 
@@ -16,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 # Cache for forbidden patterns
 _forbidden_patterns: Optional[List[str]] = None  # pylint: disable=invalid-name
+_forbidden_patterns_vault: Optional[Path] = None  # pylint: disable=invalid-name
 
 
 class PathSecurityError(Exception):
@@ -26,67 +29,52 @@ class AccessDeniedError(Exception):
     """Raised when access to a forbidden path is attempted."""
 
 
-def load_forbidden_patterns(force_reload: bool = False) -> List[str]:
-    """
-    Load forbidden path patterns from .forbidden_paths file.
+def load_forbidden_patterns(
+    force_reload: bool = False, vault_path: Optional[Path] = None
+) -> List[str]:
+    """Load and merge packaged, vault, and profile path protections."""
+    global _forbidden_patterns, _forbidden_patterns_vault  # pylint: disable=global-statement
 
-    Args:
-        force_reload: If True, reload from file even if cached.
-
-    Returns:
-        List of glob patterns for forbidden paths.
-    """
-    global _forbidden_patterns  # pylint: disable=global-statement
-
-    if _forbidden_patterns is not None and not force_reload:
+    if vault_path is None:
+        vault_path = get_vault_path()
+    resolved_vault = vault_path.resolve() if vault_path else None
+    if (
+        _forbidden_patterns is not None
+        and _forbidden_patterns_vault == resolved_vault
+        and not force_reload
+    ):
         return _forbidden_patterns
 
     patterns: List[str] = []
-
-    # Try to load from project root first, then from vault
-    possible_locations = [
-        Path(__file__).parent.parent.parent / ".forbidden_paths",  # Project root
-    ]
-
-    vault_path = get_vault_path()
+    locations = [Path(__file__).parent.parent.parent / ".forbidden_paths"]
     if vault_path:
-        possible_locations.append(vault_path / ".forbidden_paths")
+        locations.append(vault_path / ".forbidden_paths")
 
-    for location in possible_locations:
-        if location.exists():
-            try:
-                with open(location, "r", encoding="utf-8") as f:
-                    for line in f:
-                        line = line.strip()
-                        # Skip empty lines and comments
-                        if line and not line.startswith("#"):
-                            patterns.append(line)
-                break  # Use first found file
-            except OSError as e:
-                logger.debug("Could not read '%s': %s", location, e)
-                continue
+    for location in locations:
+        try:
+            lines = location.read_text(encoding="utf-8").splitlines()
+        except OSError as exc:
+            logger.debug("Could not read '%s': %s", location, exc)
+            continue
+        for line in lines:
+            pattern = line.strip()
+            if pattern and not pattern.startswith("#") and pattern not in patterns:
+                patterns.append(pattern)
 
-    # Add private folders from vault config as fallback patterns
-    # Import here to avoid circular import with vault_config module.
+    # Import here to avoid a module-level cycle with vault_config.
     from ..vault_config import (
         get_vault_config,  # pylint: disable=import-outside-toplevel # noqa: PLC0415
     )
 
-    vault_path = get_vault_path()
     if vault_path:
         config = get_vault_config(vault_path)
-        if config and config.private_paths:
-            for private_pattern in config.private_paths:
-                if private_pattern not in patterns:
-                    patterns.append(private_pattern)
-        else:
-            # Default fallback if no config
-            if "**/Privado/*" not in patterns:
-                patterns.append("**/Privado/*")
-            if "**/Private/*" not in patterns:
-                patterns.append("**/Private/*")
+        private_patterns = config.private_paths if config else []
+        for pattern in private_patterns or ["**/Privado/*", "**/Private/*"]:
+            if pattern not in patterns:
+                patterns.append(pattern)
 
     _forbidden_patterns = patterns
+    _forbidden_patterns_vault = resolved_vault
     return patterns
 
 
@@ -125,7 +113,7 @@ def is_path_forbidden(
             relative_path = path
 
         relative_str = str(relative_path)
-        patterns = load_forbidden_patterns()
+        patterns = load_forbidden_patterns(vault_path=vault_path)
 
         for pattern in patterns:
             # Handle ** patterns (recursive glob)
@@ -189,6 +177,56 @@ def check_path_access(
         return False, f"Access denied: cannot {operation} protected paths"
 
     return True, ""
+
+
+def resolve_vault_path(
+    path: Path | str,
+    vault_path: Optional[Path] = None,
+    operation: str = "access",
+) -> Tuple[Optional[Path], str]:
+    """Resolve an allowed path inside the vault without touching the filesystem."""
+    if vault_path is None:
+        vault_path = get_vault_path()
+    if not vault_path:
+        return None, "Security error: Vault path not configured"
+
+    candidate = Path(path)
+    if not candidate.is_absolute():
+        candidate = vault_path / candidate
+    is_allowed, error = check_path_access(candidate, vault_path, operation)
+    if not is_allowed:
+        return None, error
+    return candidate.resolve(), ""
+
+
+def iter_safe_vault_files(
+    vault_path: Path,
+    pattern: str = "*.md",
+    root: Optional[Path] = None,
+) -> Iterator[Path]:
+    """Yield regular vault files that pass the centralized access policy."""
+    scan_root, _ = resolve_vault_path(root or vault_path, vault_path, "scan")
+    if scan_root is None or not scan_root.is_dir():
+        return
+
+    for current, dirnames, filenames in os.walk(scan_root, followlinks=False):
+        current_path = Path(current)
+        # Do not descend through directory symlinks or paths outside the policy.
+        dirnames[:] = [
+            name
+            for name in dirnames
+            if not (current_path / name).is_symlink()
+            and check_path_access(current_path / name, vault_path, "scan")[0]
+        ]
+        for name in filenames:
+            candidate = current_path / name
+            if (
+                fnmatch.fnmatch(name, pattern)
+                and candidate.is_file()
+                and not candidate.is_symlink()
+                and check_path_access(candidate, vault_path, "scan")[0]
+            ):
+                yield candidate
 
 
 def validate_path_within_vault(
