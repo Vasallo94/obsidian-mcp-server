@@ -5,7 +5,12 @@ from pathlib import Path
 
 from obsidian_mcp.canvas import canvas_logic, workflow_tool_logic
 from obsidian_mcp.result import Result
-from obsidian_mcp.tools import agents_generator, creation_logic, obsidianrag
+from obsidian_mcp.tools import (
+    agents_generator,
+    creation_logic,
+    navigation_logic,
+    obsidianrag,
+)
 from obsidian_mcp.utils import security
 from obsidian_mcp.utils import vault as vault_utils
 
@@ -136,6 +141,27 @@ def test_symlink_to_protected_file_is_denied(tmp_path: Path) -> None:
     assert not security.check_path_access(alias, vault)[0]
 
 
+def test_list_notes_includes_safe_internal_file_symlink(
+    tmp_path: Path, monkeypatch
+) -> None:
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    target = vault / "target.md"
+    target.write_text("public", encoding="utf-8")
+    alias = vault / "alias.md"
+    try:
+        alias.symlink_to(target)
+    except OSError:
+        return
+    monkeypatch.setattr(navigation_logic, "get_vault_path", lambda: vault)
+    monkeypatch.setattr(vault_utils, "get_vault_path", lambda: vault)
+
+    result = navigation_logic.list_notes()
+
+    assert result.success
+    assert "alias.md" in (result.data or "")
+
+
 def test_safe_iterator_skips_symlink_escape(tmp_path: Path, monkeypatch) -> None:
     vault = tmp_path / "vault"
     vault.mkdir()
@@ -163,6 +189,10 @@ def test_obsidianrag_resources_do_not_expose_secret_env(monkeypatch) -> None:
             "OPENAI_API_KEY": "top-secret",
             "SERVICE_TOKEN": "token-value",
             "DATABASE_URL": "postgres://user:pass@localhost/db",
+            "ANTHROPIC_APIKEY": "api-key",
+            "GH_TOKENS": "tokens",
+            "PASSWORDS": "passwords",
+            "CREDS": "credentials",
         },
     }
     monkeypatch.setattr(
@@ -176,6 +206,10 @@ def test_obsidianrag_resources_do_not_expose_secret_env(monkeypatch) -> None:
     assert "top-secret" not in setup
     assert "token-value" not in setup
     assert "postgres://" not in setup
+    assert "api-key" not in setup
+    assert "tokens" not in setup
+    assert "passwords" not in setup
+    assert "credentials" not in setup
     assert "OPENAI_API_KEY" in setup
     assert "DATABASE_URL" in setup
     assert "OBSIDIANRAG_LLM_MODEL" in setup

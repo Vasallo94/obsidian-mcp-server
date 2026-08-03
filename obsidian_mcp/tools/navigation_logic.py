@@ -140,11 +140,7 @@ def list_notes(  # pylint: disable=too-many-locals,too-many-branches
     visibles: list[Path] = []
     notas_filtradas = 0
     for nota in notas_raw:
-        if (
-            not nota.is_file()
-            or nota.is_symlink()
-            or not check_path_access(nota, vault_path, "list")[0]
-        ):
+        if not nota.is_file() or not check_path_access(nota, vault_path, "list")[0]:
             notas_filtradas += 1
             continue
         visibles.append(nota)

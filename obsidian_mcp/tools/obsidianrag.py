@@ -401,11 +401,13 @@ def _valid_env_name(name: str) -> bool:
 
 def _is_sensitive_env(name: str, value: str) -> bool:
     sensitive_parts = {
+        "APIKEY",
         "AUTH",
+        "AUTHORIZATION",
         "BEARER",
         "COOKIE",
+        "CRED",
         "CREDENTIAL",
-        "CREDENTIALS",
         "DSN",
         "KEY",
         "PASSWD",
@@ -417,7 +419,8 @@ def _is_sensitive_env(name: str, value: str) -> bool:
         "SIGNATURE",
         "TOKEN",
     }
-    if sensitive_parts.intersection(name.split("_")):
+    name_parts = {part.rstrip("S") for part in name.split("_")}
+    if sensitive_parts.intersection(name_parts):
         return True
     if name in {"DATABASE_URL", "MONGO_URL", "REDIS_URL"}:
         return True
