@@ -10,7 +10,9 @@ from .security import (
     get_safe_relative_path,
     is_path_forbidden,
     is_path_in_restricted_folder,
+    iter_safe_vault_files,
     load_forbidden_patterns,
+    resolve_vault_path,
     validate_path_within_vault,
 )
 from .vault import (
@@ -35,7 +37,9 @@ __all__ = [
     "get_safe_relative_path",
     "is_path_forbidden",
     "is_path_in_restricted_folder",
+    "iter_safe_vault_files",
     "load_forbidden_patterns",
+    "resolve_vault_path",
     "validate_path_within_vault",
     "extract_internal_links",
     "extract_tags_from_content",

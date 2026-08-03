@@ -4,7 +4,10 @@ import json
 import logging
 import os
 from datetime import datetime
+from pathlib import Path
 from typing import Dict, Set, Tuple
+
+from ..utils.security import iter_safe_vault_files
 
 logger = logging.getLogger(__name__)
 
@@ -51,24 +54,24 @@ class FileMetadataTracker:
             Dict mapping filepath to metadata (mtime, size, etc.)
         """
         current_files = {}
+        vault_path = Path(obsidian_path)
 
-        for root, _, files in os.walk(obsidian_path):
-            for file in files:
-                if not (file.endswith(".md") or file.endswith(".canvas")):
-                    continue
-                filepath = os.path.join(root, file)
-                try:
-                    stat = os.stat(filepath)
-                    current_files[filepath] = {
-                        "mtime": stat.st_mtime,
-                        "size": stat.st_size,
-                        "last_indexed": datetime.now().isoformat(),
-                    }
-                except OSError as e:
-                    logger.warning(
-                        "Could not stat file",
-                        extra={"filepath": filepath, "error": str(e)},
-                    )
+        paths = list(iter_safe_vault_files(vault_path))
+        paths.extend(iter_safe_vault_files(vault_path, pattern="*.canvas"))
+        for path in paths:
+            filepath = str(path)
+            try:
+                stat = path.stat()
+                current_files[filepath] = {
+                    "mtime": stat.st_mtime,
+                    "size": stat.st_size,
+                    "last_indexed": datetime.now().isoformat(),
+                }
+            except OSError as e:
+                logger.warning(
+                    "Could not stat file",
+                    extra={"filepath": filepath, "error": str(e)},
+                )
 
         return current_files
 

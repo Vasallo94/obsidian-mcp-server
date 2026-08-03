@@ -25,6 +25,8 @@ from ..utils import (
     check_path_access,
     find_note_by_name,
     get_logger,
+    iter_safe_vault_files,
+    resolve_vault_path,
     sanitize_filename,
 )
 from ..vault_config import get_vault_config, resolve_role
@@ -763,17 +765,17 @@ def create_note(
             # Fallback to vault root
             carpeta = ""
 
-    carpeta_path = vault_path / carpeta
-    carpeta_path.mkdir(parents=True, exist_ok=True)
-    nota_path = carpeta_path / nombre_archivo
-
-    if not nota_path.suffix == ".md":
+    nota_path = vault_path / carpeta / nombre_archivo
+    if nota_path.suffix != ".md":
         nota_path = nota_path.with_suffix(".md")
 
-    # Security: Validate path access (within vault + not forbidden)
-    is_allowed, error = check_path_access(nota_path, vault_path, "crear nota en")
-    if not is_allowed:
+    # Validate before mkdir so rejected paths cannot mutate the filesystem.
+    resolved_note, error = resolve_vault_path(nota_path, vault_path, "crear nota en")
+    if resolved_note is None:
         return Result.fail(error)
+    nota_path = resolved_note
+    carpeta_path = nota_path.parent
+    carpeta_path.mkdir(parents=True, exist_ok=True)
 
     # Verificar si ya existe
     if nota_path.exists():
@@ -810,6 +812,12 @@ def create_note(
         plantilla_path = vault_path / templates_folder / plantilla
         if not plantilla.endswith(".md"):
             plantilla_path = plantilla_path.with_suffix(".md")
+        resolved_template, error = resolve_vault_path(
+            plantilla_path, vault_path, "read template from"
+        )
+        if resolved_template is None:
+            return Result.fail(error)
+        plantilla_path = resolved_template
 
         if plantilla_path.exists():
             with open(plantilla_path, "r", encoding="utf-8") as f:
@@ -945,12 +953,16 @@ def list_templates() -> Result[str]:
             "```"
         )
 
-    templates_path = vault_path / templates_folder
-    if not templates_path.exists():
+    templates_path, error = resolve_vault_path(
+        templates_folder, vault_path, "list templates in"
+    )
+    if templates_path is None:
+        return Result.fail(error)
+    if not templates_path.is_dir():
         return Result.fail(f"No se encontró la carpeta '{templates_folder}'")
 
     plantillas = []
-    for item in sorted(templates_path.glob("*.md")):
+    for item in sorted(iter_safe_vault_files(vault_path, root=templates_path)):
         plantillas.append(item.name)
 
     if not plantillas:
@@ -989,12 +1001,13 @@ def search_and_replace_global(
         return Result.fail("Debes especificar un texto a buscar.")
 
     # Determinar carpeta de búsqueda
-    if carpeta:
-        search_path = vault_path / carpeta
-        if not search_path.exists():
-            return Result.fail(f"La carpeta '{carpeta}' no existe.")
-    else:
-        search_path = vault_path
+    search_path, error = resolve_vault_path(
+        carpeta or vault_path, vault_path, "search and replace in"
+    )
+    if search_path is None:
+        return Result.fail(error)
+    if not search_path.is_dir():
+        return Result.fail(f"La carpeta '{carpeta}' no existe.")
 
     # Carpetas excluidas por seguridad
     config = get_vault_config(vault_path)
@@ -1006,7 +1019,7 @@ def search_and_replace_global(
     archivos_afectados: list[dict[str, Any]] = []
     archivos_procesados = 0
 
-    for md_file in search_path.rglob("*.md"):
+    for md_file in iter_safe_vault_files(vault_path, root=search_path):
         # Saltar carpetas excluidas
         if any(excl in md_file.parts for excl in excluded):
             continue

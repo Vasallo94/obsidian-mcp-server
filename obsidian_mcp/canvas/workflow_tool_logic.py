@@ -11,7 +11,7 @@ from pathlib import Path
 
 from ..config import get_vault_path
 from ..result import Result
-from ..utils import get_logger
+from ..utils import get_logger, resolve_vault_path
 from . import engine
 from .models import (
     CanvasFile,
@@ -43,19 +43,16 @@ def _resolve_canvas_path(canvas_path: str) -> Result[str]:
     Mirrors the same helper in canvas_logic.py so that kanvas workflow
     tools write files inside the vault instead of the server's CWD.
 
-    Absolute paths are returned as-is (for test compatibility).
-    Relative paths require OBSIDIAN_VAULT_PATH to be configured.
+    Absolute paths are accepted only when they remain inside the vault.
     """
-    abs_path = Path(canvas_path)
-
-    if not abs_path.is_absolute():
-        vault_path = get_vault_path()
-        if vault_path is None:
-            return Result.fail(
-                "Vault path is not configured (OBSIDIAN_VAULT_PATH missing)."
-            )
-        abs_path = vault_path / canvas_path
-
+    vault_path = get_vault_path()
+    if vault_path is None:
+        return Result.fail(
+            "Vault path is not configured (OBSIDIAN_VAULT_PATH missing)."
+        )
+    abs_path, error = resolve_vault_path(canvas_path, vault_path, "access canvas")
+    if abs_path is None:
+        return Result.fail(error)
     if abs_path.suffix != ".canvas":
         return Result.fail(f"Not a .canvas file: {canvas_path}")
 

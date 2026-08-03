@@ -199,8 +199,9 @@ def build_obsidianrag_config_resource() -> str:
         return json.dumps(
             {"enabled": False, "error": config.error}, ensure_ascii=False, indent=2
         )
-    payload = {"enabled": True, **(config.data or {})}
-    return json.dumps(payload, ensure_ascii=False, indent=2)
+    data = dict(config.data or {})
+    data.pop("env", None)
+    return json.dumps({"enabled": True, **data}, ensure_ascii=False, indent=2)
 
 
 def build_obsidianrag_setup_resource() -> str:
@@ -213,7 +214,16 @@ def build_obsidianrag_setup_resource() -> str:
     backend_path = project_path / "backend"
     vault_path = str(data["vault_path"])
     api_url = str(data["api_url"])
-    env_vars = _safe_env_vars(data.get("env"))
+    raw_env = data.get("env")
+    env_vars = _safe_env_vars(raw_env)
+    sensitive_env_names = _sensitive_env_names(raw_env)
+    omitted_env_notice = (
+        "Sensitive variables configured but omitted: "
+        + ", ".join(f"`{name}`" for name in sensitive_env_names)
+        + ". Set them securely in the parent shell before running these commands."
+        if sensitive_env_names
+        else "No secret-like integration variables are configured."
+    )
     quoted_backend_path = shlex.quote(str(backend_path))
     quoted_vault_path = shlex.quote(vault_path)
     env_prefix = " ".join(
@@ -258,7 +268,8 @@ silently.
 ## Environment
 
 The vault profile may declare integration environment variables under
-`profile.integrations.obsidianrag.env`. Only string-like values are surfaced here.
+`profile.integrations.obsidianrag.env`. Secret-like values are never surfaced.
+{omitted_env_notice}
 
 ```bash
 {_format_env_export(env_vars)}
@@ -349,7 +360,11 @@ def _is_loopback_http_url(url: str) -> bool:
     parsed = urllib.parse.urlparse(url)
     if parsed.scheme != "http":
         return False
-    if not parsed.hostname:
+    if (
+        not parsed.hostname
+        or parsed.username is not None
+        or parsed.password is not None
+    ):
         return False
     return parsed.hostname in {"127.0.0.1", "localhost", "::1"}
 
@@ -380,19 +395,68 @@ def _request_json(
         return Result.fail(str(e))
 
 
+def _valid_env_name(name: str) -> bool:
+    return name.replace("_", "").isalnum() and name.upper() == name
+
+
+def _is_sensitive_env(name: str, value: str) -> bool:
+    sensitive_parts = {
+        "APIKEY",
+        "AUTH",
+        "AUTHORIZATION",
+        "BEARER",
+        "COOKIE",
+        "CRED",
+        "CREDENTIAL",
+        "DSN",
+        "KEY",
+        "PASSWD",
+        "PASSWORD",
+        "PWD",
+        "SALT",
+        "SECRET",
+        "SESSION",
+        "SIGNATURE",
+        "TOKEN",
+    }
+    name_parts = {part.rstrip("S") for part in name.split("_")}
+    if sensitive_parts.intersection(name_parts):
+        return True
+    if name in {"DATABASE_URL", "MONGO_URL", "REDIS_URL"}:
+        return True
+    parsed = urllib.parse.urlparse(value)
+    return parsed.username is not None or parsed.password is not None
+
+
 def _safe_env_vars(raw_env: Any) -> dict[str, str]:
-    """Return shell-safe environment values from integration config."""
+    """Return non-secret shell-safe environment values from integration config."""
     if not isinstance(raw_env, Mapping):
         return {}
     result: dict[str, str] = {}
     for key, value in raw_env.items():
         name = str(key)
-        if not name.replace("_", "").isalnum() or name.upper() != name:
+        if value is None or not _valid_env_name(name):
             continue
-        if value is None:
-            continue
-        result[name] = str(value)
+        text = str(value)
+        if not _is_sensitive_env(name, text):
+            result[name] = text
     return result
+
+
+def _sensitive_env_names(raw_env: Any) -> list[str]:
+    """Return safe variable names whose values were omitted from resources."""
+    if not isinstance(raw_env, Mapping):
+        return []
+    names = []
+    for key, value in raw_env.items():
+        name = str(key)
+        if (
+            value is not None
+            and _valid_env_name(name)
+            and _is_sensitive_env(name, str(value))
+        ):
+            names.append(name)
+    return sorted(names)
 
 
 def _format_env_export(env_vars: dict[str, str]) -> str:

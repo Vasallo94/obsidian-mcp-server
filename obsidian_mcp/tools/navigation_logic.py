@@ -24,6 +24,8 @@ from ..utils import (
     get_note_metadata,
     is_path_forbidden,
     is_path_in_restricted_folder,
+    iter_safe_vault_files,
+    resolve_vault_path,
     validate_path_within_vault,
 )
 from ..vault_config import get_vault_config
@@ -115,12 +117,13 @@ def list_notes(  # pylint: disable=too-many-locals,too-many-branches
     if offset < 0:
         return Result.fail("offset debe ser >= 0.")
 
-    if carpeta:
-        target_path = vault_path / carpeta
-        if not target_path.exists():
-            return Result.fail(f"Folder does not exist in the vault: {carpeta}")
-    else:
-        target_path = vault_path
+    target_path, error = resolve_vault_path(
+        carpeta or vault_path, vault_path, "list notes in"
+    )
+    if target_path is None:
+        return Result.fail(error)
+    if not target_path.is_dir():
+        return Result.fail(f"Folder does not exist in the vault: {carpeta}")
 
     base_pattern = "**/*.md" if incluir_subcarpetas else "*.md"
     if pattern:
@@ -137,8 +140,7 @@ def list_notes(  # pylint: disable=too-many-locals,too-many-branches
     visibles: list[Path] = []
     notas_filtradas = 0
     for nota in notas_raw:
-        is_forbidden, _ = is_path_forbidden(nota, vault_path)
-        if is_forbidden:
+        if not nota.is_file() or not check_path_access(nota, vault_path, "list")[0]:
             notas_filtradas += 1
             continue
         visibles.append(nota)
@@ -266,11 +268,7 @@ def search_notes_by_date(fecha_desde: str, fecha_hasta: str = "") -> Result[str]
 
     notas_encontradas = []
 
-    for archivo in vault_path.rglob("*.md"):
-        is_forbidden_path, _ = is_path_forbidden(archivo, vault_path)
-        if is_forbidden_path:
-            continue
-
+    for archivo in iter_safe_vault_files(vault_path):
         fecha_mod = datetime.fromtimestamp(archivo.stat().st_mtime).date()
 
         if fecha_inicio <= fecha_mod <= fecha_fin:
@@ -426,7 +424,7 @@ def _filter_valid_notes(
     return result
 
 
-def get_random_concept(carpeta: str = "") -> Result[str]:
+def get_random_concept(carpeta: str = "") -> Result[str]:  # pylint: disable=too-many-locals
     """Extract a random concept from the vault as a flashcard.
 
     Args:
@@ -439,8 +437,12 @@ def get_random_concept(carpeta: str = "") -> Result[str]:
     if not vault_path:
         return Result.fail("Vault path is not configured.")
 
-    search_path = vault_path / carpeta if carpeta else vault_path
-    notas = list(search_path.rglob("*.md"))
+    search_path, error = resolve_vault_path(
+        carpeta or vault_path, vault_path, "search concepts in"
+    )
+    if search_path is None or not search_path.is_dir():
+        return Result.fail(error or f"Folder does not exist in the vault: {carpeta}")
+    notas = list(iter_safe_vault_files(vault_path, root=search_path))
 
     config = get_vault_config(vault_path)
     templates_folder = ""

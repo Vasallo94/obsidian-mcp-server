@@ -10,7 +10,12 @@ from typing import Dict, Optional, TypedDict
 
 from ..config import get_vault_path
 from ..result import Result
-from ..utils import extract_tags_from_content, get_logger
+from ..utils import (
+    check_path_access,
+    extract_tags_from_content,
+    get_logger,
+    iter_safe_vault_files,
+)
 from ..vault_config import VaultConfig, get_vault_config
 from .agents_logic import get_cached_skills
 from .registry import enabled_tool_sets
@@ -33,13 +38,22 @@ def _collect_folder_structure(vault_path: Path) -> list[str]:
     structure = []
 
     for item in sorted(vault_path.iterdir()):
-        if not item.is_dir() or item.name in excluded or item.name.startswith("."):
+        if (
+            not item.is_dir()
+            or item.name in excluded
+            or item.name.startswith(".")
+            or not check_path_access(item, vault_path, "inspect")[0]
+        ):
             continue
 
         subfolders = []
         try:
             for sub in sorted(item.iterdir()):
-                if sub.is_dir() and not sub.name.startswith("."):
+                if (
+                    sub.is_dir()
+                    and not sub.name.startswith(".")
+                    and check_path_access(sub, vault_path, "inspect")[0]
+                ):
                     subfolders.append(sub.name)
         except PermissionError:
             pass
@@ -77,7 +91,12 @@ def _collect_templates(
     if templates_folder:
         plantillas_path = vault_path / templates_folder
         if plantillas_path.exists():
-            templates = [item.stem for item in sorted(plantillas_path.glob("*.md"))]
+            templates = [
+                item.stem
+                for item in sorted(
+                    iter_safe_vault_files(vault_path, root=plantillas_path)
+                )
+            ]
 
     return templates_folder, templates
 
@@ -87,7 +106,7 @@ def _collect_common_tags(vault_path: Path) -> str:
     counts: Dict[str, int] = {}
     count = 0
 
-    for archivo in vault_path.rglob("*.md"):
+    for archivo in iter_safe_vault_files(vault_path):
         if count >= 100:
             break
         try:

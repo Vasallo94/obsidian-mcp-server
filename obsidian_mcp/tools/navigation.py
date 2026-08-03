@@ -5,7 +5,12 @@ from pathlib import Path
 from fastmcp import Context, FastMCP
 
 from ..config import get_vault_path
-from ..utils import get_logger, is_path_forbidden
+from ..utils import (
+    check_path_access,
+    get_logger,
+    iter_safe_vault_files,
+    resolve_vault_path,
+)
 from .navigation_logic import (
     get_notes_info_logic,
     get_random_concept,
@@ -117,12 +122,11 @@ def register_navigation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many
             if not vault_path:
                 return "Error: Vault path is not configured."
 
-            if folder:
-                search_path = vault_path / folder
-                if not search_path.exists():
-                    return f"Folder does not exist: {folder}"
-            else:
-                search_path = vault_path
+            search_path, error = resolve_vault_path(
+                folder or vault_path, vault_path, "search notes in"
+            )
+            if search_path is None or not search_path.is_dir():
+                return error or f"Folder does not exist: {folder}"
 
             terms = [term.strip() for term in query.split() if term.strip()]
             if not terms:
@@ -164,6 +168,10 @@ def register_navigation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many
                         candidates = [path for path in raw_paths if path]
                         if len(terms) > 1:
                             for candidate in candidates:
+                                if not check_path_access(
+                                    candidate, vault_path, "search"
+                                )[0]:
+                                    continue
                                 try:
                                     with open(candidate, "r", encoding="utf-8") as f:
                                         content = f.read().lower()
@@ -187,10 +195,7 @@ def register_navigation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many
 
             if (not rg_path and not matching_files) or titles_only:
                 if titles_only:
-                    for item in search_path.rglob("*.md"):
-                        is_forbidden, _ = is_path_forbidden(item, vault_path)
-                        if is_forbidden:
-                            continue
+                    for item in iter_safe_vault_files(vault_path, root=search_path):
                         name = item.stem.lower()
                         if all(term.lower() in name for term in terms):
                             relative_path = item.relative_to(vault_path)
@@ -205,10 +210,7 @@ def register_navigation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many
                         return _format_search_results(results, titles_only=True)
                     return f"No notes found with title matching '{query}'"
 
-                for item in search_path.rglob("*.md"):
-                    is_forbidden, _ = is_path_forbidden(item, vault_path)
-                    if is_forbidden:
-                        continue
+                for item in iter_safe_vault_files(vault_path, root=search_path):
                     try:
                         with open(item, "r", encoding="utf-8") as f:
                             content = f.read().lower()
@@ -219,16 +221,14 @@ def register_navigation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many
 
             for file_name in matching_files:
                 file_path = Path(file_name)
+                if not check_path_access(file_path, vault_path, "search")[0]:
+                    continue
                 if not file_path.is_absolute():
                     file_path = Path(file_name).resolve()
 
                 try:
                     relative_path = file_path.relative_to(vault_path)
                 except ValueError:
-                    continue
-
-                is_forbidden, _ = is_path_forbidden(file_path, vault_path)
-                if is_forbidden:
                     continue
 
                 try:

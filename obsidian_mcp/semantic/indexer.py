@@ -5,6 +5,7 @@ import logging
 import os
 import re
 import shutil
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
 
 import yaml
@@ -18,6 +19,7 @@ from langchain_text_splitters import (
 )
 
 from ..constants import CHUNK_OVERLAP, CHUNK_SIZE
+from ..utils.security import iter_safe_vault_files
 from .metadata_tracker import FileMetadataTracker
 
 logger = logging.getLogger(__name__)
@@ -247,59 +249,41 @@ def load_all_obsidian_documents(obsidian_path: str) -> List[Document]:
     ]
 
     documents = []
-    for root, _, files in os.walk(obsidian_path):
-        for file in files:
-            if file.endswith(".md"):
-                filepath = os.path.join(root, file)
+    vault_path = Path(obsidian_path)
+    for path in iter_safe_vault_files(vault_path):
+        filepath = str(path)
+        if any(pattern in path.name.lower() for pattern in excluded_patterns):
+            continue
 
-                # Skip excluded patterns
-                if any(pattern in file.lower() for pattern in excluded_patterns):
-                    continue
+        try:
+            content = path.read_text(encoding="utf-8")
+            if content.strip():
+                links = extract_obsidian_links(content)
+                captions = extract_image_captions(content)
+                fm_metadata = parse_frontmatter(content)
+                doc_metadata = {
+                    "source": filepath,
+                    "links": ",".join(links) if links else "",
+                }
+                if captions:
+                    doc_metadata["image_captions"] = ",".join(captions)
+                    content += "\n\nImage Context:\n" + "\n".join(captions)
+                doc_metadata.update(fm_metadata)
+                documents.append(Document(page_content=content, metadata=doc_metadata))
+        except Exception as e:
+            logger.error(
+                "Error loading file",
+                extra={"filepath": filepath, "error": str(e)},
+            )
 
-                try:
-                    with open(filepath, "r", encoding="utf-8") as f:
-                        content = f.read()
-
-                        if content.strip():
-                            links = extract_obsidian_links(content)
-                            captions = extract_image_captions(content)
-                            fm_metadata = parse_frontmatter(content)
-
-                            doc_metadata = {
-                                "source": filepath,
-                                "links": ",".join(links) if links else "",
-                            }
-
-                            if captions:
-                                doc_metadata["image_captions"] = ",".join(captions)
-                                content += "\n\nImage Context:\n" + "\n".join(captions)
-
-                            doc_metadata.update(fm_metadata)
-
-                            doc = Document(
-                                page_content=content,
-                                metadata=doc_metadata,
-                            )
-                            documents.append(doc)
-
-                except Exception as e:
-                    logger.error(
-                        "Error loading file",
-                        extra={"filepath": filepath, "error": str(e)},
-                    )
-
-    # Load canvas files
-    for root, _, files in os.walk(obsidian_path):
-        for file in files:
-            if file.endswith(".canvas"):
-                filepath = os.path.join(root, file)
-                canvas_docs = _load_canvas_nodes(filepath)
-                documents.extend(canvas_docs)
-                if canvas_docs:
-                    logger.debug(
-                        "Loaded canvas nodes",
-                        extra={"canvas": file, "nodes": len(canvas_docs)},
-                    )
+    for path in iter_safe_vault_files(vault_path, pattern="*.canvas"):
+        canvas_docs = _load_canvas_nodes(str(path))
+        documents.extend(canvas_docs)
+        if canvas_docs:
+            logger.debug(
+                "Loaded canvas nodes",
+                extra={"canvas": path.name, "nodes": len(canvas_docs)},
+            )
 
     return documents
 
