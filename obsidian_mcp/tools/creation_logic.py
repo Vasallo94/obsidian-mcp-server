@@ -22,6 +22,7 @@ import yaml
 from ..config import get_vault_path
 from ..result import Result
 from ..utils import (
+    atomic_write_text,
     check_path_access,
     find_note_by_name,
     get_logger,
@@ -327,8 +328,7 @@ def append_to_note(
     else:
         nuevo_contenido = contenido + "\n\n" + contenido_actual
 
-    with open(nota_path, "w", encoding="utf-8") as f:
-        f.write(nuevo_contenido)
+    atomic_write_text(nota_path, nuevo_contenido)
 
     ruta_relativa = nota_path.relative_to(vault_path)
     posicion = "final" if al_final else "inicio"
@@ -513,8 +513,7 @@ def edit_note(  # pylint: disable=too-many-locals,too-many-return-statements,too
             contenido_final, user_set_updated=has_updated
         )
         contenido_final = _normalize_frontmatter(contenido_final)
-        with open(nota_path, "w", encoding="utf-8") as f:
-            f.write(contenido_final)
+        atomic_write_text(nota_path, contenido_final)
         return Result.ok(f"Nota editada: {ruta_relativa} (reemplazo total)")
 
     # --- Partial edit mode: validate all operations ---
@@ -569,8 +568,7 @@ def edit_note(  # pylint: disable=too-many-locals,too-many-return-statements,too
     resultado = _update_frontmatter_date(resultado, user_set_updated=user_set_updated)
     resultado = _normalize_frontmatter(resultado)
 
-    with open(nota_path, "w", encoding="utf-8") as f:
-        f.write(resultado)
+    atomic_write_text(nota_path, resultado)
 
     n = len(operaciones)
     return Result.ok(f"Nota editada: {ruta_relativa} ({n} operaciones aplicadas)")
@@ -904,9 +902,7 @@ def create_note(
     contenido_final = _process_date_placeholders(contenido_final)
     contenido_final = _normalize_frontmatter(contenido_final)
 
-    # Escribir archivo
-    with open(nota_path, "w", encoding="utf-8") as f:
-        f.write(contenido_final)
+    atomic_write_text(nota_path, contenido_final)
 
     ruta_relativa = nota_path.relative_to(vault_path)
     resultado = f"Nota creada: **{titulo}**\n"
@@ -1077,8 +1073,7 @@ def search_and_replace_global(
     for arch in archivos_afectados:
         try:
             nuevo_contenido = arch["contenido_original"].replace(buscar, reemplazar)
-            with open(arch["path"], "w", encoding="utf-8") as f:
-                f.write(nuevo_contenido)
+            atomic_write_text(arch["path"], nuevo_contenido)
             archivos_modificados += 1
             total_reemplazos += arch["ocurrencias"]
         except OSError as e:
@@ -1263,8 +1258,7 @@ def append_to_section(
             "Usa crear_si_no_existe=True para crearla."
         )
 
-    with open(nota_path, "w", encoding="utf-8") as f:
-        f.write(nuevo_contenido)
+    atomic_write_text(nota_path, nuevo_contenido)
 
     ruta_relativa = nota_path.relative_to(vault_path)
     return Result.ok(
@@ -1362,8 +1356,7 @@ def update_frontmatter_logic(
 
         nuevo_contenido = f"---\n{yaml_content}---\n{cuerpo}"
 
-        with open(nota_path, "w", encoding="utf-8") as f:
-            f.write(nuevo_contenido)
+        atomic_write_text(nota_path, nuevo_contenido)
 
         ruta_rel = nota_path.relative_to(vault_path)
         return Result.ok(f"Frontmatter actualizado exitosamente en {ruta_rel}")
@@ -1439,8 +1432,7 @@ def manage_tags_logic(
 
         nuevo_contenido = f"---\n{yaml_content}---\n{cuerpo}"
 
-        with open(nota_path, "w", encoding="utf-8") as f:
-            f.write(nuevo_contenido)
+        atomic_write_text(nota_path, nuevo_contenido)
 
         ruta_rel = nota_path.relative_to(vault_path)
         return Result.ok(

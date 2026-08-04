@@ -13,6 +13,7 @@ depends on the elicitation capability.
 """
 
 import asyncio
+import json
 
 import pytest
 
@@ -39,7 +40,7 @@ def _set_vault(monkeypatch, tmp_path):
     monkeypatch.setenv("OBSIDIAN_VAULT_PATH", str(vault))
     monkeypatch.setenv(
         "OBSIDIAN_MCP_TOOL_SETS",
-        "notes_write,vault_analysis,secundo_selebro,agents_admin",
+        "notes_write,vault_analysis,secundo_selebro,agents_admin,canvas",
     )
     reset_settings()
     invalidate_note_cache()
@@ -156,6 +157,87 @@ class TestRulesAddConfirmGate:
         assert rules_file.exists()
         assert "- No hard-wrap markdown" in rules_file.read_text(encoding="utf-8")
         assert "Regla" in result
+
+
+class TestCanvasRemoveConfirmGate:
+    @pytest.fixture
+    def canvas(self, tmp_path, monkeypatch):
+        vault = _set_vault(monkeypatch, tmp_path)
+        canvas_path = vault / "board.canvas"
+        canvas_path.write_text(
+            json.dumps(
+                {
+                    "nodes": [
+                        {
+                            "id": "group",
+                            "type": "group",
+                            "x": 0,
+                            "y": 0,
+                            "width": 400,
+                            "height": 400,
+                            "label": "Group",
+                        },
+                        {
+                            "id": "card",
+                            "type": "text",
+                            "x": 20,
+                            "y": 60,
+                            "width": 200,
+                            "height": 100,
+                            "text": "Card",
+                        },
+                    ],
+                    "edges": [
+                        {
+                            "id": "edge",
+                            "fromNode": "group",
+                            "toNode": "card",
+                        }
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+        return canvas_path
+
+    @pytest.mark.parametrize(
+        ("tool_name", "identifier"),
+        [
+            ("canvas.remove_card", "card"),
+            ("canvas.remove_group", "group"),
+            ("canvas.remove_edge", "edge"),
+        ],
+    )
+    def test_remove_without_confirm_preserves_canvas(
+        self, canvas, tool_name, identifier
+    ):
+        original = canvas.read_text(encoding="utf-8")
+        tool = asyncio.run(create_server().get_tool(tool_name))
+
+        result = tool.fn("board.canvas", identifier)
+
+        assert "confirm=True" in result
+        assert canvas.read_text(encoding="utf-8") == original
+        assert tool.parameters["properties"]["confirm"]["default"] is False
+
+    @pytest.mark.parametrize(
+        ("tool_name", "identifier", "collection"),
+        [
+            ("canvas.remove_card", "card", "nodes"),
+            ("canvas.remove_group", "group", "nodes"),
+            ("canvas.remove_edge", "edge", "edges"),
+        ],
+    )
+    def test_remove_with_confirm_deletes_target(
+        self, canvas, tool_name, identifier, collection
+    ):
+        tool = asyncio.run(create_server().get_tool(tool_name))
+
+        result = tool.fn("board.canvas", identifier, confirm=True)
+
+        assert "removed" in result
+        data = json.loads(canvas.read_text(encoding="utf-8"))
+        assert identifier not in {item["id"] for item in data[collection]}
 
 
 class TestConfirmMessage:

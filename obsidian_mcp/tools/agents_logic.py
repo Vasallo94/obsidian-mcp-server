@@ -16,6 +16,7 @@ from pydantic import BaseModel, ValidationError
 
 from ..config import get_vault_path
 from ..result import Result
+from ..utils import atomic_write_text
 
 # ============================================================================
 # Schema de Skill (Pydantic)
@@ -274,13 +275,10 @@ def add_global_rule(rule_text: str) -> Result[str]:
         if rules_path.exists():
             existing = rules_path.read_text(encoding="utf-8")
             separator = "" if existing.endswith("\n") else "\n"
-            rules_path.write_text(f"{existing}{separator}{bullet}\n", encoding="utf-8")
+            atomic_write_text(rules_path, f"{existing}{separator}{bullet}\n")
         else:
             rules_path.parent.mkdir(parents=True, exist_ok=True)
-            rules_path.write_text(
-                f"# Reglas Globales del Vault\n\n{bullet}\n",
-                encoding="utf-8",
-            )
+            atomic_write_text(rules_path, f"# Reglas Globales del Vault\n\n{bullet}\n")
     except OSError as e:
         return Result.fail(f"No se pudo escribir el fichero de reglas: {e}")
 

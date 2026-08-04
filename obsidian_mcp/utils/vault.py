@@ -4,7 +4,11 @@ Utilidades para trabajar con el vault de Obsidian.
 Funciones compartidas para manejo de archivos, metadata y caché.
 """
 
+import asyncio
+import os
 import re
+import stat
+import tempfile
 from datetime import datetime
 from pathlib import Path
 from time import time
@@ -168,7 +172,39 @@ def get_note_metadata(note_path: Path) -> Dict[str, Any]:
     }
 
 
-# --- Async File Operations ---
+# --- File Operations ---
+
+
+def atomic_write_text(path: Path, content: str) -> None:
+    """Replace a text file atomically after flushing its complete new content."""
+    destination = path.resolve() if path.is_symlink() else path
+    descriptor, temporary_name = tempfile.mkstemp(
+        dir=destination.parent,
+        prefix=f".{destination.name}.",
+        suffix=".tmp",
+    )
+    temporary_path = Path(temporary_name)
+    try:
+        mode = (
+            stat.S_IMODE(destination.stat().st_mode) if destination.exists() else 0o600
+        )
+        os.chmod(temporary_path, mode)
+        owned_descriptor, descriptor = descriptor, -1
+        with os.fdopen(owned_descriptor, "w", encoding="utf-8") as temporary_file:
+            temporary_file.write(content)
+            temporary_file.flush()
+            os.fsync(temporary_file.fileno())
+        os.replace(temporary_path, destination)
+        if os.name != "nt":
+            directory_descriptor = os.open(destination.parent, os.O_RDONLY)
+            try:
+                os.fsync(directory_descriptor)
+            finally:
+                os.close(directory_descriptor)
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+        temporary_path.unlink(missing_ok=True)
 
 
 async def read_note_async(note_path: Path) -> str:
@@ -193,8 +229,7 @@ async def write_note_async(note_path: Path, content: str) -> None:
         note_path: Path to the note file
         content: Content to write
     """
-    async with aiofiles.open(note_path, "w", encoding="utf-8") as f:
-        await f.write(content)
+    await asyncio.to_thread(atomic_write_text, note_path, content)
 
 
 # --- Tag and Link Extraction ---
