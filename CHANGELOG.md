@@ -31,7 +31,7 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 - **Indexación Semántica de Imágenes**: El sistema ahora extrae descripciones de imágenes (`![[img|desc]]` o `![desc](img)`) y las inyecta como contexto semántico, haciendo buscable el contenido visual.
 
 ### Fixed
-- **Crash-safe writes and Canvas confirmation**: Vault text and Canvas files now use same-directory atomic replacement so failed writes preserve the previous file. Destructive `canvas.remove_card`, `canvas.remove_group`, and `canvas.remove_edge` calls now require `confirm=True`.
+- **Crash-safe writes and Canvas confirmation**: Vault text and Canvas files now use same-directory atomic replacement so failed writes preserve the previous file. New files default to owner-only permissions while existing permissions are preserved. Destructive `canvas.remove_card`, `canvas.remove_group`, and `canvas.remove_edge` calls now require `confirm=True`.
 - **Vault filesystem boundary**: Canvas/Kanvas, note creation, skill generation, templates, configured documents, search, analysis, graph, context, wikilink, and legacy semantic operations now canonicalize paths, reject traversal and symlink escapes, and consistently skip protected files. Vault `.forbidden_paths` entries are merged with defaults shipped inside the package.
 - **Test isolation**: The default test suite now uses a generated temporary vault instead of loading or traversing the developer's configured vault.
 - **ObsidianRAG resource secrets**: Integration config resources no longer expose raw environment mappings, and setup resources omit secret-like variables.

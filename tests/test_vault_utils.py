@@ -40,6 +40,17 @@ class TestAtomicWriteText:
 
         assert path.stat().st_mode & 0o777 == 0o600
 
+    def test_invalid_encoding_cleans_up_and_preserves_error(
+        self, tmp_path: Path
+    ) -> None:
+        path = tmp_path / "note.md"
+
+        with pytest.raises(LookupError):
+            atomic_write_text(path, "content", encoding="no-such-encoding")
+
+        assert not path.exists()
+        assert not list(tmp_path.glob(".note.md.*.tmp"))
+
     def test_replace_failure_preserves_original(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:

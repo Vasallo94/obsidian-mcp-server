@@ -39,6 +39,12 @@ Always enabled.
 Optional tools are enabled from `.agents/vault.yaml` with
 `profile.tool_sets`, or from `OBSIDIAN_MCP_TOOL_SETS`.
 
+Single-file writes use atomic replacement. Operations that change multiple files
+(such as global replacement, link-updating move/rename, and lint auto-fix) are
+not transactional: every written file is complete, but an error can leave an
+already-processed subset changed. Preview bulk changes when the tool supports it.
+New files default to owner-only permissions; rewrites preserve existing modes.
+
 ### `notes_write`
 
 - `notes.suggest_location(title, content, tags)`: Suggest a vault folder.
@@ -66,9 +72,7 @@ Optional tools are enabled from `.agents/vault.yaml` with
   stem (without `.md`), or as a path to also move folders.
 - `notes.delete(note_path, confirm)`: Delete a note after explicit confirmation.
 - `notes.preview_replace(...)`: Preview global replacements.
-- `notes.apply_replace(...)`: Apply global replacements. Each changed file is
-  replaced atomically, but a failure can leave an already-processed subset changed;
-  always run the preview first.
+- `notes.apply_replace(...)`: Apply global replacements; always run the preview first.
 
 ### `vault_analysis`
 

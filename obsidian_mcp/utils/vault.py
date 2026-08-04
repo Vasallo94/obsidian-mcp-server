@@ -4,6 +4,7 @@ Utilidades para trabajar con el vault de Obsidian.
 Funciones compartidas para manejo de archivos, metadata y caché.
 """
 
+import asyncio
 import os
 import re
 import stat
@@ -15,7 +16,6 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import aiofiles
 import yaml
-from anyio.to_thread import run_sync
 
 from ..config import get_vault_path, get_vault_settings
 from .security import iter_safe_vault_files, resolve_vault_path
@@ -182,7 +182,6 @@ def atomic_write_text(path: Path, content: str, encoding: str = "utf-8") -> None
         dir=destination.parent,
         prefix=f".{destination.name}.",
         suffix=".tmp",
-        text=True,
     )
     temporary_path = Path(temporary_name)
     try:
@@ -204,7 +203,10 @@ def atomic_write_text(path: Path, content: str, encoding: str = "utf-8") -> None
                 os.close(directory_descriptor)
     finally:
         if descriptor >= 0:
-            os.close(descriptor)
+            try:
+                os.close(descriptor)
+            except OSError:
+                pass
         temporary_path.unlink(missing_ok=True)
 
 
@@ -230,7 +232,7 @@ async def write_note_async(note_path: Path, content: str) -> None:
         note_path: Path to the note file
         content: Content to write
     """
-    await run_sync(atomic_write_text, note_path, content)
+    await asyncio.to_thread(atomic_write_text, note_path, content)
 
 
 # --- Tag and Link Extraction ---
