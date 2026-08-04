@@ -17,7 +17,7 @@ import uuid
 from pathlib import Path
 from typing import Optional
 
-from ..utils import get_logger
+from ..utils import atomic_write_text, get_logger
 from .models import CanvasFile, Edge, Node
 
 logger = get_logger(__name__)
@@ -53,9 +53,8 @@ def load_canvas(path: str) -> CanvasFile:
 def save_canvas(canvas: CanvasFile) -> None:
     """Write a CanvasFile to disk as JSON."""
     data = canvas.to_dict()
-    Path(canvas.path).write_text(
-        json.dumps(data, indent=2, ensure_ascii=False) + "\n",
-        encoding="utf-8",
+    atomic_write_text(
+        Path(canvas.path), json.dumps(data, indent=2, ensure_ascii=False) + "\n"
     )
     logger.debug(
         "Saved canvas to %s: %d nodes, %d edges",

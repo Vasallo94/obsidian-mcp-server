@@ -8,6 +8,7 @@ No workflow assumptions — these tools work with any canvas
 
 from fastmcp import FastMCP
 
+from ..messages import ERRORS
 from ..middleware import enrich_response
 from ..tools.registry import register_tool
 from ..utils import get_logger
@@ -178,16 +179,21 @@ def register_canvas_tools(mcp: FastMCP) -> None:
             return f"Error updating card: {e}"
 
     @register_tool(mcp, "canvas.remove_card")
-    def canvas_remove_card(canvas_path: str, node_id: str) -> str:
+    def canvas_remove_card(
+        canvas_path: str, node_id: str, confirm: bool = False
+    ) -> str:
         """Delete a card and all its connected edges from a canvas.
 
         Args:
             canvas_path: Path to the .canvas file
             node_id: ID of the card to remove
+            confirm: Must be true to confirm deletion
 
         Returns:
             Confirmation of removal
         """
+        if not confirm:
+            return ERRORS.WRITE_REQUIRES_CONFIRM
         try:
             return remove_card(canvas_path, node_id).to_display()
         except Exception as e:  # pylint: disable=broad-exception-caught
@@ -219,6 +225,7 @@ def register_canvas_tools(mcp: FastMCP) -> None:
         canvas_path: str,
         group_id: str,
         remove_contents: bool = False,
+        confirm: bool = False,
     ) -> str:
         """Delete a group/area from a canvas.
 
@@ -230,26 +237,34 @@ def register_canvas_tools(mcp: FastMCP) -> None:
             canvas_path: Path to the .canvas file
             group_id: ID of the group to remove
             remove_contents: If True, also delete contained cards (default False)
+            confirm: Must be true to confirm deletion
 
         Returns:
             Confirmation of removal
         """
+        if not confirm:
+            return ERRORS.WRITE_REQUIRES_CONFIRM
         try:
             return remove_group(canvas_path, group_id, remove_contents).to_display()
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error removing group: {e}"
 
     @register_tool(mcp, "canvas.remove_edge")
-    def canvas_remove_edge(canvas_path: str, edge_id: str) -> str:
+    def canvas_remove_edge(
+        canvas_path: str, edge_id: str, confirm: bool = False
+    ) -> str:
         """Delete a connection between two nodes.
 
         Args:
             canvas_path: Path to the .canvas file
             edge_id: ID of the edge to remove
+            confirm: Must be true to confirm deletion
 
         Returns:
             Confirmation of removal
         """
+        if not confirm:
+            return ERRORS.WRITE_REQUIRES_CONFIRM
         try:
             return remove_canvas_edge(canvas_path, edge_id).to_display()
         except Exception as e:  # pylint: disable=broad-exception-caught

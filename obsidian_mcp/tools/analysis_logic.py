@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 from ..config import get_vault_path
 from ..result import Result
 from ..utils import (
+    atomic_write_text,
     extract_internal_links,
     extract_tags_from_content,
     get_logger,
@@ -360,8 +361,7 @@ def sync_tag_registry(  # pylint: disable=too-many-locals,too-many-branches
 
             nuevo_contenido = partes[0] + seccion_header + "\n\n" + nueva_tabla + resto
 
-            with open(registry_path, "w", encoding="utf-8") as f:
-                f.write(nuevo_contenido)
+            atomic_write_text(registry_path, nuevo_contenido)
 
             resultado += (
                 "\n✅ **Registro actualizado**: "
@@ -372,8 +372,7 @@ def sync_tag_registry(  # pylint: disable=too-many-locals,too-many-branches
             nuevo_contenido = (
                 contenido_registro.rstrip() + "\n\n## Estadísticas\n\n" + nueva_tabla
             )
-            with open(registry_path, "w", encoding="utf-8") as f:
-                f.write(nuevo_contenido)
+            atomic_write_text(registry_path, nuevo_contenido)
 
             resultado += (
                 "\n✅ **Sección creada y registro actualizado**: "
@@ -577,7 +576,7 @@ def lint_vault(  # pylint: disable=too-many-locals,too-many-branches,too-many-st
             if auto_fix and is_rule_autofixable(rule):
                 new_content, n = apply_autofix(rule, content)
                 if n:
-                    md_file.write_text(new_content, encoding="utf-8")
+                    atomic_write_text(md_file, new_content)
                     fixed_by_file[rel] = fixed_by_file.get(rel, 0) + n
                     content = new_content  # refresh for any further rules
                     _, body = _extract_frontmatter_from_content(content)

@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Iterable
 
 from .security import iter_safe_vault_files
+from .vault import atomic_write_text
 
 # Match [[...]] but NOT ![[...]] (embeds). The negative lookbehind keeps
 # the regex simple while filtering image/file transclusions.
@@ -218,5 +219,5 @@ def rewrite_wikilinks_in_vault(
         total += count
         touched.append(md_file)
         if not dry_run:
-            md_file.write_text(new_content, encoding="utf-8")
+            atomic_write_text(md_file, new_content)
     return total, touched

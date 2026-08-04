@@ -16,6 +16,7 @@ from .security import (
     validate_path_within_vault,
 )
 from .vault import (
+    atomic_write_text,
     extract_internal_links,
     extract_tags_from_content,
     find_note_by_name,
@@ -41,6 +42,7 @@ __all__ = [
     "load_forbidden_patterns",
     "resolve_vault_path",
     "validate_path_within_vault",
+    "atomic_write_text",
     "extract_internal_links",
     "extract_tags_from_content",
     "find_note_by_name",

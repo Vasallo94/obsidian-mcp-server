@@ -66,7 +66,9 @@ Optional tools are enabled from `.agents/vault.yaml` with
   stem (without `.md`), or as a path to also move folders.
 - `notes.delete(note_path, confirm)`: Delete a note after explicit confirmation.
 - `notes.preview_replace(...)`: Preview global replacements.
-- `notes.apply_replace(...)`: Apply global replacements.
+- `notes.apply_replace(...)`: Apply global replacements. Each changed file is
+  replaced atomically, but a failure can leave an already-processed subset changed;
+  always run the preview first.
 
 ### `vault_analysis`
 
@@ -115,6 +117,8 @@ project instead of embedding a second RAG stack inside this MCP server.
   `canvas.add_card`, `canvas.add_group`, `canvas.add_edge`, `canvas.update_card`,
   `canvas.move_card` (reposition a node by x/y), `canvas.remove_card`,
   `canvas.remove_group(group_id, remove_contents=False)`, and `canvas.remove_edge`.
+  All three remove operations require `confirm=True` and leave the canvas unchanged
+  when confirmation is omitted.
   Card text is validated against the vault rules (e.g. no emojis in headings),
   just like `notes.*`. Standard colors: `"0"`=default, `"1"`=red, `"2"`=orange,
   `"3"`=yellow, `"4"`=green, `"5"`=cyan, `"6"`=purple.

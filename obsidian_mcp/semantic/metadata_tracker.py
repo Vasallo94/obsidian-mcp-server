@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Dict, Set, Tuple
 
 from ..utils.security import iter_safe_vault_files
+from ..utils.vault import atomic_write_text
 
 logger = logging.getLogger(__name__)
 
@@ -40,8 +41,9 @@ class FileMetadataTracker:
             # Ensure directory exists
             os.makedirs(os.path.dirname(self.metadata_file) or ".", exist_ok=True)
 
-            with open(self.metadata_file, "w", encoding="utf-8") as f:
-                json.dump(self.metadata, f, indent=2)
+            atomic_write_text(
+                Path(self.metadata_file), json.dumps(self.metadata, indent=2)
+            )
             logger.info("Saved metadata", extra={"file_count": len(self.metadata)})
         except OSError as e:
             logger.error("Could not save metadata file", extra={"error": str(e)})

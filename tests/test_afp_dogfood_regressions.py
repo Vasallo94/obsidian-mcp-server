@@ -384,7 +384,7 @@ def test_canvas_move_and_remove_group_tools_exist(tmp_path, monkeypatch):
     move_result = move_tool.fn("Board.canvas", "card1", 999, 111)
     assert "moved" in move_result.lower()
 
-    remove_result = remove_tool.fn("Board.canvas", "grp1")
+    remove_result = remove_tool.fn("Board.canvas", "grp1", confirm=True)
     assert "removed" in remove_result.lower()
 
 

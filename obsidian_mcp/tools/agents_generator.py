@@ -13,7 +13,7 @@ from textwrap import dedent
 
 from ..config import get_vault_path
 from ..result import Result
-from ..utils import iter_safe_vault_files, resolve_vault_path
+from ..utils import atomic_write_text, iter_safe_vault_files, resolve_vault_path
 from ..vault_config import resolve_role
 
 # Template for new skills
@@ -142,7 +142,7 @@ def generate_skill(
 
     # Create skill directory and file
     skill_path.mkdir(parents=True, exist_ok=True)
-    skill_file.write_text(skill_content, encoding="utf-8")
+    atomic_write_text(skill_file, skill_content)
 
     return Result.ok(
         f"Skill creada: **{titulo}**\n"
@@ -364,7 +364,7 @@ def sync_skills(actualizar: bool = False) -> Result[str]:
                     count=1,
                     flags=re.MULTILINE,
                 )
-                skill_file.write_text(new_content, encoding="utf-8")
+                atomic_write_text(skill_file, new_content)
                 fixed.append(skill_dir.name)
 
         # Check for patch_note editing guidance
@@ -390,7 +390,7 @@ def sync_skills(actualizar: bool = False) -> Result[str]:
                     - `old` must be unique. If it appears more than once, include more context.
                     - Use `notes.replace` for full-note replacement.
                 """).strip()
-                skill_file.write_text(content + "\n\n" + golden_rule, encoding="utf-8")
+                atomic_write_text(skill_file, content + "\n\n" + golden_rule)
                 if skill_dir.name not in fixed:
                     fixed.append(skill_dir.name)
 
