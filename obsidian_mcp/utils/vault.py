@@ -175,7 +175,7 @@ def get_note_metadata(note_path: Path) -> Dict[str, Any]:
 # --- File Operations ---
 
 
-def atomic_write_text(path: Path, content: str, encoding: str = "utf-8") -> None:
+def atomic_write_text(path: Path, content: str) -> None:
     """Replace a text file atomically after flushing its complete new content."""
     destination = path.resolve() if path.is_symlink() else path
     descriptor, temporary_name = tempfile.mkstemp(
@@ -189,8 +189,8 @@ def atomic_write_text(path: Path, content: str, encoding: str = "utf-8") -> None
             stat.S_IMODE(destination.stat().st_mode) if destination.exists() else 0o600
         )
         os.chmod(temporary_path, mode)
-        with os.fdopen(descriptor, "w", encoding=encoding) as temporary_file:
-            descriptor = -1
+        owned_descriptor, descriptor = descriptor, -1
+        with os.fdopen(owned_descriptor, "w", encoding="utf-8") as temporary_file:
             temporary_file.write(content)
             temporary_file.flush()
             os.fsync(temporary_file.fileno())
@@ -203,10 +203,7 @@ def atomic_write_text(path: Path, content: str, encoding: str = "utf-8") -> None
                 os.close(directory_descriptor)
     finally:
         if descriptor >= 0:
-            try:
-                os.close(descriptor)
-            except OSError:
-                pass
+            os.close(descriptor)
         temporary_path.unlink(missing_ok=True)
 
 

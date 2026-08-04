@@ -34,16 +34,18 @@ Always enabled.
   `notes.create` / `notes.patch` to skip a write round-trip. `mode` is
   `create` (default), `edit`, or `append`.
 
-## Optional Tool Sets
-
-Optional tools are enabled from `.agents/vault.yaml` with
-`profile.tool_sets`, or from `OBSIDIAN_MCP_TOOL_SETS`.
+## Write Semantics
 
 Single-file writes use atomic replacement. Operations that change multiple files
 (such as global replacement, link-updating move/rename, and lint auto-fix) are
 not transactional: every written file is complete, but an error can leave an
 already-processed subset changed. Preview bulk changes when the tool supports it.
 New files default to owner-only permissions; rewrites preserve existing modes.
+
+## Optional Tool Sets
+
+Optional tools are enabled from `.agents/vault.yaml` with
+`profile.tool_sets`, or from `OBSIDIAN_MCP_TOOL_SETS`.
 
 ### `notes_write`
 
