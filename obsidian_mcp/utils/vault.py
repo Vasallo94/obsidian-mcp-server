@@ -187,7 +187,7 @@ def atomic_write_text(path: Path, content: str, encoding: str = "utf-8") -> None
     temporary_path = Path(temporary_name)
     try:
         mode = (
-            stat.S_IMODE(destination.stat().st_mode) if destination.exists() else 0o644
+            stat.S_IMODE(destination.stat().st_mode) if destination.exists() else 0o600
         )
         os.chmod(temporary_path, mode)
         with os.fdopen(descriptor, "w", encoding=encoding) as temporary_file:

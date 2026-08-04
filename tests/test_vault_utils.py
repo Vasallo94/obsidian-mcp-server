@@ -25,11 +25,20 @@ class TestAtomicWriteText:
     def test_replaces_complete_file(self, tmp_path: Path) -> None:
         path = tmp_path / "note.md"
         path.write_text("old", encoding="utf-8")
+        original_mode = path.stat().st_mode & 0o777
 
         atomic_write_text(path, "new")
 
         assert path.read_text(encoding="utf-8") == "new"
+        assert path.stat().st_mode & 0o777 == original_mode
         assert not list(tmp_path.glob(".note.md.*.tmp"))
+
+    def test_new_file_is_private(self, tmp_path: Path) -> None:
+        path = tmp_path / "note.md"
+
+        atomic_write_text(path, "new")
+
+        assert path.stat().st_mode & 0o777 == 0o600
 
     def test_replace_failure_preserves_original(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
