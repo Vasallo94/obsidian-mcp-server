@@ -5,6 +5,7 @@ import pytest
 from obsidian_mcp.config import reset_settings
 from obsidian_mcp.tools.analysis_logic import find_broken_wikilinks
 from obsidian_mcp.tools.navigation_logic import move_note
+from obsidian_mcp.utils import wikilinks
 
 
 @pytest.fixture
@@ -69,6 +70,20 @@ class TestMoveNoteUpdateLinks:
         assert "[[Beta]]" in a_content
         assert "[[B]]" not in a_content
         assert "Links updated:" in result.data
+
+    def test_reports_partial_success_when_link_rewrite_fails(self, vault, monkeypatch):
+        def fail_rewrite(*_args, **_kwargs):
+            raise OSError("disk full")
+
+        monkeypatch.setattr(wikilinks, "rewrite_wikilinks_in_vault", fail_rewrite)
+
+        result = move_note("B.md", "Beta.md", update_links=True)
+
+        assert result.success
+        assert not (vault / "B.md").exists()
+        assert (vault / "Beta.md").exists()
+        assert "note was moved" in (result.data or "")
+        assert "links.find_broken" in (result.data or "")
 
     def test_warns_when_links_left_stale(self, vault):
         """Issue #11: default move surfaces unresolved references count."""

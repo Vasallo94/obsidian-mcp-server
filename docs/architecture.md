@@ -111,6 +111,7 @@ Resources provide read-only context to agents:
 
 - `obsidian://vault_info`
 - `obsidian://capabilities`
+- `obsidian://vault_info`
 - `obsidian://profile`
 - `obsidian://skills/list`
 - `obsidian://skills/catalog`
@@ -132,6 +133,7 @@ Core prompts are always registered:
 - `create_structured_note`
 - `use_vault_template`
 - `explore_vault_context`
+- `bootstrap_vault_config`
 
 Prompt packs and profile prompts are registered when the active vault declares
 them. Examples include Mermaid helpers, media workflows, runbook writing, daily

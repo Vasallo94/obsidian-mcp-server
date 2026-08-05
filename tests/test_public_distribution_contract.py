@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import re
 import subprocess
 import tarfile
@@ -167,6 +168,34 @@ def test_tool_reference_mentions_every_registered_public_tool() -> None:
     missing_tools = sorted(name for name in TOOL_SPECS if name not in text)
 
     assert missing_tools == []
+
+
+def test_documented_tool_arguments_exist_in_registered_schemas(monkeypatch) -> None:
+    from obsidian_mcp.config import reset_settings
+    from obsidian_mcp.server import create_server
+
+    monkeypatch.setenv(
+        "OBSIDIAN_MCP_TOOL_SETS",
+        "notes_write,vault_analysis,secundo_selebro,agents_admin,"
+        "youtube,obsidianrag,canvas,kanvas",
+    )
+    reset_settings()
+    mcp = create_server()
+    tools = {tool.name: tool for tool in asyncio.run(mcp.list_tools())}
+    docs = Path("docs/tool-reference.md").read_text(encoding="utf-8")
+    invalid: list[str] = []
+
+    for tool_name, raw_arguments in re.findall(r"`([a-z_.]+)\(([^)]*)\)`", docs):
+        tool = tools.get(tool_name)
+        if tool is None:
+            continue
+        schema_arguments = set(tool.parameters.get("properties", {}))
+        for raw_argument in raw_arguments.split(","):
+            match = re.match(r"\s*([A-Za-z_]\w*)", raw_argument)
+            if match and match.group(1) not in schema_arguments:
+                invalid.append(f"{tool_name}: {match.group(1)}")
+
+    assert not invalid
 
 
 def test_mcpb_docs_describe_release_artifacts_and_prerelease_git_install() -> None:

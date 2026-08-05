@@ -173,6 +173,7 @@ def register_core_prompts(mcp: FastMCP) -> None:
 
         Deliverable: write the file, then produce a short markdown report of
         what you inferred (roles → folders, type vocabulary, tag registry
-        path, and anything ambiguous you had to guess). Commit both the
-        `vault.yaml` and the report, and push.
+        path, and anything ambiguous you had to guess). Show the resulting
+        `vault.yaml` and report to the user. Do not commit or push; leave that
+        decision to the user.
         """

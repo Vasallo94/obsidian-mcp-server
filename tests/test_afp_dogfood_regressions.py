@@ -8,6 +8,7 @@ import yaml
 from obsidian_mcp.config import reset_settings
 from obsidian_mcp.middleware import invalidate_rules_cache
 from obsidian_mcp.server import create_server
+from obsidian_mcp.tools import creation_logic
 from obsidian_mcp.tools.analysis_logic import sync_tag_registry
 from obsidian_mcp.tools.creation_logic import (
     search_and_replace_global,
@@ -77,6 +78,38 @@ def test_preview_replace_points_agents_to_apply_replace(tmp_path, monkeypatch):
     assert result.success
     assert "notes.apply_replace" in result.data
     assert "solo_preview=False" not in result.data
+
+
+def test_apply_replace_rereads_before_writing(tmp_path, monkeypatch):
+    vault = _set_vault(monkeypatch, tmp_path)
+    note = vault / "note.md"
+    note.write_text("target original", encoding="utf-8")
+
+    def mutate_after_scan(*_args, **_kwargs):
+        yield note
+        note.write_text("target original plus user edit", encoding="utf-8")
+
+    monkeypatch.setattr(creation_logic, "iter_safe_vault_files", mutate_after_scan)
+
+    result = search_and_replace_global("target", "replacement", solo_preview=False)
+
+    assert result.success
+    assert note.read_text(encoding="utf-8") == "replacement original plus user edit"
+
+
+def test_replace_reports_when_file_limit_truncates_results(tmp_path, monkeypatch):
+    vault = _set_vault(monkeypatch, tmp_path)
+    for index in range(3):
+        (vault / f"note-{index}.md").write_text("target", encoding="utf-8")
+
+    preview = search_and_replace_global("target", "replacement", limite=2)
+    applied = search_and_replace_global(
+        "target", "replacement", solo_preview=False, limite=2
+    )
+
+    assert preview.success and applied.success
+    assert "Límite de 2 archivos alcanzado" in (preview.data or "")
+    assert "Límite de 2 archivos alcanzado" in (applied.data or "")
 
 
 def test_update_frontmatter_rejects_json_that_is_not_an_object(tmp_path, monkeypatch):

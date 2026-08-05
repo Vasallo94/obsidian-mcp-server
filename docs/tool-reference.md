@@ -20,7 +20,7 @@ Always enabled.
   results exist.
 - `notes.read(note_path)`: Read one note, with path checks and output limits.
 - `notes.search(query, folder, titles_only)`: Search titles or Markdown content.
-- `notes.search_by_date(date_from, date_to)`: Find recently modified notes.
+- `notes.search_by_date(start_date, end_date)`: Find notes modified in a date range; `end_date` is optional.
 - `notes.read_many(paths)`: Batch-read notes with a response-size guard. `paths` is
   a list of vault-relative paths (one Pydantic argument, not `query=`).
 - `notes.info(paths)`: Return metadata without full note content.
@@ -50,20 +50,20 @@ Optional tools are enabled from `.agents/vault.yaml` with
 ### `notes_write`
 
 - `notes.suggest_location(title, content, tags)`: Suggest a vault folder.
-- `notes.create(title, content, folder, tags, template, created_by)`: Create a note.
+- `notes.create(title, content, folder, tags, template, creator, description)`: Create a note.
   `tags` is a comma-separated string (e.g. `"astro, equipo"`); it is normalized
   to a YAML list in the saved frontmatter. If `content` already starts with a
   `---...---` frontmatter block, embedded fields (`type`, `status`, custom keys)
   are preserved; conflicts with explicit parameters resolve in favour of the
   embedded frontmatter.
-- `notes.append(note_path, content, at_end)`: Append or prepend content.
+- `notes.append(note_path, content, position, section, create_section)`: Append, prepend, or add content to a section.
 - `notes.patch(note_path, operations)`: Apply atomic exact-match edits with
   operations shaped as `{"old": "...", "new": "..."}`. Compatibility aliases
   `oldText`/`newText` and `old_text`/`new_text` are accepted, but clients
   should prefer `old`/`new`.
-- `notes.replace(note_path, content)`: Replace a full note.
-- `notes.update_frontmatter(note_path, updates)`: Update YAML frontmatter.
-- `notes.update_tags(note_path, tags)`: Update tag metadata.
+- `notes.replace(note_path, content, confirm)`: Replace a full note after explicit confirmation.
+- `notes.update_frontmatter(note_path, frontmatter_updates, merge)`: Update YAML frontmatter from a JSON string.
+- `notes.update_tags(note_path, operation, tags)`: Add, remove, or list tag metadata.
 - `notes.move(source, destination, create_folders, update_links)`: Move or
   rename a note. When `update_links=True`, every vault wikilink targeting
   the old stem is rewritten to the new stem (aliases/sections preserved).
@@ -74,7 +74,7 @@ Optional tools are enabled from `.agents/vault.yaml` with
   stem (without `.md`), or as a path to also move folders.
 - `notes.delete(note_path, confirm)`: Delete a note after explicit confirmation.
 - `notes.preview_replace(...)`: Preview global replacements.
-- `notes.apply_replace(...)`: Apply global replacements; always run the preview first.
+- `notes.apply_replace(search, replacement, folder, limit, confirm)`: Apply global replacements after explicit confirmation; always run the preview first.
 
 ### `vault_analysis`
 
@@ -142,6 +142,7 @@ project instead of embedding a second RAG stack inside this MCP server.
   every new session). Two-call boot sequence, decision table mapping
   intent -> tool, and common pitfalls.
 - `obsidian://capabilities`: Active prompts, tool sets, resources, and integrations.
+- `obsidian://vault_info`: Basic vault identity and size information.
 - `obsidian://profile`: Safe active profile summary.
 - `obsidian://skills/list`: Valid and invalid vault skills.
 - `obsidian://skills/catalog`: Skills with use-case hints.
