@@ -122,6 +122,27 @@ def test_forbidden_patterns_merge_project_and_vault_files(
     assert "**/secrets.md" in patterns
 
 
+def test_exact_forbidden_directory_protects_only_its_descendants(
+    tmp_path: Path, monkeypatch
+) -> None:
+    vault = tmp_path / "vault"
+    protected = vault / "Sensitive" / "nested"
+    allowed = vault / "SensitiveBackup"
+    protected.mkdir(parents=True)
+    allowed.mkdir()
+    (protected / "secret.md").write_text("secret", encoding="utf-8")
+    (allowed / "public.md").write_text("public", encoding="utf-8")
+    (vault / ".forbidden_paths").write_text("Sensitive\n", encoding="utf-8")
+    monkeypatch.setattr(security, "get_vault_path", lambda: vault)
+    security.load_forbidden_patterns(force_reload=True, vault_path=vault)
+
+    assert security.is_path_forbidden(vault / "Sensitive", vault)[0]
+    assert security.is_path_forbidden(protected / "secret.md", vault)[0]
+    assert not security.is_path_forbidden(allowed / "public.md", vault)[0]
+    assert security.resolve_vault_path("Sensitive/nested/secret.md", vault)[0] is None
+    assert list(security.iter_safe_vault_files(vault)) == [allowed / "public.md"]
+
+
 def test_safe_iterator_skips_protected_files(tmp_path: Path, monkeypatch) -> None:
     vault = tmp_path / "vault"
     private = vault / "Private"
