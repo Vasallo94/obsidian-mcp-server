@@ -41,7 +41,7 @@ logger = get_logger(__name__)
 HEX_COLOR_PATTERN = re.compile(r"^([0-9a-fA-F]{3}){1,2}$")
 
 
-def get_vault_stats() -> Result[str]:  # pylint: disable=too-many-locals
+def get_vault_stats() -> Result[str]:  # pylint: disable=too-many-locals,too-many-statements
     """Generate complete vault statistics.
 
     Returns:
@@ -54,7 +54,9 @@ def get_vault_stats() -> Result[str]:  # pylint: disable=too-many-locals
     vault_name = vault_path.name
 
     # Counters
-    total_notas = 0
+    archivos_markdown = 0
+    notas_analizadas = 0
+    archivos_omitidos = 0
     total_palabras = 0
     total_caracteres = 0
     carpetas: set[str] = set()
@@ -65,44 +67,44 @@ def get_vault_stats() -> Result[str]:  # pylint: disable=too-many-locals
     por_fecha: dict[str, int] = {}
 
     for archivo in iter_safe_vault_files(vault_path):
-        total_notas += 1
-
-        # Folder
-        carpeta_padre = archivo.parent.relative_to(vault_path)
-        if str(carpeta_padre) != ".":
-            carpetas.add(str(carpeta_padre))
-
+        archivos_markdown += 1
         try:
             with open(archivo, "r", encoding="utf-8") as f:
                 contenido = f.read()
-
-            # Count words and characters
-            palabras = len(contenido.split())
-            total_palabras += palabras
-            total_caracteres += len(contenido)
-
-            # Find tags and links
-            etiquetas.update(extract_tags_from_content(contenido))
-            enlaces_internos.update(extract_internal_links(contenido))
-
-            # Modification date
-            fecha_mod = datetime.fromtimestamp(archivo.stat().st_mtime).date()
-            fecha_str = fecha_mod.strftime("%Y-%m")
-            por_fecha[fecha_str] = por_fecha.get(fecha_str, 0) + 1
-
         except (OSError, UnicodeDecodeError) as e:
+            archivos_omitidos += 1
             logger.debug("No se pudo leer '%s': %s", archivo, e)
             continue
+
+        notas_analizadas += 1
+        carpeta_padre = archivo.parent.relative_to(vault_path)
+        if str(carpeta_padre) != ".":
+            carpetas.add(str(carpeta_padre))
+        total_palabras += len(contenido.split())
+        total_caracteres += len(contenido)
+        etiquetas.update(extract_tags_from_content(contenido))
+        enlaces_internos.update(extract_internal_links(contenido))
+        try:
+            fecha_mod = datetime.fromtimestamp(archivo.stat().st_mtime).date()
+        except OSError as e:
+            logger.debug("No se pudo obtener fecha de '%s': %s", archivo, e)
+        else:
+            fecha_str = fecha_mod.strftime("%Y-%m")
+            por_fecha[fecha_str] = por_fecha.get(fecha_str, 0) + 1
 
     # Format statistics
     resultado = f"📊 **Estadísticas del Vault '{vault_name}'**\n\n"
 
     resultado += "📚 **Contenido:**\n"
-    resultado += f"   • Total de notas: {total_notas:,}\n"
+    resultado += f"   • Archivos Markdown: {archivos_markdown:,}\n"
+    resultado += f"   • Notas analizadas: {notas_analizadas:,}\n"
     resultado += f"   • Total de palabras: {total_palabras:,}\n"
     resultado += f"   • Total de caracteres: {total_caracteres:,}\n"
-    promedio_palabras = total_palabras / max(total_notas, 1)
-    resultado += f"   • Promedio de palabras por nota: {promedio_palabras:.0f}\n\n"
+    promedio_palabras = total_palabras / max(notas_analizadas, 1)
+    resultado += f"   • Promedio de palabras por nota: {promedio_palabras:.0f}\n"
+    if archivos_omitidos:
+        resultado += f"   • Archivos ilegibles omitidos: {archivos_omitidos:,}\n"
+    resultado += "\n"
 
     resultado += "📁 **Organización:**\n"
     resultado += f"   • Carpetas: {len(carpetas)}\n"
@@ -188,25 +190,23 @@ def analyze_tags() -> Result[str]:  # pylint: disable=too-many-locals,too-many-b
     archivos_con_etiquetas: list[str] = []
 
     for archivo in iter_safe_vault_files(vault_path):
+        # Ignore system folders or registry
+        is_sys = ".github" in str(archivo)
+        is_reg = "Registro de Tags" in archivo.name
+        if is_sys or is_reg:
+            continue
         try:
-            # Ignore system folders or registry
-            is_sys = ".github" in str(archivo)
-            is_reg = "Registro de Tags" in archivo.name
-            if is_sys or is_reg:
-                continue
-
             with open(archivo, "r", encoding="utf-8") as f:
                 contenido = f.read()
-
-            etiquetas = extract_tags_from_content(contenido)
-            if etiquetas:
-                archivos_con_etiquetas.append(archivo.name)
-                for tag in etiquetas:
-                    conteo_etiquetas[tag] = conteo_etiquetas.get(tag, 0) + 1
-
         except (OSError, UnicodeDecodeError) as e:
             logger.debug("No se pudo leer '%s': %s", archivo, e)
             continue
+
+        etiquetas = extract_tags_from_content(contenido)
+        if etiquetas:
+            archivos_con_etiquetas.append(archivo.name)
+            for tag in etiquetas:
+                conteo_etiquetas[tag] = conteo_etiquetas.get(tag, 0) + 1
 
     if not conteo_etiquetas:
         return Result.ok("🏷️ No se encontraron etiquetas en el vault")
@@ -301,12 +301,13 @@ def sync_tag_registry(  # pylint: disable=too-many-locals,too-many-branches
             continue
         try:
             with open(archivo, "r", encoding="utf-8") as f:
-                tags = extract_tags_from_content(f.read())
-                for t in tags:
-                    conteo_real[t] = conteo_real.get(t, 0) + 1
+                contenido = f.read()
         except (OSError, UnicodeDecodeError) as e:
             logger.debug("No se pudo leer '%s': %s", archivo, e)
             continue
+        tags = extract_tags_from_content(contenido)
+        for tag in tags:
+            conteo_real[tag] = conteo_real.get(tag, 0) + 1
 
     # 2. Get tags from registry
     with open(registry_path, "r", encoding="utf-8") as f:
@@ -398,11 +399,11 @@ def list_all_tags() -> Result[str]:
         try:
             with open(archivo, "r", encoding="utf-8") as f:
                 contenido = f.read()
-                tags = extract_tags_from_content(contenido)
-                etiquetas_set.update(tags)
         except (OSError, UnicodeDecodeError) as e:
             logger.debug("No se pudo leer '%s': %s", archivo, e)
             continue
+        tags = extract_tags_from_content(contenido)
+        etiquetas_set.update(tags)
 
     if not etiquetas_set:
         return Result.ok("ℹ️ No se encontraron etiquetas.")
@@ -429,16 +430,15 @@ def analyze_links() -> Result[str]:
         try:
             with open(archivo, "r", encoding="utf-8") as f:
                 contenido = f.read()
-
-            enlaces = extract_internal_links(contenido)
-            if enlaces:
-                enlaces_por_archivo[archivo.name] = list(enlaces)
-                for enlace in enlaces:
-                    todos_los_enlaces[enlace] = todos_los_enlaces.get(enlace, 0) + 1
-
         except (OSError, UnicodeDecodeError) as e:
             logger.debug("No se pudo leer '%s': %s", archivo, e)
             continue
+
+        enlaces = extract_internal_links(contenido)
+        if enlaces:
+            enlaces_por_archivo[archivo.name] = list(enlaces)
+            for enlace in enlaces:
+                todos_los_enlaces[enlace] = todos_los_enlaces.get(enlace, 0) + 1
 
     if not todos_los_enlaces:
         return Result.ok("🔗 No se encontraron enlaces internos en el vault")
