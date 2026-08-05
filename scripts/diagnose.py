@@ -11,6 +11,8 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from obsidian_mcp.utils.security import iter_safe_vault_files
+
 
 def diagnose_setup():
     """Diagnostica la configuración del servidor MCP"""
@@ -49,7 +51,7 @@ def diagnose_setup():
     print("✅ Es un directorio válido")
 
     # Contar archivos markdown
-    md_files = list(vault_path.glob("**/*.md"))
+    md_files = list(iter_safe_vault_files(vault_path))
     print(f"📄 Archivos markdown encontrados: {len(md_files)}")
 
     if len(md_files) == 0:

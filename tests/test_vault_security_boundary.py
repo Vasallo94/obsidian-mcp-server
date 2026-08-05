@@ -33,8 +33,17 @@ def test_packaged_boundary_excludes_trash_notes(tmp_path: Path, monkeypatch) -> 
     vault = tmp_path / "vault"
     trash = vault / ".trash"
     trash.mkdir(parents=True)
+    (trash / "nested").mkdir()
+    (vault / ".trashcan").mkdir()
+    (vault / ".git").mkdir()
+    (vault / ".obsidian").mkdir()
     (vault / "visible.md").write_text("visible", encoding="utf-8")
     (trash / "deleted.md").write_text("deleted", encoding="utf-8")
+    (trash / "nested" / "deleted.md").write_text("deleted", encoding="utf-8")
+    (vault / ".trashcan" / "normal.md").write_text("normal", encoding="utf-8")
+    (vault / ".trash-file.md").write_text("normal", encoding="utf-8")
+    (vault / ".git" / "tracked.md").write_text("hidden", encoding="utf-8")
+    (vault / ".obsidian" / "plugin.md").write_text("hidden", encoding="utf-8")
     monkeypatch.setattr(security, "get_vault_path", lambda: vault)
     monkeypatch.setattr(navigation_logic, "get_vault_path", lambda: vault)
     security.load_forbidden_patterns(force_reload=True, vault_path=vault)
@@ -44,12 +53,22 @@ def test_packaged_boundary_excludes_trash_notes(tmp_path: Path, monkeypatch) -> 
         for path in security.iter_safe_vault_files(vault)
     }
 
-    assert visible == {"visible.md"}
-    assert security.is_path_forbidden(trash / "deleted.md", vault)[0]
+    assert visible == {".trash-file.md", ".trashcan/normal.md", "visible.md"}
+    for protected in [
+        trash,
+        trash / "deleted.md",
+        trash / "nested" / "deleted.md",
+        vault / ".git",
+        vault / ".obsidian",
+    ]:
+        assert security.is_path_forbidden(protected, vault)[0]
+    assert security.resolve_vault_path(".trash", vault)[0] is None
     listed = navigation_logic.list_notes()
     assert listed.success
     assert "visible.md" in (listed.data or "")
     assert "deleted.md" not in (listed.data or "")
+    assert "tracked.md" not in (listed.data or "")
+    assert "plugin.md" not in (listed.data or "")
 
 
 def test_create_note_rejects_traversal_before_creating_directories(

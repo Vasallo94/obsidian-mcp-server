@@ -23,8 +23,6 @@ make format           # uv run ruff check --fix . && uv run ruff format .
 make hooks            # uv run pre-commit install
 make check            # uv run pre-commit run --all-files
 
-# Verification scripts
-make verify           # uv run python scripts/verify_youtube.py
 ```
 
 ### Package Management — CRITICAL
