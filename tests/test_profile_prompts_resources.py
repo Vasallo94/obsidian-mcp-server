@@ -33,12 +33,14 @@ def test_core_prompts_register_without_vault_profile(tmp_path, monkeypatch):
 
     prompt_names = {prompt.name for prompt in asyncio.run(mcp.list_prompts())}
     tool_names = {tool.name for tool in asyncio.run(mcp.list_tools())}
+    bootstrap_prompt = asyncio.run(mcp.get_prompt("bootstrap_vault_config")).fn()
 
     assert {
         "assistant_overview",
         "create_structured_note",
         "use_vault_template",
         "explore_vault_context",
+        "bootstrap_vault_config",
     }.issubset(prompt_names)
     assert "create_mermaid_diagram" not in prompt_names
     assert "update_media_item" not in prompt_names
@@ -47,6 +49,8 @@ def test_core_prompts_register_without_vault_profile(tmp_path, monkeypatch):
     assert "rag.ask" not in tool_names
     assert "rag.health" not in tool_names
     assert "preguntar_al_conocimiento" not in tool_names
+    assert "Do not commit or push" in bootstrap_prompt
+    assert "and push" not in bootstrap_prompt
 
 
 def test_profile_and_pack_prompts_register_from_vault_config(tmp_path, monkeypatch):

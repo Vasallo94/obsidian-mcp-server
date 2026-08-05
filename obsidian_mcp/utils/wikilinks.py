@@ -140,7 +140,7 @@ def scan_broken_wikilinks(vault_path: Path) -> list[BrokenWikilink]:
     for md_file in iter_safe_vault_files(vault_path):
         try:
             content = md_file.read_text(encoding="utf-8")
-        except OSError:
+        except (OSError, UnicodeDecodeError):
             continue
         for occ in iter_wikilinks(content, md_file):
             if target_resolves(occ.target, stem_index, vault_path):
@@ -209,7 +209,7 @@ def rewrite_wikilinks_in_vault(
     for md_file in iter_safe_vault_files(vault_path):
         try:
             content = md_file.read_text(encoding="utf-8")
-        except OSError:
+        except (OSError, UnicodeDecodeError):
             continue
         new_content, count = rewrite_wikilinks_in_content(
             content, old_target=old_target, new_target=new_target

@@ -17,7 +17,7 @@ After those two calls you have enough context to write correctly. Everything bel
 | Read one note | `notes.read(note_path)` |
 | Read several notes | `notes.read_many(paths=[...])` — note: `paths`, not `query=` |
 | Search by text | `notes.search(query=, titles_only=False)` |
-| Search by date | `notes.search_by_date(date_from, date_to)` |
+| Search by date | `notes.search_by_date(start_date, end_date)` |
 | Create a note | `notes.create(title, content, folder, tags, ...)` — embed YAML frontmatter in `content` and it'll be merged with parameters |
 | Lint a note before writing | `notes.validate(content, title, mode='create')` — pre-flight, no write |
 | Edit fragments of a note | `notes.patch(note_path, operations=[{old, new}, ...])` — fuzzy suggestions on miss |

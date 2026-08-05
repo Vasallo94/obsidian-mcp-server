@@ -976,7 +976,7 @@ def search_and_replace_global(
     solo_preview: bool = True,
     limite: int = 100,
 ) -> Result[str]:
-    # pylint: disable=too-many-branches,too-many-locals
+    # pylint: disable=too-many-branches,too-many-locals,too-many-statements
     """Search and replace text in all notes.
 
     Args:
@@ -995,6 +995,8 @@ def search_and_replace_global(
 
     if not buscar:
         return Result.fail("Debes especificar un texto a buscar.")
+    if limite < 1:
+        return Result.fail("El límite debe ser al menos 1.")
 
     # Determinar carpeta de búsqueda
     search_path, error = resolve_vault_path(
@@ -1013,7 +1015,8 @@ def search_and_replace_global(
 
     # Buscar archivos .md
     archivos_afectados: list[dict[str, Any]] = []
-    archivos_procesados = 0
+    limite_alcanzado = False
+    archivos_omitidos = 0
 
     for md_file in iter_safe_vault_files(vault_path, root=search_path):
         # Saltar carpetas excluidas
@@ -1030,6 +1033,9 @@ def search_and_replace_global(
                 contenido = f.read()
 
             if buscar in contenido:
+                if len(archivos_afectados) >= limite:
+                    limite_alcanzado = True
+                    break
                 ocurrencias = contenido.count(buscar)
                 ruta_rel = md_file.relative_to(vault_path)
                 archivos_afectados.append(
@@ -1037,20 +1043,19 @@ def search_and_replace_global(
                         "path": md_file,
                         "ruta_rel": str(ruta_rel),
                         "ocurrencias": ocurrencias,
-                        "contenido_original": contenido,
                     }
                 )
 
-                archivos_procesados += 1
-                if archivos_procesados >= limite:
-                    break
-
-        except OSError as e:
+        except (OSError, UnicodeDecodeError) as e:
+            archivos_omitidos += 1
             logger.debug("No se pudo leer '%s' para busqueda: %s", md_file, e)
             continue
 
     if not archivos_afectados:
-        return Result.ok(f"ℹ️ No se encontró '{buscar}' en ninguna nota.")
+        resultado = f"ℹ️ No se encontró '{buscar}' en ninguna nota."
+        if archivos_omitidos:
+            resultado += f"\n⚠️ Archivos ilegibles omitidos: {archivos_omitidos}."
+        return Result.ok(resultado)
 
     # Modo preview
     if solo_preview:
@@ -1063,27 +1068,49 @@ def search_and_replace_global(
             resultado += f"- `{arch['ruta_rel']}` ({arch['ocurrencias']} ocurrencias)\n"
         if len(archivos_afectados) > 20:
             resultado += f"- ... y {len(archivos_afectados) - 20} archivos más\n"
+        if limite_alcanzado:
+            resultado += (
+                f"\n⚠️ Límite de {limite} archivos alcanzado; "
+                "puede haber más coincidencias.\n"
+            )
+        if archivos_omitidos:
+            resultado += f"\n⚠️ Archivos ilegibles omitidos: {archivos_omitidos}.\n"
         resultado += "\n⚠️ Usa `notes.apply_replace` para aplicar los cambios."
         return Result.ok(resultado)
 
     # Modo ejecución
     archivos_modificados = 0
+    archivos_sin_coincidencia = 0
     total_reemplazos = 0
 
     for arch in archivos_afectados:
         try:
-            nuevo_contenido = arch["contenido_original"].replace(buscar, reemplazar)
+            contenido_actual = arch["path"].read_text(encoding="utf-8")
+            ocurrencias = contenido_actual.count(buscar)
+            if not ocurrencias:
+                archivos_sin_coincidencia += 1
+                continue
+            nuevo_contenido = contenido_actual.replace(buscar, reemplazar)
             atomic_write_text(arch["path"], nuevo_contenido)
             archivos_modificados += 1
-            total_reemplazos += arch["ocurrencias"]
-        except OSError as e:
-            logger.warning("No se pudo escribir reemplazo en '%s': %s", arch["path"], e)
+            total_reemplazos += ocurrencias
+        except (OSError, UnicodeDecodeError) as e:
+            archivos_omitidos += 1
+            logger.warning("No se pudo reemplazar en '%s': %s", arch["path"], e)
             continue
 
     resultado = "✅ **Reemplazo completado**\n"
     resultado += f"- Archivos modificados: {archivos_modificados}\n"
     resultado += f"- Reemplazos realizados: {total_reemplazos}\n"
     resultado += f"- `{buscar}` → `{reemplazar}`"
+    if archivos_sin_coincidencia:
+        resultado += f"\n- Archivos ya sin coincidencias: {archivos_sin_coincidencia}"
+    if archivos_omitidos:
+        resultado += f"\n⚠️ Archivos ilegibles o no escritos: {archivos_omitidos}."
+    if limite_alcanzado:
+        resultado += (
+            f"\n⚠️ Límite de {limite} archivos alcanzado; puede haber más coincidencias."
+        )
     return Result.ok(resultado)
 
 

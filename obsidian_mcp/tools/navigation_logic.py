@@ -378,21 +378,30 @@ def move_note(  # pylint: disable=too-many-locals,too-many-return-statements
 
     msg = f"File moved/renamed:\nFrom: {origen}\nTo:   {destino}"
 
-    if update_links and old_stem != new_stem:
-        total, touched = rewrite_wikilinks_in_vault(
-            vault_path, old_target=old_stem, new_target=new_stem
-        )
-        msg += f"\nLinks updated: {total} references across {len(touched)} files."
-    elif not update_links:
-        # Issue #11: surface impact even when we didn't rewrite.
-        total, touched = rewrite_wikilinks_in_vault(
-            vault_path, old_target=old_stem, new_target=new_stem, dry_run=True
-        )
-        if old_stem != new_stem and total > 0:
-            msg += (
-                f"\nWarning: {total} wikilinks across {len(touched)} files now point "
-                f"to the old stem '{old_stem}'. Re-run with update_links=True to fix."
+    try:
+        if update_links and old_stem != new_stem:
+            total, touched = rewrite_wikilinks_in_vault(
+                vault_path, old_target=old_stem, new_target=new_stem
             )
+            msg += f"\nLinks updated: {total} references across {len(touched)} files."
+        elif not update_links:
+            # Issue #11: surface impact even when we didn't rewrite.
+            total, touched = rewrite_wikilinks_in_vault(
+                vault_path, old_target=old_stem, new_target=new_stem, dry_run=True
+            )
+            if old_stem != new_stem and total > 0:
+                msg += (
+                    f"\nWarning: {total} wikilinks across {len(touched)} files now "
+                    f"point to the old stem '{old_stem}'. Re-run with "
+                    "update_links=True to fix."
+                )
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        # The rename already happened, so never report the whole move as failed.
+        msg += (
+            "\nWarning: the note was moved, but wikilink handling stopped after "
+            f"an error ({exc}). Some links may already be updated; run "
+            "links.find_broken and repair any remaining old targets."
+        )
 
     return Result.ok(msg)
 

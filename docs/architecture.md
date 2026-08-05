@@ -132,6 +132,7 @@ Core prompts are always registered:
 - `create_structured_note`
 - `use_vault_template`
 - `explore_vault_context`
+- `bootstrap_vault_config`
 
 Prompt packs and profile prompts are registered when the active vault declares
 them. Examples include Mermaid helpers, media workflows, runbook writing, daily
