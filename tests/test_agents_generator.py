@@ -182,6 +182,37 @@ class TestSyncSkills:
         content = skill_file.read_text()
         assert "PATCH NOTE GOLDEN RULE" in content
 
+    def test_update_preserves_both_fixes(self, temp_vault, monkeypatch):
+        monkeypatch.setattr(
+            "obsidian_mcp.tools.agents_generator.get_vault_path",
+            lambda: temp_vault,
+        )
+        skill_dir = temp_vault / ".agents" / "skills" / "missing-both"
+        skill_dir.mkdir(parents=True)
+        skill_file = skill_dir / "SKILL.md"
+        skill_file.write_text("# Missing Both\n\nInstructions.", encoding="utf-8")
+
+        result = sync_skills(actualizar=True)
+
+        assert result.success
+        content = skill_file.read_text(encoding="utf-8")
+        assert "REGLAS_GLOBALES" in content
+        assert "PATCH NOTE GOLDEN RULE" in content
+
+    def test_skips_non_utf8_skill(self, temp_vault, monkeypatch):
+        monkeypatch.setattr(
+            "obsidian_mcp.tools.agents_generator.get_vault_path",
+            lambda: temp_vault,
+        )
+        skill_dir = temp_vault / ".agents" / "skills" / "legacy"
+        skill_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_bytes(b"\xff\xfe")
+
+        result = sync_skills(actualizar=True)
+
+        assert result.success
+        assert "No se pudo leer SKILL.md" in (result.data or "")
+
     def test_reports_all_ok(self, temp_vault, monkeypatch):
         """Should report OK if all skills are valid."""
         monkeypatch.setattr(

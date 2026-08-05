@@ -115,4 +115,7 @@ def register_agent_tools(mcp: FastMCP) -> None:
     @register_tool(mcp, "skills.sync")
     def sync_vault_skills(update: bool = False) -> str:
         """Validate skills and optionally apply automatic fixes."""
-        return sync_skills(update).to_display()
+        try:
+            return sync_skills(update).to_display()
+        except Exception as exc:  # pylint: disable=broad-exception-caught
+            return f"Error syncing skills: {exc}"

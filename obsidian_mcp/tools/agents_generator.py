@@ -308,7 +308,9 @@ def _generate_skill_ideas(
     return ideas[:5]  # Limit to 5 suggestions
 
 
-def sync_skills(actualizar: bool = False) -> Result[str]:
+def sync_skills(  # pylint: disable=too-many-branches
+    actualizar: bool = False,
+) -> Result[str]:
     """Synchronize and validate existing skills.
 
     Args:
@@ -343,7 +345,17 @@ def sync_skills(actualizar: bool = False) -> Result[str]:
             )
             continue
 
-        content = skill_file.read_text(encoding="utf-8")
+        try:
+            content = skill_file.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            issues.append(
+                {
+                    "skill": skill_dir.name,
+                    "issue": "No se pudo leer SKILL.md",
+                    "fixable": False,
+                }
+            )
+            continue
 
         # Check for REGLAS_GLOBALES reference
         if "REGLAS_GLOBALES" not in content:
@@ -364,7 +376,18 @@ def sync_skills(actualizar: bool = False) -> Result[str]:
                     count=1,
                     flags=re.MULTILINE,
                 )
-                atomic_write_text(skill_file, new_content)
+                try:
+                    atomic_write_text(skill_file, new_content)
+                except OSError:
+                    issues.append(
+                        {
+                            "skill": skill_dir.name,
+                            "issue": "No se pudo escribir SKILL.md",
+                            "fixable": False,
+                        }
+                    )
+                    continue
+                content = new_content
                 fixed.append(skill_dir.name)
 
         # Check for patch_note editing guidance
@@ -390,7 +413,17 @@ def sync_skills(actualizar: bool = False) -> Result[str]:
                     - `old` must be unique. If it appears more than once, include more context.
                     - Use `notes.replace` for full-note replacement.
                 """).strip()
-                atomic_write_text(skill_file, content + "\n\n" + golden_rule)
+                try:
+                    atomic_write_text(skill_file, content + "\n\n" + golden_rule)
+                except OSError:
+                    issues.append(
+                        {
+                            "skill": skill_dir.name,
+                            "issue": "No se pudo escribir SKILL.md",
+                            "fixable": False,
+                        }
+                    )
+                    continue
                 if skill_dir.name not in fixed:
                     fixed.append(skill_dir.name)
 

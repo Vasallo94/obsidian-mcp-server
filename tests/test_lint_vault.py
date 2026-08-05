@@ -148,6 +148,17 @@ class TestLintVault:
         new_content = (vault_with_rules / "emoji.md").read_text(encoding="utf-8")
         assert "\U0001f680" not in new_content
 
+    def test_auto_fix_skips_non_utf8_note_and_reports_it(self, vault_with_rules):
+        (vault_with_rules / "legacy.md").write_bytes(b"\xff\xfe")
+
+        result = lint_vault(auto_fix=True)
+
+        assert result.success
+        assert "archivos ilegibles omitidos" in (result.data or "")
+        assert "\U0001f680" not in (vault_with_rules / "emoji.md").read_text(
+            encoding="utf-8"
+        )
+
     def test_auto_fix_does_not_alter_frontmatter_rule_target(self, vault_with_rules):
         """no_fm.md is missing frontmatter fields -- not autofixable, must stay as-is."""
         original = (vault_with_rules / "no_fm.md").read_text(encoding="utf-8")
