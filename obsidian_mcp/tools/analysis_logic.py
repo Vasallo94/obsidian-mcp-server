@@ -90,7 +90,7 @@ def get_vault_stats() -> Result[str]:  # pylint: disable=too-many-locals
             fecha_str = fecha_mod.strftime("%Y-%m")
             por_fecha[fecha_str] = por_fecha.get(fecha_str, 0) + 1
 
-        except OSError as e:
+        except (OSError, UnicodeDecodeError) as e:
             logger.debug("No se pudo leer '%s': %s", archivo, e)
             continue
 
@@ -204,7 +204,7 @@ def analyze_tags() -> Result[str]:  # pylint: disable=too-many-locals,too-many-b
                 for tag in etiquetas:
                     conteo_etiquetas[tag] = conteo_etiquetas.get(tag, 0) + 1
 
-        except OSError as e:
+        except (OSError, UnicodeDecodeError) as e:
             logger.debug("No se pudo leer '%s': %s", archivo, e)
             continue
 
@@ -304,7 +304,7 @@ def sync_tag_registry(  # pylint: disable=too-many-locals,too-many-branches
                 tags = extract_tags_from_content(f.read())
                 for t in tags:
                     conteo_real[t] = conteo_real.get(t, 0) + 1
-        except OSError as e:
+        except (OSError, UnicodeDecodeError) as e:
             logger.debug("No se pudo leer '%s': %s", archivo, e)
             continue
 
@@ -400,7 +400,7 @@ def list_all_tags() -> Result[str]:
                 contenido = f.read()
                 tags = extract_tags_from_content(contenido)
                 etiquetas_set.update(tags)
-        except OSError as e:
+        except (OSError, UnicodeDecodeError) as e:
             logger.debug("No se pudo leer '%s': %s", archivo, e)
             continue
 
@@ -436,7 +436,7 @@ def analyze_links() -> Result[str]:
                 for enlace in enlaces:
                     todos_los_enlaces[enlace] = todos_los_enlaces.get(enlace, 0) + 1
 
-        except OSError as e:
+        except (OSError, UnicodeDecodeError) as e:
             logger.debug("No se pudo leer '%s': %s", archivo, e)
             continue
 

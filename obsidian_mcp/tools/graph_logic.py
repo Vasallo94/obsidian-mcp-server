@@ -63,7 +63,7 @@ def get_backlinks(nombre_nota: str) -> Result[str]:
                             }
                         )
                         break
-            except OSError as e:
+            except (OSError, UnicodeDecodeError) as e:
                 logger.debug("No se pudo leer '%s': %s", archivo, e)
                 continue
 
@@ -78,7 +78,7 @@ def get_backlinks(nombre_nota: str) -> Result[str]:
 
         return Result.ok(resultado)
 
-    except OSError as e:
+    except (OSError, UnicodeDecodeError) as e:
         return Result.fail(f"Error al obtener backlinks: {e}")
 
 
@@ -113,7 +113,7 @@ def get_notes_by_tag(tag: str) -> Result[str]:
                             "ruta": str(ruta_rel),
                         }
                     )
-            except OSError as e:
+            except (OSError, UnicodeDecodeError) as e:
                 logger.debug("No se pudo leer '%s': %s", archivo, e)
                 continue
 
@@ -141,7 +141,7 @@ def get_notes_by_tag(tag: str) -> Result[str]:
 
         return Result.ok(resultado)
 
-    except OSError as e:
+    except (OSError, UnicodeDecodeError) as e:
         return Result.fail(f"Error al buscar por tag: {e}")
 
 
@@ -159,7 +159,7 @@ def _find_backlinks(vault_path: Path, nombre_limpio: str) -> list[str]:
                 if enlace.split("|")[0].strip() == nombre_limpio:
                     backlinks.append(archivo.stem)
                     break
-        except OSError as e:
+        except (OSError, UnicodeDecodeError) as e:
             logger.debug("No se pudo leer '%s': %s", archivo, e)
     return backlinks
 
@@ -235,7 +235,7 @@ def get_local_graph(nombre_nota: str, profundidad: int = 1) -> Result[str]:
 
         return Result.ok(resultado)
 
-    except OSError as e:
+    except (OSError, UnicodeDecodeError) as e:
         return Result.fail(f"Error al obtener grafo local: {e}")
 
 
@@ -262,7 +262,7 @@ def find_orphan_notes() -> Result[str]:
                 enlaces_limpios = [e.split("|")[0].strip() for e in enlaces]
                 enlaces_salientes_por_nota[archivo.stem] = enlaces_limpios
                 todos_los_enlaces.update(enlaces_limpios)
-            except OSError as e:
+            except (OSError, UnicodeDecodeError) as e:
                 logger.debug("No se pudo leer '%s': %s", archivo, e)
                 continue
 
@@ -298,5 +298,5 @@ def find_orphan_notes() -> Result[str]:
 
         return Result.ok(resultado)
 
-    except OSError as e:
+    except (OSError, UnicodeDecodeError) as e:
         return Result.fail(f"Error al encontrar notas huerfanas: {e}")

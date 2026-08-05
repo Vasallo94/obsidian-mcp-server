@@ -31,6 +31,7 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 - **Indexación Semántica de Imágenes**: El sistema ahora extrae descripciones de imágenes (`![[img|desc]]` o `![desc](img)`) y las inyecta como contexto semántico, haciendo buscable el contenido visual.
 
 ### Fixed
+- **Legacy-encoded note resilience**: Vault statistics, tag analysis, backlinks, local graphs, and orphan detection now skip non-UTF-8 notes instead of failing the entire scan.
 - **Vault exclusion hygiene**: `.trash`, `.git`, and `.obsidian` are now part of the shared packaged boundary, diagnostics use that boundary, and unused `.mcpignore` and YouTube verification scripts were removed so the documented security model has one source of truth.
 - **Lint and skill-sync partial writes**: Vault lint now skips and reports unreadable notes instead of aborting after partial fixes, and skill synchronization preserves both generated guidance blocks while reporting unreadable or unwritable skills.
 - **Bulk write safety and public contracts**: Global replacements now re-read each note immediately before writing, report when the file limit truncates results, and note moves report partial success if wikilink rewriting fails. Public tool signatures now match registered schemas, and the vault bootstrap prompt no longer instructs agents to commit or push.
