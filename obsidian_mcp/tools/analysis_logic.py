@@ -551,12 +551,12 @@ def lint_vault(  # pylint: disable=too-many-locals,too-many-branches,too-many-st
         if md_file.name == "REGLAS_GLOBALES.md":
             continue
 
-        files_scanned += 1
         try:
             content = md_file.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):
             files_skipped += 1
             continue
+        files_scanned += 1
 
         frontmatter, body = _extract_frontmatter_from_content(content)
         title = md_file.stem
@@ -571,19 +571,21 @@ def lint_vault(  # pylint: disable=too-many-locals,too-many-branches,too-many-st
             content=body,
             frontmatter=frontmatter or {},
         )
+        can_auto_fix = True
         for rule, warning in violations:
             total_violations += 1
             label = f"[{rule.get('id', '?')}] {warning}"
             violations_by_file.setdefault(rel, []).append(label)
 
-            if auto_fix and is_rule_autofixable(rule):
+            if auto_fix and can_auto_fix and is_rule_autofixable(rule):
                 new_content, n = apply_autofix(rule, content)
                 if n:
                     try:
                         atomic_write_text(md_file, new_content)
                     except OSError:
                         fix_failures.add(rel)
-                        break
+                        can_auto_fix = False
+                        continue
                     fixed_by_file[rel] = fixed_by_file.get(rel, 0) + n
                     content = new_content  # refresh for any further rules
                     _, body = _extract_frontmatter_from_content(content)
