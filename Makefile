@@ -1,4 +1,4 @@
-.PHONY: install dev test lint clean verify hooks check audit
+.PHONY: install dev test lint clean hooks check audit
 
 install:
 	uv sync
@@ -28,7 +28,3 @@ audit:
 format:
 	uv run ruff check --fix .
 	uv run ruff format .
-
-verify:
-	uv run python scripts/verify_ignore.py
-	uv run python scripts/verify_youtube.py

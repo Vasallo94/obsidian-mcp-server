@@ -23,8 +23,6 @@ make format           # uv run ruff check --fix . && uv run ruff format .
 make hooks            # uv run pre-commit install
 make check            # uv run pre-commit run --all-files
 
-# Verification scripts
-make verify           # uv run python scripts/verify_agents.py && scripts/verify_youtube.py
 ```
 
 ### Package Management — CRITICAL
@@ -94,7 +92,6 @@ obsidian_mcp/
 │   ├── logging.py         # Centralized logging (stderr only, stdout = MCP protocol)
 │   ├── security.py        # Path validation, access control, directory traversal prevention
 │   ├── vault.py           # Vault file operations
-│   ├── mcp_ignore.py      # .mcpignore file handling
 │   └── timeout.py         # Timeout utilities for long operations
 ├── resources/             # MCP Resources (read-only data endpoints)
 ├── prompts/               # MCP Prompts (system prompts for AI)

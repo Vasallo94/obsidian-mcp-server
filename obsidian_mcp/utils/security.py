@@ -91,9 +91,13 @@ def _matching_forbidden_pattern(relative_path: Path, patterns: List[str]) -> str
                     relative_path.name, suffix.lstrip("*")
                 ):
                     return original_pattern
-        elif fnmatch.fnmatch(relative_str, pattern) or relative_str.startswith(
-            pattern.rstrip("*")
+        elif fnmatch.fnmatch(relative_str, pattern):
+            return original_pattern
+        elif not any(char in pattern for char in "*?[") and relative_str.startswith(
+            f"{pattern.rstrip('/')}/"
         ):
+            return original_pattern
+        elif pattern.endswith("*") and relative_str.startswith(pattern.rstrip("*")):
             return original_pattern
     return ""
 

@@ -29,7 +29,7 @@ LOG_LEVEL="DEBUG"
 
 ## Security and Exclusions
 
-By design, the server ignores system and hidden folders to prevent information
+By design, the server ignores selected system folders to prevent information
 leaks or corruption of Obsidian metadata:
 
 - `.obsidian`
@@ -38,7 +38,8 @@ leaks or corruption of Obsidian metadata:
 - Other automatically configured directories.
 
 To protect additional folders, use `.forbidden_paths` or
-`private_paths` in `.agents/vault.yaml`.
+`private_paths` in `.agents/vault.yaml`. The server does not interpret
+`.mcpignore` files.
 
 ## Vault-agnostic behavior
 

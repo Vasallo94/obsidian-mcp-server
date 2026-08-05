@@ -3,6 +3,14 @@
 # Líneas que empiezan con # son comentarios
 # Las rutas son relativas al vault
 
+# Carpetas gestionadas fuera del contenido activo
+.trash
+.trash/*
+.git
+.git/*
+.obsidian
+.obsidian/*
+
 # Carpeta privada completa
 04_Recursos/Privado/*
 
