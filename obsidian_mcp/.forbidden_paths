@@ -3,6 +3,9 @@
 # Líneas que empiezan con # son comentarios
 # Las rutas son relativas al vault
 
+# Carpetas gestionadas fuera del contenido activo
+.trash/*
+
 # Carpeta privada completa
 04_Recursos/Privado/*
 

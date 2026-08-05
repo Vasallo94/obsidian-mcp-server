@@ -38,7 +38,8 @@ leaks or corruption of Obsidian metadata:
 - Other automatically configured directories.
 
 To protect additional folders, use `.forbidden_paths` or
-`private_paths` in `.agents/vault.yaml`.
+`private_paths` in `.agents/vault.yaml`. The server does not interpret
+`.mcpignore` files.
 
 ## Vault-agnostic behavior
 

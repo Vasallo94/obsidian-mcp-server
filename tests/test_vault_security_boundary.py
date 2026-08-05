@@ -29,6 +29,29 @@ def test_canvas_resolvers_reject_absolute_paths_outside_vault(
     assert not workflow_tool_logic.init_project(str(outside), groups=[]).success
 
 
+def test_packaged_boundary_excludes_trash_notes(tmp_path: Path, monkeypatch) -> None:
+    vault = tmp_path / "vault"
+    trash = vault / ".trash"
+    trash.mkdir(parents=True)
+    (vault / "visible.md").write_text("visible", encoding="utf-8")
+    (trash / "deleted.md").write_text("deleted", encoding="utf-8")
+    monkeypatch.setattr(security, "get_vault_path", lambda: vault)
+    monkeypatch.setattr(navigation_logic, "get_vault_path", lambda: vault)
+    security.load_forbidden_patterns(force_reload=True, vault_path=vault)
+
+    visible = {
+        path.relative_to(vault).as_posix()
+        for path in security.iter_safe_vault_files(vault)
+    }
+
+    assert visible == {"visible.md"}
+    assert security.is_path_forbidden(trash / "deleted.md", vault)[0]
+    listed = navigation_logic.list_notes()
+    assert listed.success
+    assert "visible.md" in (listed.data or "")
+    assert "deleted.md" not in (listed.data or "")
+
+
 def test_create_note_rejects_traversal_before_creating_directories(
     tmp_path: Path, monkeypatch
 ) -> None:
