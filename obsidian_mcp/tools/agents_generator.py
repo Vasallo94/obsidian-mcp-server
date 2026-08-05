@@ -308,7 +308,9 @@ def _generate_skill_ideas(
     return ideas[:5]  # Limit to 5 suggestions
 
 
-def sync_skills(actualizar: bool = False) -> Result[str]:
+def sync_skills(  # pylint: disable=too-many-branches
+    actualizar: bool = False,
+) -> Result[str]:
     """Synchronize and validate existing skills.
 
     Args:
@@ -332,7 +334,12 @@ def sync_skills(actualizar: bool = False) -> Result[str]:
         if not skill_dir.is_dir() or skill_dir.name.startswith("_"):
             continue
 
-        skill_file = skill_dir / "SKILL.md"
+        skill_file, error = resolve_vault_path(
+            skill_dir / "SKILL.md", vault_path, "sync skill"
+        )
+        if skill_file is None:
+            issues.append({"skill": skill_dir.name, "issue": error, "fixable": False})
+            continue
         if not skill_file.exists():
             issues.append(
                 {
@@ -343,9 +350,19 @@ def sync_skills(actualizar: bool = False) -> Result[str]:
             )
             continue
 
-        content = skill_file.read_text(encoding="utf-8")
+        try:
+            content = skill_file.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            issues.append(
+                {
+                    "skill": skill_dir.name,
+                    "issue": "No se pudo leer SKILL.md",
+                    "fixable": False,
+                }
+            )
+            continue
 
-        # Check for REGLAS_GLOBALES reference
+        new_content = content
         if "REGLAS_GLOBALES" not in content:
             issues.append(
                 {
@@ -354,20 +371,20 @@ def sync_skills(actualizar: bool = False) -> Result[str]:
                     "fixable": True,
                 }
             )
-            if actualizar:
-                # Add the caution block after the first heading
-                new_content = re.sub(
-                    r"(^# .+\n)",
-                    r"\1\n> [!CAUTION]\n> **OBLIGATORIO**: Lee y aplica "
-                    r"[[.agents/REGLAS_GLOBALES]] antes de crear notas.\n\n",
-                    content,
-                    count=1,
-                    flags=re.MULTILINE,
-                )
-                atomic_write_text(skill_file, new_content)
-                fixed.append(skill_dir.name)
+            caution = (
+                "> [!CAUTION]\n> **OBLIGATORIO**: Lee y aplica "
+                "[[.agents/REGLAS_GLOBALES]] antes de crear notas."
+            )
+            new_content, replacements = re.subn(
+                r"(^# .+\n)",
+                rf"\1\n{caution}\n\n",
+                new_content,
+                count=1,
+                flags=re.MULTILINE,
+            )
+            if not replacements:
+                new_content = f"{new_content.rstrip()}\n\n{caution}\n"
 
-        # Check for patch_note editing guidance
         has_patch_note_rule = (
             "PATCH NOTE GOLDEN RULE" in content or "REGLA DE ORO" in content
         )
@@ -379,20 +396,30 @@ def sync_skills(actualizar: bool = False) -> Result[str]:
                     "fixable": True,
                 }
             )
-            if actualizar:
-                # Append the golden rule
-                golden_rule = dedent("""
+            golden_rule = dedent("""
 
-                    ## PATCH NOTE GOLDEN RULE
-                    When using `notes.patch`, send exact old->new operations:
-                    - Read the note first with `notes.read`.
-                    - `old` must be exact text from the note.
-                    - `old` must be unique. If it appears more than once, include more context.
-                    - Use `notes.replace` for full-note replacement.
-                """).strip()
-                atomic_write_text(skill_file, content + "\n\n" + golden_rule)
-                if skill_dir.name not in fixed:
-                    fixed.append(skill_dir.name)
+                ## PATCH NOTE GOLDEN RULE
+                When using `notes.patch`, send exact old->new operations:
+                - Read the note first with `notes.read`.
+                - `old` must be exact text from the note.
+                - `old` must be unique. If it appears more than once, include more context.
+                - Use `notes.replace` for full-note replacement.
+            """).strip()
+            new_content = f"{new_content.rstrip()}\n\n{golden_rule}\n"
+
+        if actualizar and new_content != content:
+            try:
+                atomic_write_text(skill_file, new_content)
+            except OSError:
+                issues.append(
+                    {
+                        "skill": skill_dir.name,
+                        "issue": "No se pudo escribir SKILL.md",
+                        "fixable": False,
+                    }
+                )
+                continue
+            fixed.append(skill_dir.name)
 
     # Build report
     if not issues:

@@ -397,6 +397,7 @@ def move_note(  # pylint: disable=too-many-locals,too-many-return-statements
                 )
     except Exception as exc:  # pylint: disable=broad-exception-caught
         # The rename already happened, so never report the whole move as failed.
+        logger.warning("Wikilink handling failed after moving a note", exc_info=True)
         msg += (
             "\nWarning: the note was moved, but wikilink handling stopped after "
             f"an error ({exc}). Some links may already be updated; run "

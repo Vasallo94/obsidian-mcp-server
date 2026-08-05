@@ -8,6 +8,7 @@ from obsidian_mcp.middleware import (
     invalidate_rules_cache,
     is_rule_autofixable,
 )
+from obsidian_mcp.tools import analysis_logic
 from obsidian_mcp.tools.analysis_logic import lint_vault
 
 RULES_FILE = """\
@@ -147,6 +148,40 @@ class TestLintVault:
 
         new_content = (vault_with_rules / "emoji.md").read_text(encoding="utf-8")
         assert "\U0001f680" not in new_content
+
+    def test_auto_fix_skips_non_utf8_note_and_reports_it(self, vault_with_rules):
+        (vault_with_rules / "legacy.md").write_bytes(b"\xff\xfe")
+
+        result = lint_vault(auto_fix=True)
+
+        assert result.success
+        assert "de 3 notas" in (result.data or "")
+        assert "1 archivos ilegibles omitidos" in (result.data or "")
+        assert "\U0001f680" not in (vault_with_rules / "emoji.md").read_text(
+            encoding="utf-8"
+        )
+
+    def test_auto_fix_write_failure_still_reports_later_rules(
+        self, vault_with_rules, monkeypatch
+    ):
+        target = vault_with_rules / "target"
+        target.mkdir()
+        (target / "both.md").write_text(
+            "---\ntitle: x\n---\n\n## \U0001f680 Heading\n", encoding="utf-8"
+        )
+
+        def fail_write(*_args, **_kwargs):
+            raise OSError("disk full")
+
+        monkeypatch.setattr(analysis_logic, "atomic_write_text", fail_write)
+
+        result = lint_vault(folder="target", auto_fix=True)
+
+        assert result.success
+        assert "2 violacion(es)" in (result.data or "")
+        assert "no_emoji_headings" in (result.data or "")
+        assert "required_frontmatter" in (result.data or "")
+        assert "no se pudieron corregir 1 archivos" in (result.data or "")
 
     def test_auto_fix_does_not_alter_frontmatter_rule_target(self, vault_with_rules):
         """no_fm.md is missing frontmatter fields -- not autofixable, must stay as-is."""

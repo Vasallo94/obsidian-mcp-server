@@ -539,6 +539,8 @@ def lint_vault(  # pylint: disable=too-many-locals,too-many-branches,too-many-st
     fixed_by_file: dict[str, int] = {}
     total_violations = 0
     files_scanned = 0
+    files_skipped = 0
+    fix_failures: set[str] = set()
 
     for md_file in iter_safe_vault_files(vault_path, root=scan_root):
         # Skip restricted/system folders (.agents, .obsidian, .trash, etc.).
@@ -549,11 +551,12 @@ def lint_vault(  # pylint: disable=too-many-locals,too-many-branches,too-many-st
         if md_file.name == "REGLAS_GLOBALES.md":
             continue
 
-        files_scanned += 1
         try:
             content = md_file.read_text(encoding="utf-8")
-        except OSError:
+        except (OSError, UnicodeDecodeError):
+            files_skipped += 1
             continue
+        files_scanned += 1
 
         frontmatter, body = _extract_frontmatter_from_content(content)
         title = md_file.stem
@@ -568,24 +571,33 @@ def lint_vault(  # pylint: disable=too-many-locals,too-many-branches,too-many-st
             content=body,
             frontmatter=frontmatter or {},
         )
+        can_auto_fix = True
         for rule, warning in violations:
             total_violations += 1
             label = f"[{rule.get('id', '?')}] {warning}"
             violations_by_file.setdefault(rel, []).append(label)
 
-            if auto_fix and is_rule_autofixable(rule):
+            if auto_fix and can_auto_fix and is_rule_autofixable(rule):
                 new_content, n = apply_autofix(rule, content)
                 if n:
-                    atomic_write_text(md_file, new_content)
+                    try:
+                        atomic_write_text(md_file, new_content)
+                    except OSError:
+                        fix_failures.add(rel)
+                        can_auto_fix = False
+                        continue
                     fixed_by_file[rel] = fixed_by_file.get(rel, 0) + n
                     content = new_content  # refresh for any further rules
                     _, body = _extract_frontmatter_from_content(content)
 
     if total_violations == 0:
-        return Result.ok(
+        message = (
             f"OK: 0 violaciones en {files_scanned} notas escaneadas"
             f"{' (filtro: ' + folder + ')' if folder else ''}."
         )
+        if files_skipped:
+            message += f"\nAdvertencia: {files_skipped} archivos ilegibles omitidos."
+        return Result.ok(message)
 
     lines: list[str] = [
         (
@@ -601,6 +613,12 @@ def lint_vault(  # pylint: disable=too-many-locals,too-many-branches,too-many-st
             f"{len(fixed_by_file)} archivos."
         )
         lines.append("")
+    if files_skipped:
+        lines.append(f"Advertencia: {files_skipped} archivos ilegibles omitidos.\n")
+    if fix_failures:
+        lines.append(
+            f"Advertencia: no se pudieron corregir {len(fix_failures)} archivos.\n"
+        )
 
     shown = 0
     for source, items in sorted(violations_by_file.items()):

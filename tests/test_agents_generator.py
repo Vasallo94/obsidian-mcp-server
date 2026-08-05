@@ -182,6 +182,98 @@ class TestSyncSkills:
         content = skill_file.read_text()
         assert "PATCH NOTE GOLDEN RULE" in content
 
+    def test_update_preserves_both_fixes(self, temp_vault, monkeypatch):
+        monkeypatch.setattr(
+            "obsidian_mcp.tools.agents_generator.get_vault_path",
+            lambda: temp_vault,
+        )
+        skill_dir = temp_vault / ".agents" / "skills" / "missing-both"
+        skill_dir.mkdir(parents=True)
+        skill_file = skill_dir / "SKILL.md"
+        skill_file.write_text("# Missing Both\n\nInstructions.", encoding="utf-8")
+
+        result = sync_skills(actualizar=True)
+
+        assert result.success
+        content = skill_file.read_text(encoding="utf-8")
+        assert "REGLAS_GLOBALES" in content
+        assert "PATCH NOTE GOLDEN RULE" in content
+
+    def test_update_fixes_skill_without_heading(self, temp_vault, monkeypatch):
+        monkeypatch.setattr(
+            "obsidian_mcp.tools.agents_generator.get_vault_path",
+            lambda: temp_vault,
+        )
+        skill_dir = temp_vault / ".agents" / "skills" / "no-heading"
+        skill_dir.mkdir(parents=True)
+        skill_file = skill_dir / "SKILL.md"
+        skill_file.write_text("Instructions only.", encoding="utf-8")
+
+        result = sync_skills(actualizar=True)
+
+        assert result.success
+        content = skill_file.read_text(encoding="utf-8")
+        assert "REGLAS_GLOBALES" in content
+        assert "PATCH NOTE GOLDEN RULE" in content
+        assert "✅ Corregidas: no-heading" in (result.data or "")
+
+    def test_write_failure_is_not_reported_as_fixed(self, temp_vault, monkeypatch):
+        monkeypatch.setattr(
+            "obsidian_mcp.tools.agents_generator.get_vault_path",
+            lambda: temp_vault,
+        )
+        skill_dir = temp_vault / ".agents" / "skills" / "unwritable"
+        skill_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text("# Unwritable\n", encoding="utf-8")
+
+        def fail_write(*_args, **_kwargs):
+            raise OSError("disk full")
+
+        monkeypatch.setattr(
+            "obsidian_mcp.tools.agents_generator.atomic_write_text", fail_write
+        )
+
+        result = sync_skills(actualizar=True)
+
+        assert result.success
+        assert "No se pudo escribir SKILL.md" in (result.data or "")
+        assert "✅ Corregidas: unwritable" not in (result.data or "")
+
+    def test_rejects_skill_symlink_outside_vault(self, temp_vault, monkeypatch):
+        monkeypatch.setattr(
+            "obsidian_mcp.tools.agents_generator.get_vault_path",
+            lambda: temp_vault,
+        )
+        outside = temp_vault.parent / "outside-skill"
+        outside.mkdir()
+        outside_file = outside / "SKILL.md"
+        original = "# Outside\n"
+        outside_file.write_text(original, encoding="utf-8")
+        (temp_vault / ".agents" / "skills" / "linked").symlink_to(
+            outside, target_is_directory=True
+        )
+
+        result = sync_skills(actualizar=True)
+
+        assert result.success
+        assert outside_file.read_text(encoding="utf-8") == original
+        assert "linked" in (result.data or "")
+        assert "escapes vault" in (result.data or "")
+
+    def test_skips_non_utf8_skill(self, temp_vault, monkeypatch):
+        monkeypatch.setattr(
+            "obsidian_mcp.tools.agents_generator.get_vault_path",
+            lambda: temp_vault,
+        )
+        skill_dir = temp_vault / ".agents" / "skills" / "legacy"
+        skill_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_bytes(b"\xff\xfe")
+
+        result = sync_skills(actualizar=True)
+
+        assert result.success
+        assert "No se pudo leer SKILL.md" in (result.data or "")
+
     def test_reports_all_ok(self, temp_vault, monkeypatch):
         """Should report OK if all skills are valid."""
         monkeypatch.setattr(
