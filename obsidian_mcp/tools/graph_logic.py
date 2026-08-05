@@ -40,6 +40,7 @@ def get_backlinks(nombre_nota: str) -> Result[str]:
         nombre_limpio = nombre_nota.replace(".md", "")
 
         backlinks: List[Dict[str, str]] = []
+        archivos_omitidos = 0
 
         for archivo in iter_safe_vault_files(vault_path):
             # Ignore self
@@ -49,32 +50,37 @@ def get_backlinks(nombre_nota: str) -> Result[str]:
             try:
                 with open(archivo, "r", encoding="utf-8") as f:
                     contenido = f.read()
-
-                enlaces = extract_internal_links(contenido)
-
-                for enlace in enlaces:
-                    enlace_limpio = enlace.split("|")[0].strip()
-                    if enlace_limpio == nombre_limpio:
-                        ruta_rel = archivo.relative_to(vault_path)
-                        backlinks.append(
-                            {
-                                "nota": archivo.stem,
-                                "ruta": str(ruta_rel),
-                            }
-                        )
-                        break
-            except OSError as e:
+            except (OSError, UnicodeDecodeError) as e:
+                archivos_omitidos += 1
                 logger.debug("No se pudo leer '%s': %s", archivo, e)
                 continue
 
+            enlaces = extract_internal_links(contenido)
+            for enlace in enlaces:
+                enlace_limpio = enlace.split("|")[0].strip()
+                if enlace_limpio == nombre_limpio:
+                    ruta_rel = archivo.relative_to(vault_path)
+                    backlinks.append(
+                        {
+                            "nota": archivo.stem,
+                            "ruta": str(ruta_rel),
+                        }
+                    )
+                    break
+
         if not backlinks:
-            return Result.ok(f"🔗 No se encontraron backlinks hacia '{nombre_nota}'")
+            resultado = f"🔗 No se encontraron backlinks hacia '{nombre_nota}'"
+            if archivos_omitidos:
+                resultado += f"\n⚠️ Archivos ilegibles omitidos: {archivos_omitidos}."
+            return Result.ok(resultado)
 
         resultado = (
             f"🔗 **Backlinks hacia '{nombre_nota}'** ({len(backlinks)} notas):\n\n"
         )
         for bl in backlinks:
             resultado += f"   • [[{bl['nota']}]] - {bl['ruta']}\n"
+        if archivos_omitidos:
+            resultado += f"\n⚠️ Archivos ilegibles omitidos: {archivos_omitidos}."
 
         return Result.ok(resultado)
 
@@ -99,26 +105,32 @@ def get_notes_by_tag(tag: str) -> Result[str]:
 
         tag_limpia = tag.lstrip("#")
         notas_con_tag: List[Dict[str, str]] = []
+        archivos_omitidos = 0
 
         for archivo in iter_safe_vault_files(vault_path):
             try:
                 with open(archivo, "r", encoding="utf-8") as f:
                     contenido = f.read()
-                tags = extract_tags_from_content(contenido)
-                if tag_limpia in tags:
-                    ruta_rel = archivo.relative_to(vault_path)
-                    notas_con_tag.append(
-                        {
-                            "nota": archivo.stem,
-                            "ruta": str(ruta_rel),
-                        }
-                    )
-            except OSError as e:
+            except (OSError, UnicodeDecodeError) as e:
+                archivos_omitidos += 1
                 logger.debug("No se pudo leer '%s': %s", archivo, e)
                 continue
 
+            tags = extract_tags_from_content(contenido)
+            if tag_limpia in tags:
+                ruta_rel = archivo.relative_to(vault_path)
+                notas_con_tag.append(
+                    {
+                        "nota": archivo.stem,
+                        "ruta": str(ruta_rel),
+                    }
+                )
+
         if not notas_con_tag:
-            return Result.ok(f"🏷️ No se encontraron notas con la etiqueta #{tag_limpia}")
+            resultado = f"🏷️ No se encontraron notas con la etiqueta #{tag_limpia}"
+            if archivos_omitidos:
+                resultado += f"\n⚠️ Archivos ilegibles omitidos: {archivos_omitidos}."
+            return Result.ok(resultado)
 
         resultado = (
             f"🏷️ **Notas con #{tag_limpia}** ({len(notas_con_tag)} encontradas):\n\n"
@@ -138,6 +150,8 @@ def get_notes_by_tag(tag: str) -> Result[str]:
             for nombre_nota in sorted(notas):
                 resultado += f"   • [[{nombre_nota}]]\n"
             resultado += "\n"
+        if archivos_omitidos:
+            resultado += f"⚠️ Archivos ilegibles omitidos: {archivos_omitidos}.\n"
 
         return Result.ok(resultado)
 
@@ -145,23 +159,26 @@ def get_notes_by_tag(tag: str) -> Result[str]:
         return Result.fail(f"Error al buscar por tag: {e}")
 
 
-def _find_backlinks(vault_path: Path, nombre_limpio: str) -> list[str]:
-    """Scan vault for notes that link to the given note name."""
+def _find_backlinks(vault_path: Path, nombre_limpio: str) -> tuple[list[str], int]:
+    """Return readable backlinks and the number of skipped files."""
     backlinks = []
+    archivos_omitidos = 0
     for archivo in iter_safe_vault_files(vault_path):
         if archivo.stem == nombre_limpio:
             continue
         try:
             with open(archivo, "r", encoding="utf-8") as f:
                 cont = f.read()
-            enlaces = extract_internal_links(cont)
-            for enlace in enlaces:
-                if enlace.split("|")[0].strip() == nombre_limpio:
-                    backlinks.append(archivo.stem)
-                    break
-        except OSError as e:
+        except (OSError, UnicodeDecodeError) as e:
+            archivos_omitidos += 1
             logger.debug("No se pudo leer '%s': %s", archivo, e)
-    return backlinks
+            continue
+        enlaces = extract_internal_links(cont)
+        for enlace in enlaces:
+            if enlace.split("|")[0].strip() == nombre_limpio:
+                backlinks.append(archivo.stem)
+                break
+    return backlinks, archivos_omitidos
 
 
 def _format_link_section(
@@ -211,14 +228,17 @@ def get_local_graph(nombre_nota: str, profundidad: int = 1) -> Result[str]:
         nombre_limpio = nota_path.stem
 
         # Get outgoing links
-        with open(nota_path, "r", encoding="utf-8") as f:
-            contenido = f.read()
+        try:
+            with open(nota_path, "r", encoding="utf-8") as f:
+                contenido = f.read()
+        except (OSError, UnicodeDecodeError) as e:
+            return Result.fail(f"Error al leer la nota central: {e}")
 
         raw_links = extract_internal_links(contenido)
         enlaces_salientes = list({e.split("|")[0].strip() for e in raw_links})
 
         # Get backlinks
-        backlinks = _find_backlinks(vault_path, nombre_limpio)
+        backlinks, archivos_omitidos = _find_backlinks(vault_path, nombre_limpio)
 
         # Format result
         resultado = f"🕸️ **Grafo Local de '{nombre_nota}'**\n\n"
@@ -232,6 +252,8 @@ def get_local_graph(nombre_nota: str, profundidad: int = 1) -> Result[str]:
 
         total = len(enlaces_salientes) + len(backlinks)
         resultado += f"\n📊 **Conectividad total**: {total} conexiones"
+        if archivos_omitidos:
+            resultado += f"\n⚠️ Archivos ilegibles omitidos: {archivos_omitidos}."
 
         return Result.ok(resultado)
 
@@ -253,21 +275,26 @@ def find_orphan_notes() -> Result[str]:
 
         enlaces_salientes_por_nota: Dict[str, List[str]] = {}
         todos_los_enlaces: set = set()
+        archivos_legibles: list[Path] = []
+        archivos_omitidos = 0
 
         for archivo in iter_safe_vault_files(vault_path):
             try:
                 with open(archivo, "r", encoding="utf-8") as f:
                     contenido = f.read()
-                enlaces = extract_internal_links(contenido)
-                enlaces_limpios = [e.split("|")[0].strip() for e in enlaces]
-                enlaces_salientes_por_nota[archivo.stem] = enlaces_limpios
-                todos_los_enlaces.update(enlaces_limpios)
-            except OSError as e:
+            except (OSError, UnicodeDecodeError) as e:
+                archivos_omitidos += 1
                 logger.debug("No se pudo leer '%s': %s", archivo, e)
                 continue
 
+            archivos_legibles.append(archivo)
+            enlaces = extract_internal_links(contenido)
+            enlaces_limpios = [e.split("|")[0].strip() for e in enlaces]
+            enlaces_salientes_por_nota[archivo.stem] = enlaces_limpios
+            todos_los_enlaces.update(enlaces_limpios)
+
         notas_huerfanas = []
-        for archivo in iter_safe_vault_files(vault_path):
+        for archivo in archivos_legibles:
             nombre = archivo.stem
             if any(x in str(archivo) for x in [".git", ".obsidian", "ZZ_"]):
                 continue
@@ -285,9 +312,10 @@ def find_orphan_notes() -> Result[str]:
                 )
 
         if not notas_huerfanas:
-            return Result.ok(
-                "✅ No hay notas huérfanas. Todas están conectadas al grafo."
-            )
+            resultado = "✅ No hay notas huérfanas. Todas están conectadas al grafo."
+            if archivos_omitidos:
+                resultado += f"\n⚠️ Archivos ilegibles omitidos: {archivos_omitidos}."
+            return Result.ok(resultado)
 
         resultado = f"🔍 **Notas Huérfanas** ({len(notas_huerfanas)}):\n\n"
         resultado += "Estas notas no tienen enlaces entrantes ni salientes:\n\n"
@@ -295,6 +323,8 @@ def find_orphan_notes() -> Result[str]:
             resultado += f"   • {nota['ruta']}\n"
         if len(notas_huerfanas) > 30:
             resultado += f"\n... y {len(notas_huerfanas) - 30} más"
+        if archivos_omitidos:
+            resultado += f"\n\n⚠️ Archivos ilegibles omitidos: {archivos_omitidos}."
 
         return Result.ok(resultado)
 
