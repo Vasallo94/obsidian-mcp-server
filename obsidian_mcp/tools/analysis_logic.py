@@ -188,6 +188,7 @@ def analyze_tags() -> Result[str]:  # pylint: disable=too-many-locals,too-many-b
     # Tag counter with frequency
     conteo_etiquetas: dict[str, int] = {}
     archivos_con_etiquetas: list[str] = []
+    archivos_omitidos = 0
 
     for archivo in iter_safe_vault_files(vault_path):
         # Ignore system folders or registry
@@ -199,6 +200,7 @@ def analyze_tags() -> Result[str]:  # pylint: disable=too-many-locals,too-many-b
             with open(archivo, "r", encoding="utf-8") as f:
                 contenido = f.read()
         except (OSError, UnicodeDecodeError) as e:
+            archivos_omitidos += 1
             logger.debug("No se pudo leer '%s': %s", archivo, e)
             continue
 
@@ -209,7 +211,10 @@ def analyze_tags() -> Result[str]:  # pylint: disable=too-many-locals,too-many-b
                 conteo_etiquetas[tag] = conteo_etiquetas.get(tag, 0) + 1
 
     if not conteo_etiquetas:
-        return Result.ok("🏷️ No se encontraron etiquetas en el vault")
+        resultado = "🏷️ No se encontraron etiquetas en el vault"
+        if archivos_omitidos:
+            resultado += f"\n⚠️ Archivos ilegibles omitidos: {archivos_omitidos}."
+        return Result.ok(resultado)
 
     # Separate garbage hex color tags from legitimate tags
     tags_hex_basura = {
@@ -262,6 +267,8 @@ def analyze_tags() -> Result[str]:  # pylint: disable=too-many-locals,too-many-b
         if len(tags_hex_basura) > 5:
             resultado += f"   ... y {len(tags_hex_basura) - 5} más\n"
         resultado += "💡 *Tip: Usa `buscar_y_reemplazar_global` para limpiarlos.*\n"
+    if archivos_omitidos:
+        resultado += f"\n⚠️ Archivos ilegibles omitidos: {archivos_omitidos}."
 
     return Result.ok(resultado)
 
@@ -292,6 +299,7 @@ def sync_tag_registry(  # pylint: disable=too-many-locals,too-many-branches
 
     # 1. Get tags from reality
     conteo_real: dict[str, int] = {}
+    archivos_omitidos = 0
     for archivo in iter_safe_vault_files(vault_path):
         if (
             ".github" in str(archivo)
@@ -303,6 +311,7 @@ def sync_tag_registry(  # pylint: disable=too-many-locals,too-many-branches
             with open(archivo, "r", encoding="utf-8") as f:
                 contenido = f.read()
         except (OSError, UnicodeDecodeError) as e:
+            archivos_omitidos += 1
             logger.debug("No se pudo leer '%s': %s", archivo, e)
             continue
         tags = extract_tags_from_content(contenido)
@@ -335,9 +344,13 @@ def sync_tag_registry(  # pylint: disable=too-many-locals,too-many-branches
         resultado += "\n🧹 **Tags registradas que YA NO se usan:**\n"
         for t in sorted(list(ya_no_se_usan)):
             resultado += f"   • #{t}\n"
+    if archivos_omitidos:
+        resultado += f"\n⚠️ Archivos ilegibles omitidos: {archivos_omitidos}.\n"
 
     # 5. Update logic
-    if actualizar and conteo_real:
+    if actualizar and archivos_omitidos:
+        resultado += "\n⚠️ Registro no actualizado porque el escaneo fue incompleto."
+    elif actualizar and conteo_real:
         nueva_tabla = "| Tag | Frecuencia | Última verificación |\n"
         nueva_tabla += "|-----|-----------|------------------|\n"
         hoy = datetime.now().strftime("%Y-%m-%d")
@@ -394,22 +407,27 @@ def list_all_tags() -> Result[str]:
         return Result.fail("La ruta del vault no está configurada.")
 
     etiquetas_set: set[str] = set()
+    archivos_omitidos = 0
 
     for archivo in iter_safe_vault_files(vault_path):
         try:
             with open(archivo, "r", encoding="utf-8") as f:
                 contenido = f.read()
         except (OSError, UnicodeDecodeError) as e:
+            archivos_omitidos += 1
             logger.debug("No se pudo leer '%s': %s", archivo, e)
             continue
         tags = extract_tags_from_content(contenido)
         etiquetas_set.update(tags)
 
     if not etiquetas_set:
-        return Result.ok("ℹ️ No se encontraron etiquetas.")
-
-    lista_ordenada = sorted(list(etiquetas_set))
-    return Result.ok("🏷️ **Etiquetas existentes:**\n" + ", ".join(lista_ordenada))
+        resultado = "ℹ️ No se encontraron etiquetas."
+    else:
+        lista_ordenada = sorted(list(etiquetas_set))
+        resultado = "🏷️ **Etiquetas existentes:**\n" + ", ".join(lista_ordenada)
+    if archivos_omitidos:
+        resultado += f"\n⚠️ Archivos ilegibles omitidos: {archivos_omitidos}."
+    return Result.ok(resultado)
 
 
 def analyze_links() -> Result[str]:
@@ -424,6 +442,7 @@ def analyze_links() -> Result[str]:
 
     enlaces_por_archivo: dict[str, list[str]] = {}
     todos_los_enlaces: dict[str, int] = {}
+    archivos_omitidos = 0
     archivos_existentes = {f.stem for f in iter_safe_vault_files(vault_path)}
 
     for archivo in iter_safe_vault_files(vault_path):
@@ -431,6 +450,7 @@ def analyze_links() -> Result[str]:
             with open(archivo, "r", encoding="utf-8") as f:
                 contenido = f.read()
         except (OSError, UnicodeDecodeError) as e:
+            archivos_omitidos += 1
             logger.debug("No se pudo leer '%s': %s", archivo, e)
             continue
 
@@ -441,7 +461,10 @@ def analyze_links() -> Result[str]:
                 todos_los_enlaces[enlace] = todos_los_enlaces.get(enlace, 0) + 1
 
     if not todos_los_enlaces:
-        return Result.ok("🔗 No se encontraron enlaces internos en el vault")
+        resultado = "🔗 No se encontraron enlaces internos en el vault"
+        if archivos_omitidos:
+            resultado += f"\n⚠️ Archivos ilegibles omitidos: {archivos_omitidos}."
+        return Result.ok(resultado)
 
     # Analyze broken links
     enlaces_rotos = []
@@ -472,6 +495,8 @@ def analyze_links() -> Result[str]:
             resultado += f"   • [[{enlace}]]\n"
         if len(enlaces_rotos) > 10:
             resultado += f"   ... y {len(enlaces_rotos) - 10} enlaces rotos más\n"
+    if archivos_omitidos:
+        resultado += f"\n⚠️ Archivos ilegibles omitidos: {archivos_omitidos}."
 
     return Result.ok(resultado)
 

@@ -50,6 +50,25 @@ def test_vault_reader_skips_non_utf8_note(tmp_path, monkeypatch, operation):
     result = operation()
 
     assert result.success, result.error
+    assert "Archivos ilegibles omitidos: 1" in (result.data or "")
+
+
+def test_incomplete_tag_scan_does_not_update_registry(tmp_path, monkeypatch):
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    (vault / "Good.md").write_text("# Good\n\n#new\n", encoding="utf-8")
+    (vault / "Legacy.md").write_bytes(b"\xff\xfe")
+    registry = vault / "Registro de Tags del Vault.md"
+    original = "# Tags\n\n- `old`\n\n## Estadísticas\n\nold table\n"
+    registry.write_text(original, encoding="utf-8")
+    monkeypatch.setenv("OBSIDIAN_VAULT_PATH", str(vault))
+    reset_settings()
+
+    result = sync_tag_registry(True)
+
+    assert result.success
+    assert registry.read_text(encoding="utf-8") == original
+    assert "Registro no actualizado" in (result.data or "")
 
 
 def test_stats_and_orphans_disclose_skipped_note(tmp_path, monkeypatch):
