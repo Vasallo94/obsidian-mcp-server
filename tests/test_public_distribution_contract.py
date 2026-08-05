@@ -173,11 +173,10 @@ def test_tool_reference_mentions_every_registered_public_tool() -> None:
 def test_documented_tool_arguments_exist_in_registered_schemas(monkeypatch) -> None:
     from obsidian_mcp.config import reset_settings
     from obsidian_mcp.server import create_server
+    from obsidian_mcp.tools.registry import available_tool_sets
 
     monkeypatch.setenv(
-        "OBSIDIAN_MCP_TOOL_SETS",
-        "notes_write,vault_analysis,secundo_selebro,agents_admin,"
-        "youtube,obsidianrag,canvas,kanvas",
+        "OBSIDIAN_MCP_TOOL_SETS", ",".join(sorted(available_tool_sets()))
     )
     reset_settings()
     mcp = create_server()
@@ -188,6 +187,7 @@ def test_documented_tool_arguments_exist_in_registered_schemas(monkeypatch) -> N
     for tool_name, raw_arguments in re.findall(r"`([a-z_.]+)\(([^)]*)\)`", docs):
         tool = tools.get(tool_name)
         if tool is None:
+            invalid.append(f"{tool_name}: tool not registered")
             continue
         schema_arguments = set(tool.parameters.get("properties", {}))
         for raw_argument in raw_arguments.split(","):

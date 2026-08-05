@@ -97,6 +97,38 @@ def test_apply_replace_rereads_before_writing(tmp_path, monkeypatch):
     assert note.read_text(encoding="utf-8") == "replacement original plus user edit"
 
 
+def test_apply_replace_reports_file_that_becomes_non_utf8(tmp_path, monkeypatch):
+    vault = _set_vault(monkeypatch, tmp_path)
+    first = vault / "a.md"
+    changed = vault / "b.md"
+    first.write_text("target", encoding="utf-8")
+    changed.write_text("target", encoding="utf-8")
+
+    def mutate_after_scan(*_args, **_kwargs):
+        yield first
+        yield changed
+        changed.write_bytes(b"\xff\xfe")
+
+    monkeypatch.setattr(creation_logic, "iter_safe_vault_files", mutate_after_scan)
+
+    result = search_and_replace_global("target", "replacement", solo_preview=False)
+
+    assert result.success
+    assert first.read_text(encoding="utf-8") == "replacement"
+    assert changed.read_bytes() == b"\xff\xfe"
+    assert "Archivos ilegibles o no escritos: 1" in (result.data or "")
+
+
+def test_preview_replace_reports_non_utf8_file(tmp_path, monkeypatch):
+    vault = _set_vault(monkeypatch, tmp_path)
+    (vault / "legacy.md").write_bytes(b"\xff\xfe")
+
+    result = search_and_replace_global("target", "replacement")
+
+    assert result.success
+    assert "Archivos ilegibles omitidos: 1" in (result.data or "")
+
+
 def test_replace_reports_when_file_limit_truncates_results(tmp_path, monkeypatch):
     vault = _set_vault(monkeypatch, tmp_path)
     for index in range(3):

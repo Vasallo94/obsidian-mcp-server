@@ -58,6 +58,14 @@ class TestFindBrokenWikilinks:
         assert result.success
         assert "mas" in result.data or "más" in result.data or "1 (" in result.data
 
+    def test_skips_non_utf8_notes(self, vault):
+        (vault / "legacy.md").write_bytes(b"\xff\xfe")
+
+        result = find_broken_wikilinks()
+
+        assert result.success
+        assert "Missing" in (result.data or "")
+
 
 class TestMoveNoteUpdateLinks:
     """Issues #7 and #11."""
@@ -71,19 +79,32 @@ class TestMoveNoteUpdateLinks:
         assert "[[B]]" not in a_content
         assert "Links updated:" in result.data
 
-    def test_reports_partial_success_when_link_rewrite_fails(self, vault, monkeypatch):
+    @pytest.mark.parametrize("update_links", [False, True])
+    def test_reports_partial_success_when_link_handling_fails(
+        self, vault, monkeypatch, update_links
+    ):
         def fail_rewrite(*_args, **_kwargs):
-            raise OSError("disk full")
+            raise ValueError("unexpected failure")
 
         monkeypatch.setattr(wikilinks, "rewrite_wikilinks_in_vault", fail_rewrite)
 
-        result = move_note("B.md", "Beta.md", update_links=True)
+        result = move_note("B.md", "Beta.md", update_links=update_links)
 
         assert result.success
         assert not (vault / "B.md").exists()
         assert (vault / "Beta.md").exists()
         assert "note was moved" in (result.data or "")
         assert "links.find_broken" in (result.data or "")
+
+    @pytest.mark.parametrize("update_links", [False, True])
+    def test_move_succeeds_with_non_utf8_note_in_vault(self, vault, update_links):
+        (vault / "legacy.md").write_bytes(b"\xff\xfe")
+
+        result = move_note("B.md", "Beta.md", update_links=update_links)
+
+        assert result.success
+        assert (vault / "Beta.md").exists()
+        assert not (vault / "B.md").exists()
 
     def test_warns_when_links_left_stale(self, vault):
         """Issue #11: default move surfaces unresolved references count."""
