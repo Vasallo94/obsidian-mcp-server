@@ -30,7 +30,6 @@ make check            # uv run pre-commit run --all-files
 - **ONLY use `uv`**, NEVER `pip` or `uv pip install`
 - Add dependencies: `uv add package`
 - Add dev dependencies: `uv add --dev package`
-- Add optional RAG deps: `uv sync --extra rag`
 - Run tools: `uv run tool`
 - **FORBIDDEN**: `pip install`, `uv pip install`, `@latest` syntax
 
@@ -54,7 +53,7 @@ MCP (Model Context Protocol) server built with **FastMCP** that exposes Obsidian
 2. **Skills System**: AI personas loaded from the **user's vault** at `{vault}/.agents/skills/`. Each skill has `SKILL.md` with YAML frontmatter.
 3. **Separation of Concerns**: Tool registration (`tools/*.py`) → Business logic (`tools/*_logic.py`) → Utilities (`utils/*.py`).
 4. **Security Model**: Path validation via `.forbidden_paths` and vault config. All file ops go through `utils/security.py`.
-5. **Optional RAG**: Semantic search requires extra deps (`uv sync --extra rag`). ChromaDB-based vector indexing in `semantic/`.
+5. **Semantic search is external**: the `obsidianrag` tool set delegates to an ObsidianRAG service over loopback HTTP. There is no in-process RAG stack and no optional `rag` extra.
 
 ### Module Organization
 
@@ -63,7 +62,7 @@ obsidian_mcp/
 ├── server.py              # FastMCP instance, module registration, transport config
 ├── config.py              # Pydantic Settings (env: OBSIDIAN_VAULT_PATH, LOG_LEVEL, etc.)
 ├── vault_config.py        # Loads optional .agents/vault.yaml from user's vault
-├── constants.py           # Centralized magic numbers (SemanticDefaults, SearchLimits, etc.)
+├── constants.py           # Centralized magic numbers (SearchLimits, FolderSuggestion, etc.)
 ├── messages.py            # User-facing message templates
 ├── result.py              # Generic Result[T] type for consistent return values
 ├── tools/                 # MCP Tools organized by domain
@@ -80,14 +79,9 @@ obsidian_mcp/
 │   ├── agents_generator.py # Skill generation, suggestion, and sync tools
 │   ├── context.py         # Vault structure and metadata
 │   ├── context_logic.py
-│   ├── semantic.py        # RAG/vector search integration
-│   ├── semantic_logic.py
+│   ├── obsidianrag.py     # External ObsidianRAG delegation (rag.* tools)
 │   ├── youtube.py         # Transcript extraction
 │   └── youtube_logic.py
-├── semantic/              # Optional RAG module (ChromaDB + sentence-transformers)
-│   ├── indexer.py         # Embedding generation
-│   ├── retriever.py       # Similarity search
-│   └── service.py         # High-level RAG API
 ├── utils/
 │   ├── logging.py         # Centralized logging (stderr only, stdout = MCP protocol)
 │   ├── security.py        # Path validation, access control, directory traversal prevention
@@ -134,13 +128,13 @@ def my_logic(param: str) -> Result[str]:
 1. **Environment Variables** (`.env`):
    - `OBSIDIAN_VAULT_PATH`: Absolute path to vault (required)
    - `LOG_LEVEL`: DEBUG|INFO|WARNING|ERROR (default: INFO)
-   - `OBSIDIAN_SEARCH_TIMEOUT_SECONDS`, `OBSIDIAN_MAX_SEARCH_RESULTS`, `OBSIDIAN_CACHE_TTL_SECONDS`
+   - `OBSIDIAN_MAX_SEARCH_RESULTS`, `OBSIDIAN_CACHE_TTL_SECONDS`
 
 2. **Vault Config** (`{vault}/.agents/vault.yaml`):
    - `templates_folder`, `excluded_folders`, `excluded_patterns`, `private_paths`
 
 3. **Constants** (`constants.py`):
-   - `SemanticDefaults`, `SearchLimits`, `FolderSuggestion`, `FileConstants`
+   - `SearchLimits`, `FolderSuggestion`, `FileConstants`
 
 4. **Skills & Rules** (in user's vault, NOT this repo):
    - Skills: `{vault}/.agents/skills/{name}/SKILL.md`
@@ -154,7 +148,7 @@ Installed via `make hooks`. Runs on every commit:
 - `trailing-whitespace`, `end-of-file-fixer`, `check-yaml`, `check-added-large-files`, `check-merge-conflict`, `debug-statements`
 - **Ruff** lint + format
 - **Pyright** type checking
-- **Pylint** code quality (excludes `semantic/`)
+- **Pylint** code quality
 - **Bandit** security analysis
 
 ### CI Pipeline (GitHub Actions)
@@ -213,8 +207,6 @@ Detailed documentation in `docs/`:
 1. **Skills are in the user's vault**, not this repo. The `.agents/skills/` here are for **development guidance**, not runtime skills.
 2. **stdout is sacred**: Only MCP protocol JSON goes to stdout. Everything else → stderr.
 3. **Path validation is critical**: Always validate through `utils/security.py` to prevent directory traversal.
-4. **RAG is optional**: Handle missing `langchain` deps gracefully. Check imports and skip RAG if unavailable.
-5. **`vault_config.yaml` vs `.env`**: Vault-specific settings (folders, exclusions) from vault config. Server settings (path, log level) from `.env`.
-6. **Type narrowing**: Pyright is strict about `Optional`. Always check for `None` before using Optional values.
-7. **Pylint pre-commit**: May block commits on pre-existing warnings. Use `--no-verify` only if warnings are not from your changes.
-8. **Duplicate `torch`**: `pyproject.toml` has a duplicated `torch` entry in `[project.optional-dependencies].rag` — known issue, harmless.
+4. **`vault_config.yaml` vs `.env`**: Vault-specific settings (folders, exclusions) from vault config. Server settings (path, log level) from `.env`.
+5. **Type narrowing**: Pyright is strict about `Optional`. Always check for `None` before using Optional values.
+6. **Pylint pre-commit**: May block commits on pre-existing warnings. Use `--no-verify` only if warnings are not from your changes.

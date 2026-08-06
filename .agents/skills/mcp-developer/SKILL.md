@@ -32,13 +32,9 @@ obsidian-mcp-server/
 │   │   ├── analysis.py    # Estadísticas, gestión de tags
 │   │   ├── graph.py       # Backlinks, notas huérfanas
 │   │   ├── agents.py      # Cargador de skills (del vault del usuario)
-│   │   ├── semantic.py    # Integración RAG/búsqueda vectorial
+│   │   ├── obsidianrag.py # Delegación al ObsidianRAG externo (tools rag.*)
 │   │   ├── context.py     # Contexto y estructura del vault
 │   │   └── youtube.py     # Extracción de transcripciones
-│   ├── semantic/          # Módulo RAG opcional (ChromaDB)
-│   │   ├── indexer.py     # Generación de embeddings
-│   │   ├── retriever.py   # Búsqueda por similitud
-│   │   └── service.py     # API de alto nivel RAG
 │   ├── resources/         # Recursos MCP (endpoints de solo lectura)
 │   ├── prompts/           # Prompts MCP (system prompts para IA)
 │   └── utils/             # Utilidades compartidas
@@ -178,7 +174,6 @@ Todas las constantes numéricas deben estar centralizadas:
 
 ```python
 from obsidian_mcp.constants import (
-    SemanticDefaults,   # CHUNK_SIZE, VECTOR_K, DEFAULT_THRESHOLD...
     SearchLimits,       # MAX_SEARCH_RESULTS, MAX_DISPLAY_FILES...
     FolderSuggestion,   # SIMILAR_NOTES_LIMIT, HIGH_CONFIDENCE_THRESHOLD...
 )

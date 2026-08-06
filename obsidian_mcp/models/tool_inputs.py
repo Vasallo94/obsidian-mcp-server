@@ -1,6 +1,6 @@
 """Pydantic input models for MCP tool schemas."""
 
-from typing import Any, Dict, Optional
+from typing import Optional
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
@@ -179,23 +179,3 @@ class GetLocalGraphInput(BaseModel):
 class GetYoutubeTranscriptInput(BaseModel):
     url: str = Field(description="YouTube URL or video ID.")
     language: Optional[str] = Field(default=None, description="Optional language code.")
-
-
-class SemanticSearchInput(BaseModel):
-    query: str = Field(description="Question or topic to search for.")
-    metadata_filter: Optional[Dict[str, Any]] = Field(
-        default=None,
-        description="Optional metadata filter.",
-    )
-
-
-class IndexVaultSemanticInput(BaseModel):
-    force: bool = Field(default=False, description="Rebuild the index from scratch.")
-
-
-class SuggestSemanticConnectionsInput(BaseModel):
-    threshold: float = Field(default=0.70, description="Minimum similarity threshold.")
-    limit: int = Field(default=5, description="Maximum suggestions.")
-    include_folders: Optional[list[str]] = Field(default=None, description="Folders.")
-    exclude_mocs: bool = Field(default=True, description="Exclude MOC/system notes.")
-    min_words: int = Field(default=150, description="Minimum note word count.")

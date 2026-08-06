@@ -7,6 +7,17 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 
 ## [Unreleased]
 
+### Removed
+- **Stack RAG legacy in-process (BREAKING)**: eliminado el tool set `legacy_semantic` con sus tres herramientas — `semantic.search`, `semantic.index` y `semantic.suggest_connections` — junto al paquete `obsidian_mcp/semantic/` (ChromaDB + LangChain + embeddings Ollama), `tools/semantic_logic.py` y el extra opcional `[rag]` de `pyproject.toml`. La búsqueda semántica pasa a servirse únicamente por el tool set `obsidianrag`, que delega en el servicio externo ObsidianRAG. Un perfil que siga listando `legacy_semantic` en `tool_sets` no falla: la entrada se ignora.
+- **`utils/timeout.py`**: existía solo para `semantic/service.py`; sin él quedaba muerto.
+- **Modelos `SemanticSearchResult` y `ConnectionSuggestion`** (y sus esquemas de entrada `SemanticSearchInput`, `IndexVaultSemanticInput`, `SuggestSemanticConnectionsInput`): sin ningún uso tras la eliminación.
+- **Ajuste `OBSIDIAN_SEARCH_TIMEOUT_SECONDS`**: definía el timeout de la búsqueda semántica y ya no lo leía nadie. `Settings` usa `extra="ignore"`, así que un `.env` que aún lo declare sigue funcionando.
+
+### Changed
+- **`notes.suggest_location` es ahora solo heurístico (BREAKING para instalaciones con el extra `[rag]`)**: consultaba primero el índice semántico local y caía a la heurística de palabras clave cuando faltaban las dependencias opcionales. Al desaparecer el índice, la heurística es el único camino.
+- **Exclusiones de herramientas retiradas**: Pyright ya no excluye `obsidian_mcp/semantic`, Pylint ya no ignora `semantic`, `.vscode/settings.json` deja de excluirlo en Pylance y los overrides de mypy para `chromadb`/`langchain*` desaparecen, porque el módulo que los motivaba no existe. Pyright pasa a **0 errores y 0 warnings** (antes 2 warnings por dependencias RAG opcionales).
+- **Guía para agentes actualizada**: `.github/copilot-instructions.md`, `.agents/skills/mcp-developer/SKILL.md` y `.agents/workflows/new-tool.md` describían el árbol de módulos con `semantic/` y proponían importar `SemanticDefaults`, un import que ahora falla.
+
 ### Added
 - Pipeline de MCPB con binario local para generar bundles instalables por plataforma sin depender del Python del usuario.
 - **AFP #51 — Reposición y borrado de grupos en canvas**: Nuevas tools `canvas.move_card(node_id, x, y)` (reposiciona cualquier nodo) y `canvas.remove_group(group_id, remove_contents=False)` (borra un grupo y, opcionalmente, las tarjetas que contiene). Antes había que editar el `.canvas` a mano.

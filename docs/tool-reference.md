@@ -115,9 +115,6 @@ project instead of embedding a second RAG stack inside this MCP server.
   rule in `.agents/REGLAS_GLOBALES.md` after interactive confirmation, so the
   agent never edits that file directly.
 - `youtube`: `youtube.transcript`.
-- `legacy_semantic`: deprecated in-process semantic tools, disabled by default:
-  `semantic.index`, `semantic.search`, and `semantic.suggest_connections`.
-  Prefer `obsidianrag` for all new semantic-search deployments.
 - `canvas`: Obsidian Canvas read/write tools — `canvas.read` (surfaces the
   standard color legend and any board "Legend"/"Leyenda" card), `canvas.list`,
   `canvas.add_card`, `canvas.add_group`, `canvas.add_edge`, `canvas.update_card`,

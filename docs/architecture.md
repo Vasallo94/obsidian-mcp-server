@@ -102,7 +102,6 @@ Available tool sets:
 | `canvas` | Obsidian Canvas CRUD and graph operations |
 | `kanvas` | Canvas-based task workflow operations |
 | `youtube` | Transcript extraction |
-| `legacy_semantic` | Deprecated in-process semantic tools |
 | Profile-specific packs | Local workflows enabled only by a vault profile |
 
 ## Resources
@@ -177,9 +176,8 @@ Security controls include:
 The recommended semantic path is `obsidianrag`, which calls an external
 ObsidianRAG service over loopback HTTP.
 
-The old in-process semantic stack remains behind `legacy_semantic` for backward
-compatibility. It is deprecated because it pulls ChromaDB and LangChain
-retrievers into the MCP server process; new deployments should use ObsidianRAG.
+The old in-process semantic stack was removed: it pulled ChromaDB and LangChain
+retrievers into the MCP server process, and `obsidianrag` supersedes it.
 
 See [Semantic search](semantic-search.md).
 

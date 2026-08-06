@@ -13,7 +13,7 @@ Follow this workflow when adding a new tool to the MCP server.
    - `creation.py` - Creating, editing, deleting notes
    - `analysis.py` - Statistics, tag management
    - `graph.py` - Backlinks, orphan notes
-   - `semantic.py` - Vector/RAG functionality
+   - `obsidianrag.py` - External ObsidianRAG delegation (rag.* tools)
    - `context.py` - Vault structure and context
    - Or create a new module if it's a new category
 

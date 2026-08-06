@@ -38,7 +38,6 @@ class ErrorMessages:
 
     # Operation errors
     DELETE_REQUIRES_CONFIRM: str = "Eliminacion requiere confirmacion explícita."
-    SEMANTIC_NOT_AVAILABLE: str = "Servicio semantico no disponible."
     TIMEOUT: str = "Operacion excedio el tiempo limite ({seconds}s)."
 
     # Confirmation gate (AFP afp_98bb01: elicit() has no reachable approval path

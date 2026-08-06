@@ -18,7 +18,6 @@ from .tools import (
     register_graph_tools,
     register_navigation_tools,
     register_obsidianrag_tools,
-    register_semantic_tools,
     register_youtube_tools,
 )
 from .utils import get_logger
@@ -58,9 +57,6 @@ def create_server() -> FastMCP:
 
     logger.info("Registering skill tools...")
     register_agent_tools(mcp)
-
-    logger.info("Registering legacy semantic tools...")
-    register_semantic_tools(mcp)
 
     logger.info("Registering ObsidianRAG tools...")
     register_obsidianrag_tools(mcp)

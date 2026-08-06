@@ -307,7 +307,6 @@ Call tool: ask_vault(question="...")
 - If `rag.health` fails, confirm the server is listening at `{api_url}`.
 - If the server starts but is not ready, check the LLM provider and embedding model.
 - If results are stale, run `rag.rebuild_index`.
-- Keep the old MCP in-process semantic tools disabled unless testing legacy behavior.
 """
 
 
