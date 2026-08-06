@@ -11,7 +11,11 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  PYTHON_VERSION: "3.11"
+  # UV_PYTHON, not a bare `uv python install`: uv resolves the interpreter from
+  # the committed .python-version (3.13) unless UV_PYTHON overrides it, so these
+  # jobs silently ran on 3.13 while claiming 3.11. The test job overrides this
+  # per matrix entry.
+  UV_PYTHON: "3.11"
 
 jobs:
   lint:
@@ -26,7 +30,7 @@ jobs:
           enable-cache: true
 
       - name: Set up Python
-        run: uv python install ${{ env.PYTHON_VERSION }}
+        run: uv python install ${{ env.UV_PYTHON }}
 
       - name: Install dependencies
         run: uv sync --dev
@@ -49,7 +53,7 @@ jobs:
           enable-cache: true
 
       - name: Set up Python
-        run: uv python install ${{ env.PYTHON_VERSION }}
+        run: uv python install ${{ env.UV_PYTHON }}
 
       - name: Install dependencies
         run: uv sync --dev
@@ -69,7 +73,7 @@ jobs:
           enable-cache: true
 
       - name: Set up Python
-        run: uv python install ${{ env.PYTHON_VERSION }}
+        run: uv python install ${{ env.UV_PYTHON }}
 
       - name: Install dependencies
         run: uv sync --dev
@@ -81,10 +85,30 @@ jobs:
         run: uv run pip-audit
 
   test:
-    name: Tests
-    runs-on: ubuntu-latest
+    name: Tests (${{ matrix.os }}, py${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Version axis on Linux: pyproject declares requires-python >=3.11 and
+        # advertises 3.11/3.12/3.13 classifiers, so all three get exercised.
+        os: [ubuntu-latest]
+        python-version: ["3.11", "3.12", "3.13"]
+        # Platform axis on the lowest supported version only.
+        # Windows is the one runner that executes otherwise-dead code: both
+        # platform branches in the package are Windows-only — utils/timeout.py
+        # falls back from SIGALRM to threading, and utils/vault.py skips the
+        # directory fsync in atomic writes when os.name == "nt".
+        # macOS runs the same branches as Linux; it is here because APFS is
+        # case-insensitive by default, which is a real hazard for a tool whose
+        # security boundary is path comparison.
+        include:
+          - os: macos-latest
+            python-version: "3.11"
+          - os: windows-latest
+            python-version: "3.11"
     env:
-      OBSIDIAN_VAULT_PATH: /tmp/test-vault
+      UV_PYTHON: ${{ matrix.python-version }}
     steps:
       - uses: actions/checkout@v7
 
@@ -94,17 +118,14 @@ jobs:
           enable-cache: true
 
       - name: Set up Python
-        run: uv python install ${{ env.PYTHON_VERSION }}
+        run: uv python install ${{ matrix.python-version }}
 
       - name: Install dependencies
         run: uv sync --dev
 
-      - name: Set up test environment
-        run: |
-          mkdir -p /tmp/test-vault
-          echo "# Test note" > /tmp/test-vault/test.md
-          cp .env.example .env
-          sed -i 's|OBSIDIAN_VAULT_PATH=.*|OBSIDIAN_VAULT_PATH=/tmp/test-vault|' .env
-
+      # No vault bootstrap step: the autouse `isolated_vault` fixture in
+      # tests/conftest.py points OBSIDIAN_VAULT_PATH at a tmp_path for every
+      # test, so a CI-provided vault is never read. Verified — the suite passes
+      # with the variable unset and with it set to a nonexistent path.
       - name: Run tests with coverage
-        run: uv run pytest --cov=obsidian_mcp --cov-report=term-missing --cov-fail-under=25
+        run: uv run pytest --cov=obsidian_mcp --cov-report=term-missing --cov-fail-under=60

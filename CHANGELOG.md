@@ -7,6 +7,14 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 
 ## [Unreleased]
 
+### Changed
+- **CI: matriz de sistemas y versiones**: el job de tests pasa de un único runner a una matriz de 5 entradas — Python 3.11/3.12/3.13 en Linux, más 3.11 en macOS y Windows. Windows es el que ejecuta código hasta ahora muerto: las dos ramas de plataforma del paquete son exclusivas de Windows — el fallback de SIGALRM a threading en `utils/timeout.py` y el salto del `fsync` de directorio en las escrituras atómicas de `utils/vault.py` cuando `os.name == "nt"`. macOS recorre las mismas ramas que Linux; está por el sistema de ficheros insensible a mayúsculas de APFS, un riesgo real para una herramienta cuya frontera de seguridad es la comparación de rutas.
+- **CI: el interpréte declarado ahora es el que se usa**: los jobs fijaban `PYTHON_VERSION: "3.11"` e instalaban 3.11, pero `uv sync` resolvía el intérprete desde el `.python-version` del repo (3.13), así que el pipeline llevaba ejecutándose en 3.13 mientras decía 3.11. Sustituido por `UV_PYTHON`, que sí tiene precedencia sobre `.python-version`.
+- **CI: umbral de cobertura de 25% a 60%**: la cobertura medida es 64.89%; el margen restante es holgura para variación entre plataformas, no una afirmación de que los módulos opcionales de `semantic/` estén cubiertos — no lo están, y no se excluyen de la medición para maquillar el número.
+
+### Removed
+- **CI: paso de preparación del vault de prueba**: copiaba `.env.example` y lo reescribía con `sed -i`, incompatible con el sed de BSD en macOS. Resulta que el paso entero sobraba: el fixture autouse `isolated_vault` de `tests/conftest.py` apunta `OBSIDIAN_VAULT_PATH` a un `tmp_path` en cada test, así que el vault que preparaba CI no se leía nunca. Comprobado: la suite pasa con la variable sin definir y también apuntando a una ruta inexistente.
+
 ### Added
 - Pipeline de MCPB con binario local para generar bundles instalables por plataforma sin depender del Python del usuario.
 - **AFP #51 — Reposición y borrado de grupos en canvas**: Nuevas tools `canvas.move_card(node_id, x, y)` (reposiciona cualquier nodo) y `canvas.remove_group(group_id, remove_contents=False)` (borra un grupo y, opcionalmente, las tarjetas que contiene). Antes había que editar el `.canvas` a mano.
