@@ -34,7 +34,7 @@ dependencies = [
     "cryptography>=50.0.0",
     "pygments>=2.20.0",
     "pyjwt>=2.13.0",
-    "requests>=2.33.1",
+    "requests>=2.34.2",
 ]
 
 [project.optional-dependencies]
@@ -49,7 +49,7 @@ rag = [
     "langchain-chroma>=0.2.0",
     "langchain-text-splitters>=1.1.2",
     "langchain-classic>=1.0.8",
-    "langgraph>=1.2.5",
+    "langgraph>=1.2.7",
     "chromadb>=0.5.0,<1.0.0",
     "rank-bm25>=0.2.2",
 ]
@@ -71,13 +71,13 @@ dev = [
     "ruff>=0.15.20",
     "pyright>=1.1.372",
     "mypy>=1.19.1",
-    "types-PyYAML>=6.0.12.20260408",
+    "types-PyYAML>=6.0.12.20260518",
     "types-aiofiles>=25.1.0.20260409",
     "matplotlib>=3.10.8",
     "numpy>=2.4.6",
     "pre-commit>=4.0.0",
     "pylint>=4.0.5",
-    "bandit[toml]>=1.8.0",
+    "bandit[toml]>=1.9.4",
     "pip-audit>=2.10.1",
     # uv seeds the dev venv with pip; pin >=26.1.2 to clear PYSEC-2026-196
     # (the 26.1.1 seed otherwise fails the pip-audit pre-commit hook).
