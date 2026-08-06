@@ -19,7 +19,7 @@ make coverage         # uv run pytest --cov=obsidian_mcp --cov-report=term-missi
 make lint             # uv run ruff check . && uv run pyright .
 make format           # uv run ruff check --fix . && uv run ruff format .
 
-# Pre-commit hooks (ruff, pyright, pylint, bandit + general checks)
+# Pre-commit hooks (ruff, pyright, pylint, bandit, actionlint, pip-audit + general checks)
 make hooks            # uv run pre-commit install
 make check            # uv run pre-commit run --all-files
 
@@ -39,7 +39,9 @@ make check            # uv run pre-commit run --all-files
 - Framework: `pytest` with `anyio` for async tests (NOT asyncio)
 - Single test: `uv run pytest tests/test_basic.py::TestClassName::test_name -v`
 - Coverage: `uv run pytest tests/ --cov=obsidian_mcp`
-- CI minimum coverage: **25%**
+- CI minimum coverage: **60%** (measured total is ~65%; the gap is headroom, not
+  a claim that the optional `semantic/` RAG modules are covered — they are not)
+- CI test matrix: Python 3.11/3.12/3.13 on Linux, plus 3.11 on macOS and Windows
 - All async tests must use `anyio` fixtures, not `asyncio`
 
 ## Architecture
@@ -159,14 +161,14 @@ Installed via `make hooks`. Runs on every commit:
 
 ### CI Pipeline (GitHub Actions)
 
-4 parallel jobs on push/PR to `main`:
+Parallel jobs on push/PR to `main`:
 
-| Job | What it checks |
-|---|---|
-| **Lint & Format** | `ruff check .` + `ruff format --check .` |
-| **Type Check** | `pyright` |
-| **Security** | `bandit -c pyproject.toml -r obsidian_mcp/` |
-| **Tests** | `pytest --cov --cov-fail-under=25` |
+| Job | Runners | What it checks |
+|---|---|---|
+| **Lint & Format** | Linux / 3.11 | `ruff check .` + `ruff format --check .` |
+| **Type Check** | Linux / 3.11 | `pyright` |
+| **Security** | Linux / 3.11 | `bandit -c pyproject.toml -r obsidian_mcp/` + `pip-audit` |
+| **Tests** | 5-job matrix (see above) | `pytest --cov --cov-fail-under=60` |
 
 ### Code Style
 
