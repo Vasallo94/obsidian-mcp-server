@@ -7,6 +7,9 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 
 ## [Unreleased]
 
+### Changed
+- **Dependencias: suelos actualizados y lockfile regenerado**: `requests` >=2.34.2, `langgraph` >=1.2.7 (extra `rag`), `types-PyYAML` >=6.0.12.20260518 y `bandit[toml]` >=1.9.4. Consolida las PR #86, #87, #88 y #89, que tocaban solo `pyproject.toml` y dejaban `uv.lock` desincronizado (`uv lock --check` fallaba); CI no lo detectaba porque `uv sync --dev` re-resuelve en silencio en vez de validar el lock.
+
 ### Added
 - Pipeline de MCPB con binario local para generar bundles instalables por plataforma sin depender del Python del usuario.
 - **AFP #51 — Reposición y borrado de grupos en canvas**: Nuevas tools `canvas.move_card(node_id, x, y)` (reposiciona cualquier nodo) y `canvas.remove_group(group_id, remove_contents=False)` (borra un grupo y, opcionalmente, las tarjetas que contiene). Antes había que editar el `.canvas` a mano.
