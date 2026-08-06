@@ -576,65 +576,12 @@ def edit_note(  # pylint: disable=too-many-locals,too-many-return-statements,too
 
 def suggest_folder_location(titulo: str, contenido: str, etiquetas: str = "") -> str:
     # pylint: disable=too-many-return-statements,too-many-branches,too-many-locals
-    """Helper to suggest location based on semantics and keywords."""
+    """Helper to suggest location from keywords and the vault's declared taxonomy.
 
-    # 1. Try Semantic Suggestion (multi-candidate)
-    # Import inside try to gracefully degrade when RAG optional deps are missing.
-    try:
-        # pylint: disable-next=import-outside-toplevel
-        from ..semantic.service import SemanticService
-
-        vault_path = get_vault_path()
-        if vault_path:
-            service = SemanticService(str(vault_path))
-
-            # Combine distinct terms for better retrieval
-            # Limit content to first 1000 chars to avoid huge queries
-            query = f"{titulo} {etiquetas} {contenido[:1000]}"
-            suggestions = service.suggest_folder(query, limit=5, top_k=3)
-
-            if suggestions:
-                # Format multi-candidate response
-                lines = [
-                    "📂 **Sugerencias basadas en contenido similar:**\n",
-                    "(Evalúa estas opciones y propón la mejor al usuario)\n",
-                ]
-                for i, s in enumerate(suggestions, 1):
-                    conf_pct = int(s["confidence"] * 100)
-                    conf_bar = "█" * (conf_pct // 10) + "░" * (10 - conf_pct // 10)
-                    notes_str = (
-                        ", ".join(s["similar_notes"]) if s["similar_notes"] else "—"
-                    )
-                    lines.append(
-                        f"{i}. `{s['folder']}`\n"
-                        f"   Confianza: {conf_bar} {conf_pct}% "
-                        f"({s['votes']} votos)\n"
-                        f"   Notas similares: {notes_str}"
-                    )
-
-                # Add guidance for the LLM
-                top_conf = suggestions[0]["confidence"]
-                if top_conf >= 0.6:
-                    pct = int(top_conf * 100)
-                    lines.append(
-                        f"\n💡 La opción 1 tiene alta confianza ({pct}%). "
-                        "Puedes sugerirla al usuario."
-                    )
-                elif top_conf >= 0.4:
-                    lines.append(
-                        "\n⚠️ Confianza moderada. Muestra las opciones al "
-                        "usuario para que decida."
-                    )
-                else:
-                    lines.append(
-                        "\n⚠️ Baja confianza. Pregunta al usuario dónde "
-                        "prefiere ubicar la nota."
-                    )
-
-                return "\n".join(lines)
-
-    except (ImportError, OSError) as e:
-        logger.debug("Semantic suggestion unavailable, using heuristic: %s", e)
+    This used to try the in-process semantic index first and fall back here when
+    the optional RAG extra was missing. That stack is gone, so the keyword
+    heuristic is now the only path.
+    """
 
     texto = (titulo + " " + contenido + " " + etiquetas).lower()
 

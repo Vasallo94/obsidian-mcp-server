@@ -4,7 +4,7 @@ Pydantic models for structured tool responses.
 These models provide type-safe structures for data returned by MCP tools.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -27,51 +27,6 @@ class SearchResult(BaseModel):
     linea: Optional[str] = Field(None, description="Line number of match")
     tipo: Optional[str] = Field(None, description="Match type (title/content)")
     coincidencia: str = Field(..., description="Matched text snippet")
-
-
-class ConnectionSuggestion(BaseModel):
-    """A suggested connection between two notes based on semantic similarity."""
-
-    note_a: str = Field(..., description="First note filename")
-    note_b: str = Field(..., description="Second note filename")
-    similarity: float = Field(
-        ...,
-        ge=0.0,
-        le=1.0,
-        description="Semantic similarity score",
-    )
-    folder_a: str = Field(..., description="Folder containing first note")
-    folder_b: str = Field(..., description="Folder containing second note")
-    words_a: int = Field(..., ge=0, description="Word count of first note")
-    words_b: int = Field(..., ge=0, description="Word count of second note")
-    section_a: str = Field(..., description="Section header from first note")
-    section_b: str = Field(..., description="Section header from second note")
-    reason: str = Field(..., description="Reason for suggestion")
-
-
-class SemanticSearchResult(BaseModel):
-    """Result from semantic (RAG) search."""
-
-    content: str = Field(..., description="Content snippet")
-    source: str = Field(..., description="Source file path")
-    relevance: float = Field(
-        default=0.0,
-        ge=0.0,
-        le=1.0,
-        description="Relevance score",
-    )
-    metadata: Dict[str, Any] = Field(
-        default_factory=dict,
-        description="Additional metadata",
-    )
-    links: List[str] = Field(
-        default_factory=list,
-        description="Internal links found in content",
-    )
-    linked_context: List[str] = Field(
-        default_factory=list,
-        description="Context from linked notes",
-    )
 
 
 class VaultStats(BaseModel):

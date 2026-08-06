@@ -32,12 +32,6 @@ class VaultSettings(BaseSettings):
     )
 
     # Performance settings (server-level, not vault-specific)
-    search_timeout_seconds: int = Field(
-        default=180,
-        ge=30,
-        le=600,
-        description="Timeout for semantic search operations",
-    )
     max_search_results: int = Field(
         default=20,
         ge=5,

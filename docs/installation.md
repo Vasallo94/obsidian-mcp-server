@@ -158,7 +158,7 @@ Core read tools are enabled by default. Enable write/analysis integrations with
 ```
 
 Common tool sets: `notes_write`, `vault_analysis`, `agents_admin`, `youtube`,
-`obsidianrag`, `canvas`, `kanvas`, and `legacy_semantic`.
+`obsidianrag`, `canvas`, and `kanvas`.
 
 ## MCPB
 

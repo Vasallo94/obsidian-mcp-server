@@ -37,23 +37,6 @@ dependencies = [
     "requests>=2.33.1",
 ]
 
-[project.optional-dependencies]
-# Deprecated: this extra powers the legacy in-process semantic tools. Prefer
-# the `obsidianrag` tool set, which delegates RAG to the external ObsidianRAG
-# service without embedding a second RAG stack in this MCP server.
-rag = [
-    "langchain>=1.3.9",
-    "langchain-community>=0.3.0",
-    "langchain-core>=0.3.0",
-    "langchain-ollama>=0.2.0",
-    "langchain-chroma>=0.2.0",
-    "langchain-text-splitters>=1.1.2",
-    "langchain-classic>=1.0.8",
-    "langgraph>=1.2.5",
-    "chromadb>=0.5.0,<1.0.0",
-    "rank-bm25>=0.2.2",
-]
-
 [project.scripts]
 obsidian-mcp-server = "obsidian_mcp.server:main"
 
@@ -108,22 +91,12 @@ python_files = ["test_*.py"]
 addopts = "-v"
 
 [[tool.mypy.overrides]]
-module = [
-    "chromadb",
-    "langchain",
-    "langchain_chroma",
-    "langchain_classic.*",
-    "langchain_community.*",
-    "langchain_core.*",
-    "langchain_ollama",
-    "langchain_text_splitters",
-    "numpy",
-]
+module = ["numpy"]
 ignore_missing_imports = true
 
 [tool.pyright]
 include = ["obsidian_mcp"]
-exclude = [".venv", "**/__pycache__", ".git", ".ruff_cache", ".pytest_cache", "tests", "scripts", "obsidian_mcp/semantic"]
+exclude = [".venv", "**/__pycache__", ".git", ".ruff_cache", ".pytest_cache", "tests", "scripts"]
 venvPath = "."
 venv = ".venv"
 pythonVersion = "3.11"
@@ -140,8 +113,6 @@ reportUnknownParameterType = "none"
 exclude_dirs = ["tests", ".venv"]
 
 [tool.pylint.MAIN]
-# Exclude semantic module: it uses optional RAG dependencies that are not always installed.
-ignore = ["semantic"]
 persistent = false
 
 [tool.pylint."MESSAGES CONTROL"]

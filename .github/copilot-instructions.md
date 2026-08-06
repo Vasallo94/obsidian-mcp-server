@@ -88,13 +88,9 @@ obsidian-mcp-server/
 │   │   ├── analysis.py    # Vault stats, tag management
 │   │   ├── graph.py       # Backlinks, orphan detection
 │   │   ├── agents.py      # Skills loader (reads from user's vault/.agents/skills/)
-│   │   ├── semantic.py    # RAG/vector search integration
+│   │   ├── obsidianrag.py # External ObsidianRAG delegation (rag.* tools)
 │   │   ├── context.py     # Vault context and structure
 │   │   └── youtube.py     # Transcript extraction
-│   ├── semantic/          # Optional RAG module (ChromaDB)
-│   │   ├── indexer.py     # Embedding generation
-│   │   ├── retriever.py   # Similarity search
-│   │   └── service.py     # High-level RAG API
 │   ├── resources/         # MCP Resources (read-only data endpoints)
 │   ├── prompts/           # MCP Prompts (system prompts for AI)
 │   └── utils/             # Shared utilities

@@ -8,10 +8,8 @@ import pytest
 
 from obsidian_mcp.models.responses import (
     BacklinkResult,
-    ConnectionSuggestion,
     NoteMetadata,
     SearchResult,
-    SemanticSearchResult,
     TagAnalysis,
     VaultStats,
 )
@@ -209,68 +207,3 @@ class TestBacklinkResult:
         )
         assert result.source_note == "Main Concept.md"
         assert result.count == 2
-
-
-class TestSemanticSearchResult:
-    """Tests for SemanticSearchResult model."""
-
-    def test_create_semantic_result(self):
-        """Should create valid semantic search result."""
-        result = SemanticSearchResult(
-            content="Some relevant text about the topic",
-            source="knowledge/topic.md",
-            relevance=0.85,
-        )
-        assert result.content == "Some relevant text about the topic"
-        assert result.relevance == 0.85
-        assert result.metadata == {}
-        assert result.links == []
-
-    def test_semantic_result_with_links(self):
-        """Should accept linked context."""
-        result = SemanticSearchResult(
-            content="Text with links",
-            source="note.md",
-            relevance=0.7,
-            links=["[[Related]]", "[[Other]]"],
-            linked_context=["Context from Related", "Context from Other"],
-        )
-        assert len(result.links) == 2
-        assert len(result.linked_context) == 2
-
-
-class TestConnectionSuggestion:
-    """Tests for ConnectionSuggestion model."""
-
-    def test_create_connection_suggestion(self):
-        """Should create valid connection suggestion."""
-        suggestion = ConnectionSuggestion(
-            note_a="Python Basics.md",
-            note_b="Programming Concepts.md",
-            similarity=0.82,
-            folder_a="02_Learning",
-            folder_b="02_Learning",
-            words_a=500,
-            words_b=350,
-            section_a="## Introduction",
-            section_b="## Overview",
-            reason="Both discuss fundamental programming concepts",
-        )
-        assert suggestion.similarity == 0.82
-        assert "programming" in suggestion.reason.lower()
-
-    def test_similarity_bounds(self):
-        """Similarity should be between 0 and 1."""
-        with pytest.raises(ValueError):
-            ConnectionSuggestion(
-                note_a="a.md",
-                note_b="b.md",
-                similarity=1.5,  # Invalid: > 1
-                folder_a="",
-                folder_b="",
-                words_a=100,
-                words_b=100,
-                section_a="",
-                section_b="",
-                reason="",
-            )
