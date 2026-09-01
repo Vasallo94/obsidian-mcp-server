@@ -81,7 +81,7 @@ dev = [
     "pip-audit>=2.10.1",
     # uv seeds the dev venv with pip; pin >=26.1.2 to clear PYSEC-2026-196
     # (the 26.1.1 seed otherwise fails the pip-audit pre-commit hook).
-    "pip>=26.1.2",
+    "pip>=26.2",
     "pyinstaller>=6.21.0",
 ]
 
