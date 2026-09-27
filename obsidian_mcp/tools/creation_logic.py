@@ -20,6 +20,7 @@ from typing import Any
 import yaml
 
 from ..config import get_vault_path
+from ..middleware import blocking_violations, load_vault_rules
 from ..result import Result
 from ..utils import (
     atomic_write_text,
@@ -262,8 +263,13 @@ def _build_frontmatter(
     if extra_metadata:
         metadata.update(extra_metadata)
 
-    metadata.setdefault("title", titulo)
-    metadata.setdefault("created", ahora)
+    # Notes following the Spanish media schema (``titulo``/``fecha_creacion``)
+    # must not get the generic ``title``/``created`` too: mixing both schemas
+    # is exactly what the media validation rules reject.
+    if "titulo" not in metadata:
+        metadata.setdefault("title", titulo)
+    if "fecha_creacion" not in metadata:
+        metadata.setdefault("created", ahora)
 
     existing_tags = metadata.get("tags", [])
     if isinstance(existing_tags, str):
@@ -718,6 +724,26 @@ def suggest_folder_location(titulo: str, contenido: str, etiquetas: str = "") ->
     return "📂 Sugerencia: Ubicación a confirmar con el usuario"
 
 
+def resolve_create_folder(
+    titulo: str, contenido: str, etiquetas: str, carpeta: str = ""
+) -> str:
+    """Return ``carpeta`` or, when empty, the auto-suggested folder ('' = root)."""
+    if carpeta:
+        return carpeta
+    res_sug = suggest_folder_location(titulo, contenido, etiquetas)
+    # Extrae el path de vuelta entre backticks: 📂 Sugerencia: `path`
+    match = re.search(r"`([^`]+)`", res_sug)
+    return match.group(1) if match else ""
+
+
+def note_relative_path(carpeta: str, titulo: str) -> Path:
+    """Vault-relative path where ``create_note`` writes ``titulo`` in ``carpeta``."""
+    nota_path = Path(carpeta) / sanitize_filename(titulo)
+    if nota_path.suffix != ".md":
+        nota_path = nota_path.with_suffix(".md")
+    return nota_path
+
+
 def create_note(
     titulo: str,
     contenido: str,
@@ -746,34 +772,16 @@ def create_note(
     if not vault_path:
         return Result.fail("La ruta del vault no está configurada.")
 
-    # Preparar nombre de archivo
-    nombre_archivo = sanitize_filename(titulo)
-
-    # Determinar ruta (si no hay carpeta, usar ubicación sugerida)
     config = get_vault_config(vault_path)
-
-    if not carpeta:
-        # Intento de sugerencia automática si no se especifica
-        res_sug = suggest_folder_location(titulo, contenido, etiquetas)
-        # Extrae el path de vuelta entre backticks: 📂 Sugerencia: `path`
-        match = re.search(r"`([^`]+)`", res_sug)
-        if match:
-            carpeta = match.group(1)
-        else:
-            # Fallback to vault root
-            carpeta = ""
-
-    nota_path = vault_path / carpeta / nombre_archivo
-    if nota_path.suffix != ".md":
-        nota_path = nota_path.with_suffix(".md")
+    carpeta = resolve_create_folder(titulo, contenido, etiquetas, carpeta)
+    nombre_archivo = sanitize_filename(titulo)
+    nota_path = vault_path / note_relative_path(carpeta, titulo)
 
     # Validate before mkdir so rejected paths cannot mutate the filesystem.
     resolved_note, error = resolve_vault_path(nota_path, vault_path, "crear nota en")
     if resolved_note is None:
         return Result.fail(error)
     nota_path = resolved_note
-    carpeta_path = nota_path.parent
-    carpeta_path.mkdir(parents=True, exist_ok=True)
 
     # Verificar si ya existe
     if nota_path.exists():
@@ -902,9 +910,30 @@ def create_note(
     contenido_final = _process_date_placeholders(contenido_final)
     contenido_final = _normalize_frontmatter(contenido_final)
 
+    ruta_relativa = nota_path.relative_to(vault_path)
+
+    # Vault rules marked ``block: true`` refuse the write (validated against
+    # the final note, template included, and its real path).
+    final_fm, final_body = _extract_frontmatter_from_content(contenido_final)
+    bloqueos = blocking_violations(
+        load_vault_rules(),
+        title=titulo,
+        content=final_body,
+        frontmatter=final_fm,
+        path=ruta_relativa.as_posix(),
+    )
+    if bloqueos:
+        return Result.fail(
+            f"Nota NO creada ({ruta_relativa}): incumple reglas bloqueantes "
+            "del vault.\n"
+            + "\n".join(f"- {b}" for b in bloqueos)
+            + "\nCorrige el frontmatter (usa la plantilla del tipo con "
+            "`template` y rellena los campos en `content`) y vuelve a intentarlo."
+        )
+
+    nota_path.parent.mkdir(parents=True, exist_ok=True)
     atomic_write_text(nota_path, contenido_final)
 
-    ruta_relativa = nota_path.relative_to(vault_path)
     resultado = f"Nota creada: **{titulo}**\n"
     resultado += f"📍 Ubicación: {ruta_relativa}\n"
     if plantilla:

@@ -8,6 +8,7 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 ## [Unreleased]
 
 ### Added
+- **Validación por carpeta y bloqueante (fichas de media)**: las reglas `validations:` de `REGLAS_GLOBALES.md` aceptan `paths`/`exclude_paths` (globs relativos al vault, tolerantes a rutas NFD de macOS), `forbidden_fields` (esquema mezclado), `field` + `unique: true` (tags duplicadas), `field` + `pattern` (p. ej. tags en mayúsculas) y `block: true` (`notes.create` no escribe la nota si la incumple). `notes.validate` acepta `note_path`; `vault.lint`, `notes.update_frontmatter`, `notes.replace`, `notes.patch` y `notes.append` validan con la ruta real de la nota.
 - Pipeline de MCPB con binario local para generar bundles instalables por plataforma sin depender del Python del usuario.
 - **AFP #51 — Reposición y borrado de grupos en canvas**: Nuevas tools `canvas.move_card(node_id, x, y)` (reposiciona cualquier nodo) y `canvas.remove_group(group_id, remove_contents=False)` (borra un grupo y, opcionalmente, las tarjetas que contiene). Antes había que editar el `.canvas` a mano.
 - **AFP #52 — Registro de reglas del vault**: Nueva tool `rules.add(rule_text, confirm=True)` (pack `agents_admin`) para que el agente registre una regla en `.agents/REGLAS_GLOBALES.md` a petición del usuario, con gate de confirmación (`confirm=True`) y sin acceso directo al fichero.
@@ -31,6 +32,7 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 - **Indexación Semántica de Imágenes**: El sistema ahora extrae descripciones de imágenes (`![[img|desc]]` o `![desc](img)`) y las inyecta como contexto semántico, haciendo buscable el contenido visual.
 
 ### Fixed
+- `notes.create` ya no añade `title`/`created` a notas que usan el esquema de media (`titulo`/`fecha_creacion`), y valida el frontmatter final escrito (plantilla incluida) en vez de solo el argumento `content`. `notes.replace` valida también las reglas de frontmatter.
 - **Legacy-encoded note resilience**: Vault statistics, tag analysis, backlinks, local graphs, and orphan detection now skip non-UTF-8 notes instead of failing the entire scan.
 - **Vault exclusion hygiene**: `.trash`, `.git`, and `.obsidian` are now part of the shared packaged boundary, diagnostics use that boundary, and unused `.mcpignore` and YouTube verification scripts were removed so the documented security model has one source of truth.
 - **Lint and skill-sync partial writes**: Vault lint now skips and reports unreadable notes instead of aborting after partial fixes, and skill synchronization preserves both generated guidance blocks while reporting unreadable or unwritable skills.

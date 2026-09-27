@@ -5,22 +5,27 @@ from time import perf_counter
 
 from fastmcp import FastMCP
 
+from ..config import get_vault_path
 from ..messages import ERRORS
 from ..middleware import enrich_response, invalidate_rules_cache
 from ..models.tool_inputs import EditOperation
+from ..utils import find_note_by_name
 from .creation_logic import (
-    append_to_note as append_to_note_logic,
-)
-from .creation_logic import (
+    _extract_frontmatter_from_content,
     append_to_section,
     edit_note,
     get_frontmatter_logic,
     inbox_capture_frontmatter,
     manage_tags_logic,
     normalize_edit_operations,
+    note_relative_path,
+    resolve_create_folder,
     search_and_replace_global,
     suggest_folder_location,
     update_frontmatter_logic,
+)
+from .creation_logic import (
+    append_to_note as append_to_note_logic,
 )
 from .creation_logic import (
     create_note as create_note_logic,
@@ -44,10 +49,20 @@ def _with_duration(result: str, started_at: float) -> str:
 
 def _extract_fm(content: str) -> dict:
     """Extract frontmatter dict from content for middleware validation."""
-    from .creation_logic import _extract_frontmatter_from_content
-
     frontmatter, _ = _extract_frontmatter_from_content(content)
     return frontmatter
+
+
+def _vault_rel_path(note_path: str) -> str:
+    """Vault-relative path of an existing note, for path-filtered vault rules."""
+    vault_path = get_vault_path()
+    found = find_note_by_name(note_path)
+    if not vault_path or found is None:
+        return ""
+    try:
+        return found.resolve().relative_to(vault_path.resolve()).as_posix()
+    except ValueError:
+        return ""
 
 
 def _parse_tags(tags: str) -> list[str]:
@@ -104,7 +119,8 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
             description: Short description for template placeholders.
         """
         try:
-            result = create_note_logic(
+            folder = resolve_create_folder(title, content, tags, folder)
+            logic_result = create_note_logic(
                 title,
                 content,
                 folder,
@@ -112,13 +128,27 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
                 template,
                 creator,
                 description,
-            ).to_display(success_prefix="OK")
+            )
+            result = logic_result.to_display(success_prefix="OK")
+            if not logic_result.success:
+                return result
+            # Validate what was actually written (template + injected fields),
+            # not just the `content` argument.
+            note_path = note_relative_path(folder, title).as_posix()
+            vault_path = get_vault_path()
+            written = (
+                (vault_path / note_path).read_text(encoding="utf-8")
+                if vault_path
+                else content
+            )
+            written_fm, written_body = _extract_frontmatter_from_content(written)
             return enrich_response(
                 tool_name="notes.create",
                 result=result,
                 title=title,
-                content=content,
-                frontmatter=_extract_fm(content),
+                content=written_body if written_fm else written,
+                frontmatter=written_fm,
+                path=note_path,
             )
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error creating note: {e}"
@@ -155,6 +185,7 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
                 tool_name="notes.append",
                 result=result,
                 content=content,
+                path=_vault_rel_path(note_path),
             )
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error appending to note: {e}"
@@ -211,6 +242,7 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
                 tool_name="notes.patch",
                 result=result,
                 content=combined_new,
+                path=_vault_rel_path(note_path),
             )
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error patching note: {e}"
@@ -233,8 +265,13 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
             ).to_display(success_prefix="OK")
             if "REGLAS_GLOBALES" in note_path:
                 invalidate_rules_cache()
+            replaced_fm, replaced_body = _extract_frontmatter_from_content(content)
             result = enrich_response(
-                tool_name="notes.replace", result=edit_result, content=content
+                tool_name="notes.replace",
+                result=edit_result,
+                content=replaced_body if replaced_fm else content,
+                frontmatter=replaced_fm,
+                path=_vault_rel_path(note_path),
             )
             return _with_duration(result, started_at)
         except Exception as e:  # pylint: disable=broad-exception-caught
@@ -337,6 +374,7 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
                 tool_name="notes.update_frontmatter",
                 result=result,
                 frontmatter=frontmatter,
+                path=_vault_rel_path(note_path),
             )
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error updating frontmatter: {e}"

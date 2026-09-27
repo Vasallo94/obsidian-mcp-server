@@ -72,6 +72,7 @@ def register_agent_tools(mcp: FastMCP) -> None:
         content: str,
         title: str = "",
         mode: str = "create",
+        note_path: str = "",
     ) -> str:
         """Lint a note against vault rules without writing it.
 
@@ -82,8 +83,13 @@ def register_agent_tools(mcp: FastMCP) -> None:
             content: Full note body (YAML frontmatter optional but recommended).
             title: Optional note title for rules with scope='title'.
             mode: 'create' (default), 'edit', or 'append'.
+            note_path: Vault-relative target path (e.g.
+                '05_Media/Películas/Pillion.md'). Pass it: some rules only
+                apply to certain folders (e.g. the media schema).
         """
-        return validate_note_logic(title=title, content=content, mode=mode).to_display()
+        return validate_note_logic(
+            title=title, content=content, mode=mode, note_path=note_path
+        ).to_display()
 
     @register_tool(mcp, "skills.refresh_cache")
     def refresh_skills_cache() -> str:
