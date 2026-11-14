@@ -86,13 +86,10 @@ def test_middle_double_star_matches_zero_or_more_folders():
     assert not _match("a/x/c", "a/**/b")
 
 
-def test_double_star_uses_fnmatch_case_rules():
-    """Misma regla de mayúsculas que el resto de patrones (fnmatch/normcase)."""
-    import fnmatch
-
-    assert _match("x/PRIVADO/n.md", "**/Privado/*") is fnmatch.fnmatch(
-        "PRIVADO/n.md", "Privado/*"
-    )
+def test_double_star_and_plain_patterns_share_case_rule():
+    """'**' y patrones simples aplican la misma regla: sin distinguir mayúsculas."""
+    assert _match("x/PRIVADO/n.md", "**/Privado/*")
+    assert _match("PRIVADO/n.md", "Privado/*")
 
 
 @pytest.mark.parametrize("path", ["a/b/c", "a/x/b/c", "a/b/y/c", "a/x/b/y/c"])
@@ -150,3 +147,29 @@ def test_spaces_that_belong_to_the_name_are_kept():
 def test_empty_pattern_after_normalisation_matches_nothing():
     for pattern in ("   ", "/", "./"):
         assert not _match("nota.md", pattern)
+
+
+@pytest.mark.parametrize(
+    "path,pattern",
+    [
+        ("privado/x.md", "**/Privado/*"),
+        ("01_Personal/PRIVADO/x.md", "**/Privado/*"),
+        ("PRIVADO/x.md", "Privado/*"),
+        (".GIT/config", ".git/*"),
+        ("a/CÓDIGOS.md", "**/Códigos.md"),
+    ],
+)
+def test_protection_is_case_insensitive(path, pattern):
+    """Auditoría #132 r2: APFS no distingue mayúsculas; 'privado/x.md' es el mismo fichero."""
+    assert _match(path, pattern)
+
+
+def test_case_bypass_end_to_end(tmp_path):
+    """La misma nota pedida con otras mayúsculas sigue denegada."""
+    from obsidian_mcp.utils.security import check_path_access
+
+    (tmp_path / "Privado").mkdir()
+    (tmp_path / "Privado" / "x.md").write_text("secreto", encoding="utf-8")
+    invalidate_vault_config_cache()
+    assert not check_path_access("Privado/x.md", tmp_path)[0]
+    assert not check_path_access("privado/x.md", tmp_path)[0]

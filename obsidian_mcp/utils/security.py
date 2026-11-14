@@ -19,8 +19,9 @@ from ..config import get_vault_path
 logger = logging.getLogger(__name__)
 
 # Cache for forbidden patterns
-_forbidden_patterns: Optional[List[str]] = None  # pylint: disable=invalid-name
-_forbidden_patterns_vault: Optional[Path] = None  # pylint: disable=invalid-name
+# (vault, patterns) as one tuple so readers never pair one vault's patterns
+# with another vault's key.
+_forbidden_cache: Optional[Tuple[Optional[Path], List[str]]] = None  # pylint: disable=invalid-name
 
 
 class PathSecurityError(Exception):
@@ -35,16 +36,16 @@ def load_forbidden_patterns(
     force_reload: bool = False, vault_path: Optional[Path] = None
 ) -> List[str]:
     """Load and merge packaged, vault, and profile path protections."""
-    global _forbidden_patterns, _forbidden_patterns_vault  # pylint: disable=global-statement
+    global _forbidden_cache  # pylint: disable=global-statement
 
     if vault_path is None:
         vault_path = get_vault_path()
     resolved_vault = vault_path.resolve() if vault_path else None
     # Read the cache once: another thread may invalidate it between the check
     # and the return.
-    cached, cached_vault = _forbidden_patterns, _forbidden_patterns_vault
-    if cached is not None and cached_vault == resolved_vault and not force_reload:
-        return cached
+    cached = _forbidden_cache
+    if cached is not None and cached[0] == resolved_vault and not force_reload:
+        return cached[1]
 
     patterns: List[str] = []
     locations = [Path(__file__).parent.parent / ".forbidden_paths"]
@@ -74,8 +75,7 @@ def load_forbidden_patterns(
             if pattern not in patterns:
                 patterns.append(pattern)
 
-    _forbidden_patterns = patterns
-    _forbidden_patterns_vault = resolved_vault
+    _forbidden_cache = (resolved_vault, patterns)
     return patterns
 
 
@@ -141,9 +141,8 @@ def _double_star_variants(pattern: str) -> list[str]:
 
 def invalidate_forbidden_patterns_cache() -> None:
     """Drop the cached protection patterns (e.g. after vault.yaml changes)."""
-    global _forbidden_patterns, _forbidden_patterns_vault  # pylint: disable=global-statement
-    _forbidden_patterns = None
-    _forbidden_patterns_vault = None
+    global _forbidden_cache  # pylint: disable=global-statement
+    _forbidden_cache = None
 
 
 def _pattern_matches(relative_str: str, pattern: str) -> bool:
@@ -154,7 +153,7 @@ def _pattern_matches(relative_str: str, pattern: str) -> bool:
         return any(
             fnmatch.fnmatch(relative_str, v) for v in _double_star_variants(pattern)
         )
-    if fnmatch.fnmatch(relative_str, pattern):
+    if fnmatch.fnmatchcase(relative_str, pattern):
         return True
     if not any(char in pattern for char in "*?[") and relative_str.startswith(
         f"{pattern.rstrip('/')}/"
@@ -172,11 +171,13 @@ def _matching_forbidden_pattern(relative_path: Path, patterns: List[str]) -> str
     """
     # NFC on both sides: APFS keeps file names as written (often NFD) while
     # vault.yaml patterns are usually NFC.
-    relative_str = unicodedata.normalize("NFC", relative_path.as_posix())
+    # casefold on both sides: APFS (and NTFS) are case-insensitive, so
+    # "privado/x.md" opens the same file as "Privado/x.md". Failing closed.
+    relative_str = unicodedata.normalize("NFC", relative_path.as_posix()).casefold()
     for original_pattern in patterns:
         as_written = unicodedata.normalize("NFC", original_pattern.replace("\\", "/"))
-        if _pattern_matches(relative_str, as_written) or _pattern_matches(
-            relative_str, _normalise_pattern(original_pattern)
+        if _pattern_matches(relative_str, as_written.casefold()) or _pattern_matches(
+            relative_str, _normalise_pattern(original_pattern).casefold()
         ):
             return original_pattern
     return ""
