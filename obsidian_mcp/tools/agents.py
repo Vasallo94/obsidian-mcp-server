@@ -11,6 +11,7 @@ from .agents_logic import (
 )
 from .agents_logic import (
     get_agent_instructions,
+    init_vault_kit,
     list_available_skills,
     validate_note_logic,
 )
@@ -66,6 +67,21 @@ def register_agent_tools(mcp: FastMCP) -> None:
             return ERRORS.WRITE_REQUIRES_CONFIRM
 
         return add_global_rule_logic(cleaned).to_display()
+
+    @register_tool(mcp, "vault.init_kit")
+    def init_kit(confirm: bool = False) -> str:
+        """Copy the starter kit into a vault that lacks it.
+
+        Creates `.agents/REGLAS_GLOBALES.md`, `AGENTS.md` and base templates
+        (inbox, apunte, concepto, resumen, guía, runbook, recurso, proyecto,
+        doc-proyecto, adr) only where the file is missing; never overwrites.
+        Without confirm=True it just lists what it would create. Run it once
+        when setting up a new vault (see the bootstrap_vault_config prompt).
+
+        Args:
+            confirm: True to write the files; False to preview.
+        """
+        return init_vault_kit(write=confirm).to_display()
 
     @register_tool(mcp, "notes.validate")
     def validate_note(

@@ -114,6 +114,9 @@ project instead of embedding a second RAG stack inside this MCP server.
   `skills.sync`, `rules.add`. `rules.add(rule_text)` registers a new global
   rule in `.agents/REGLAS_GLOBALES.md` after interactive confirmation, so the
   agent never edits that file directly.
+  `vault.init_kit(confirm)` copies the starter kit shipped with the server
+  (`.agents/REGLAS_GLOBALES.md`, `AGENTS.md` and base templates) into a new
+  vault, only where files are missing; without `confirm=True` it previews.
 - `youtube`: `youtube.transcript`.
 - `legacy_semantic`: deprecated in-process semantic tools, disabled by default:
   `semantic.index`, `semantic.search`, and `semantic.suggest_connections`.
