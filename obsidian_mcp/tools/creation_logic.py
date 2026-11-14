@@ -305,9 +305,7 @@ def append_to_note(
         al_final: If True, append at end; if False, prepend.
 
     Returns:
-        (Result with success message or error, final note text or None on
-        failure). The text lets callers validate the note as written without
-        re-reading the file or parsing paths out of the display message.
+        Result with success message or error.
     """
     vault_path = get_vault_path()
     if not vault_path:
@@ -758,7 +756,9 @@ def create_note_with_content(
         descripcion: Brief description for placeholders.
 
     Returns:
-        Result with success message or error.
+        (Result with success message or error, final note text or None on
+        failure). The text lets callers validate the note as written without
+        re-reading the file or parsing paths out of the display message.
     """
     vault_path = get_vault_path()
     if not vault_path:
@@ -879,16 +879,21 @@ def create_note_with_content(
             # La plantilla aporta estructura, no identidad: un título o una
             # fecha escritos a fuego en la plantilla se sustituyen por los
             # reales. Si el campo venía de un marcador ({{title}} MOC,
-            # {{date:...}}) se respeta lo que produjo. Los campos que la
-            # plantilla no trae no se añaden aquí (las de media usan su propio
-            # esquema). El frontmatter explícito del contenido sigue mandando.
+            # {{date:...}}) se respeta lo que produjo. Si la plantilla no trae
+            # `updated`, no se añade; `title` y `created` los rellena siempre
+            # _build_frontmatter. El frontmatter del contenido sigue mandando.
+            # Los marcadores se buscan solo en el frontmatter de la plantilla.
+            # ponytail: solo reconoce `clave: valor` en una línea; una clave
+            # entre comillas o un valor plegado (`title: >-`) cuenta como fijo.
+            raw_fm = _FRONTMATTER_BLOCK_RE.match(plantilla_raw)
+            raw_fm_text = raw_fm.group(2) if raw_fm else ""
             for key, real in (
                 ("title", titulo),
                 ("created", ahora),
                 ("updated", ahora),
             ):
                 if key in template_metadata and not re.search(
-                    rf"^{key}:.*\{{\{{", plantilla_raw, re.MULTILINE
+                    rf"^{key}:.*\{{\{{", raw_fm_text, re.MULTILINE
                 ):
                     combined_metadata[key] = real
             combined_metadata.update(extra_metadata)

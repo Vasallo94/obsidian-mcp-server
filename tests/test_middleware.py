@@ -422,3 +422,19 @@ class TestTypeVocabularyFromVaultYaml:
         rules = self._rules(vault)
         assert run_validations(rules, "create", frontmatter={"type": "apunte"}) == []
         assert run_validations(rules, "create", frontmatter={"type": "runbook"})
+
+
+def test_invalidate_rules_cache_reloads_taxonomy_types(tmp_path):
+    """Auditoría #130 (M1): invalidar las reglas debe recargar también vault.yaml."""
+    from obsidian_mcp.vault_config import invalidate_vault_config_cache
+
+    vault = _vault_with_type_rule(tmp_path, "", "[a]")
+    invalidate_rules_cache()
+    invalidate_vault_config_cache()
+    with patch("obsidian_mcp.middleware.get_vault_path", return_value=vault):
+        assert load_vault_rules()[0]["allowed_values"] == ["a"]
+        (vault / ".agents" / "vault.yaml").write_text(
+            "taxonomy:\n  types: [b]\n", encoding="utf-8"
+        )
+        invalidate_rules_cache()
+        assert load_vault_rules()[0]["allowed_values"] == ["b"]

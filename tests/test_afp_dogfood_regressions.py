@@ -630,3 +630,41 @@ def test_invalid_vault_yaml_is_logged(tmp_path, monkeypatch, caplog):
         load_vault_rules()
 
     assert any("vault.yaml" in r.getMessage() for r in caplog.records)
+
+
+def test_template_placeholder_in_body_does_not_protect_fixed_value(
+    tmp_path, monkeypatch
+):
+    """Auditoría #130 (B2): solo cuentan los marcadores del frontmatter de la plantilla."""
+    vault = _set_vault(monkeypatch, tmp_path)
+    (vault / "Notas").mkdir()
+    templates = vault / "Plantillas"
+    templates.mkdir()
+    (templates / "Doc.md").write_text(
+        "---\ntitle: Fijo\ncreated: '2001-01-01'\n---\n\n```yaml\ntitle: {{title}}\ncreated: {{date}}\n```\n",
+        encoding="utf-8",
+    )
+    mcp = create_server()
+    create_tool = asyncio.run(mcp.get_tool("notes.create"))
+
+    create_tool.fn("Real", "", folder="Notas", template="Doc.md")
+
+    fm = yaml.safe_load(
+        (vault / "Notas" / "Real.md").read_text(encoding="utf-8").split("---")[1]
+    )
+    assert fm["title"] == "Real"
+    assert str(fm["created"]) != "2001-01-01"
+
+
+def test_failed_create_has_no_validation_noise(tmp_path, monkeypatch):
+    """Auditoría #130 (B4): si no se escribe nada, no se validan reglas."""
+    vault = _set_vault(monkeypatch, tmp_path)
+    (vault / "Notas").mkdir()
+    (vault / "Notas" / "Ya.md").write_text("x", encoding="utf-8")
+    _type_rule_vault(vault)
+    mcp = create_server()
+    create_tool = asyncio.run(mcp.get_tool("notes.create"))
+
+    result = create_tool.fn("Ya", "---\ntype: otro\n---\n", folder="Notas")
+
+    assert "[WARNINGS:" not in result
