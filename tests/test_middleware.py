@@ -461,3 +461,18 @@ def test_skip_when_present_switches_rule_off_for_own_schema():
     assert run_validations([rule], "create", frontmatter={"tipo": "libro"}) == []
     assert run_validations([rule], "create", frontmatter={"tags": ["x"]})
     assert run_validations([rule], "create", frontmatter={"tipo": ""})
+
+
+@pytest.mark.parametrize("skip", ["tipo", ["tipo"]])
+def test_skip_when_present_accepts_string_or_list(skip):
+    rule = {**REQUIRED_FM_RULE, "skip_when_present": skip}
+
+    assert run_validations([rule], "create", frontmatter={"tipo": "libro"}) == []
+    assert run_validations([rule], "create", frontmatter={"t": "x"})
+
+
+@pytest.mark.parametrize("skip", [None, 5, {"tipo": 1}, [["tipo"]], [{"a": 1}]])
+def test_malformed_skip_when_present_is_ignored_not_raised(skip):
+    rule = {**REQUIRED_FM_RULE, "skip_when_present": skip}
+
+    assert run_validations([rule], "create", frontmatter={"tipo": "libro"})
