@@ -76,6 +76,17 @@ class VaultProfileConfig(BaseModel):
     )
 
 
+class TemplateSpec(BaseModel):
+    """Default template and folder for one note type."""
+
+    template: str = Field(description="Template file inside templates_folder")
+    folder: str = Field(default="", description="Default (base) folder for the type")
+    choose_subfolder: bool = Field(
+        default=False,
+        description="The folder is organised by topic/project: a subfolder must be chosen",
+    )
+
+
 class VaultTaxonomy(BaseModel):
     """
     Declarative description of how this vault is organised.
@@ -93,6 +104,10 @@ class VaultTaxonomy(BaseModel):
     types: list[str] = Field(
         default_factory=list,
         description="Valid frontmatter 'type' values for this vault",
+    )
+    templates: dict[str, TemplateSpec] = Field(
+        default_factory=dict,
+        description="Note type to default template and folder",
     )
 
 

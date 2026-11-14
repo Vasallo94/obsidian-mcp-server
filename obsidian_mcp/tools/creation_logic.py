@@ -718,6 +718,52 @@ def suggest_folder_location(titulo: str, contenido: str, etiquetas: str = "") ->
     return "📂 Sugerencia: Ubicación a confirmar con el usuario"
 
 
+def _resolve_type_defaults(
+    vault_path: Path, config: Any, tipo: str, plantilla: str, carpeta: str
+) -> tuple[str, str, str | None]:
+    """Fill template and folder for ``tipo`` from taxonomy.templates.
+
+    Explicit ``plantilla``/``carpeta`` from the caller win. Returns
+    (plantilla, carpeta, error message or None).
+    """
+    taxonomy = config.taxonomy if config else None
+    spec = taxonomy.templates.get(tipo) if taxonomy else None
+    known = set(taxonomy.types if taxonomy else []) | set(
+        taxonomy.templates if taxonomy else {}
+    )
+    if spec is None:
+        if known and tipo not in known:
+            return (
+                plantilla,
+                carpeta,
+                f"El tipo '{tipo}' no existe en .agents/vault.yaml. "
+                f"Tipos válidos: {', '.join(sorted(known))}",
+            )
+        return plantilla, carpeta, None
+
+    plantilla = plantilla or spec.template
+    if carpeta:
+        return plantilla, carpeta, None
+    if not spec.choose_subfolder:
+        return plantilla, spec.folder, None
+
+    base, _ = resolve_vault_path(spec.folder, vault_path, "list folders in")
+    subfolders = (
+        sorted(
+            p.name for p in base.iterdir() if p.is_dir() and not p.name.startswith(".")
+        )
+        if base is not None and base.is_dir()
+        else []
+    )
+    opciones = ", ".join(f"{spec.folder}/{s}" for s in subfolders) or "(ninguna)"
+    return (
+        plantilla,
+        carpeta,
+        f"Las notas de tipo '{tipo}' van en una subcarpeta de {spec.folder}. "
+        f"Pasa folder con una de estas o una nueva dentro de {spec.folder}: {opciones}",
+    )
+
+
 def create_note(
     titulo: str,
     contenido: str,
@@ -742,6 +788,7 @@ def create_note_with_content(
     plantilla: str = "",
     agente_creador: str = "",
     descripcion: str = "",
+    tipo: str = "",
 ) -> tuple[Result[str], str | None]:
     # pylint: disable=too-many-branches,too-many-statements,too-many-locals,too-many-positional-arguments
     """Create a new note in the vault and return the text written to disk.
@@ -754,6 +801,8 @@ def create_note_with_content(
         plantilla: Name of the template file to use.
         agente_creador: Name of the creating agent.
         descripcion: Brief description for placeholders.
+        tipo: Note type. Picks the default template and folder from
+            ``taxonomy.templates`` in vault.yaml and sets ``type``.
 
     Returns:
         (Result with success message or error, final note text or None on
@@ -769,6 +818,13 @@ def create_note_with_content(
 
     # Determinar ruta (si no hay carpeta, usar ubicación sugerida)
     config = get_vault_config(vault_path)
+
+    if tipo:
+        plantilla, carpeta, error = _resolve_type_defaults(
+            vault_path, config, tipo, plantilla, carpeta
+        )
+        if error:
+            return Result.fail(error), None
 
     if not carpeta:
         # Intento de sugerencia automática si no se especifica
@@ -899,6 +955,8 @@ def create_note_with_content(
                 ):
                     combined_metadata[key] = real
             combined_metadata.update(extra_metadata)
+            if tipo:
+                combined_metadata["type"] = tipo
 
             contenido_final = _build_frontmatter(
                 titulo=titulo,
@@ -921,6 +979,8 @@ def create_note_with_content(
         # Sin plantilla: detectar si el contenido ya tiene frontmatter
         # Extraer frontmatter del contenido si existe
         extra_metadata, contenido_limpio = _extract_frontmatter_from_content(contenido)
+        if tipo:
+            extra_metadata["type"] = tipo
 
         # Construir frontmatter unificado
         frontmatter = _build_frontmatter(
@@ -1005,8 +1065,17 @@ def list_templates() -> Result[str]:
     if not plantillas:
         return Result.ok(f"ℹ️ No hay plantillas disponibles en {templates_folder}")
 
+    mapping = ""
+    if config and config.taxonomy.templates:
+        mapping = "\n\n**Por tipo** (usa `notes.create(note_type=...)`):\n" + "\n".join(
+            f"- `{t}`: {spec.template} → {spec.folder}"
+            + ("/<subcarpeta>" if spec.choose_subfolder else "")
+            for t, spec in config.taxonomy.templates.items()
+        )
     return Result.ok(
-        "📝 **Plantillas disponibles:**\n" + "\n".join([f"- {p}" for p in plantillas])
+        "📝 **Plantillas disponibles:**\n"
+        + "\n".join([f"- {p}" for p in plantillas])
+        + mapping
     )
 
 
