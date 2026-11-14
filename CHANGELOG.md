@@ -8,6 +8,7 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 ## [Unreleased]
 
 ### Added
+- **`agente_creador` normalizado**: `notes.create` toma por defecto el nombre que el cliente MCP envía en el handshake y normaliza los conocidos (`claude-code` → `Claude Code`, `Hermes Agent`/`hermes-agent` → `Hermes`, `codex-mcp-client` → `Codex`). Un `creator` explícito sigue mandando y también se normaliza.
 - **Reglas del vault — `skip_when_present`**: una validación de `REGLAS_GLOBALES.md` puede listar campos de frontmatter que la desactivan si la nota los tiene (por ejemplo `skip_when_present: [tipo]` para que `required_fields` no exija `type`/`status` a las fichas de media, que usan `tipo`/`estado`).
 - Pipeline de MCPB con binario local para generar bundles instalables por plataforma sin depender del Python del usuario.
 - **AFP #51 — Reposición y borrado de grupos en canvas**: Nuevas tools `canvas.move_card(node_id, x, y)` (reposiciona cualquier nodo) y `canvas.remove_group(group_id, remove_contents=False)` (borra un grupo y, opcionalmente, las tarjetas que contiene). Antes había que editar el `.canvas` a mano.

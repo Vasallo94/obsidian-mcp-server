@@ -4,6 +4,7 @@ import json
 from time import perf_counter
 
 from fastmcp import FastMCP
+from fastmcp.server.dependencies import get_context
 
 from ..messages import ERRORS
 from ..middleware import enrich_response, invalidate_rules_cache
@@ -16,6 +17,7 @@ from .creation_logic import (
     get_frontmatter_logic,
     inbox_capture_frontmatter,
     manage_tags_logic,
+    normalize_agent_name,
     normalize_edit_operations,
     search_and_replace_global,
     suggest_folder_location,
@@ -34,6 +36,15 @@ from .creation_logic import (
     quick_capture as quick_capture_logic,
 )
 from .registry import register_tool
+
+
+def _client_name() -> str:
+    """Name the connected MCP client gives in its handshake, or ""."""
+    try:
+        params = get_context().session.client_params
+        return (params.clientInfo.name or "") if params else ""
+    except Exception:  # pylint: disable=broad-exception-caught
+        return ""  # outside a request (tests, scripts) or no clientInfo
 
 
 def _with_duration(result: str, started_at: float) -> str:
@@ -107,7 +118,9 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
             folder: Vault-relative target folder; parents auto-created.
             tags: Comma-separated tags.
             template: Template file name to apply.
-            creator: Name of the creating agent.
+            creator: Name of the creating agent. Defaults to the connected
+                client's name; known names are normalised (claude-code ->
+                "Claude Code", hermes-agent -> "Hermes").
             description: Short description for template placeholders.
             note_type: Note type from vault.yaml; picks template and folder.
         """
@@ -118,7 +131,7 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
                 folder,
                 tags,
                 template,
-                creator,
+                normalize_agent_name(creator or _client_name()),
                 description,
                 tipo=note_type,
             )

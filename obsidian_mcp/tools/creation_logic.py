@@ -328,6 +328,32 @@ def _place_content(template_body: str, content: str) -> str:
     return "\n\n".join(b.strip("\n") for b in blocks if b.strip()) + "\n"
 
 
+# Canonical `agente_creador` per known client, keyed by the name lowercased
+# with "-"/"_" as spaces. Covers MCP clientInfo names (claude-code, claude-ai,
+# codex-mcp-client) and the spellings found in the vault. Unknown names are
+# kept as given, trimmed.
+_AGENT_ALIASES = {
+    "claude code": "Claude Code",
+    "claude ai": "Claude",
+    "claude": "Claude",
+    "codex": "Codex",
+    "codex mcp client": "Codex",
+    "codex cli": "Codex",
+    "hermes": "Hermes",
+    "hermes agent": "Hermes",
+    "pi": "Pi",
+    "pi agent": "Pi",
+    "antigravity": "Antigravity",
+}
+
+
+def normalize_agent_name(name: str) -> str:
+    """Return the canonical agent name for ``agente_creador``."""
+    name = " ".join(name.split())
+    key = " ".join(re.sub(r"[-_]", " ", name).casefold().split())
+    return _AGENT_ALIASES.get(key, name)
+
+
 def _build_frontmatter(
     titulo: str,
     ahora: str,
