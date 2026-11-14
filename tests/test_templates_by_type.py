@@ -431,3 +431,136 @@ def test_long_space_run_in_heading_is_fast():
     start = time.monotonic()
     _split_markdown("# a" + " " * 50000 + "b")
     assert time.monotonic() - start < 1
+
+
+@pytest.mark.parametrize(
+    ("raw", "canonical"),
+    [
+        ("claude-code", "Claude Code"),
+        ("Claude Code", "Claude Code"),
+        ("Hermes Agent", "Hermes"),
+        ("hermes_agent", "Hermes"),
+        ("codex-mcp-client", "Codex"),
+        ("  investigador  ", "investigador"),
+        ("", ""),
+    ],
+)
+def test_agent_names_are_normalised(raw, canonical):
+    from obsidian_mcp.tools.creation_logic import normalize_agent_name
+
+    assert normalize_agent_name(raw) == canonical
+
+
+def test_creator_defaults_to_client_name(vault, monkeypatch):
+    from obsidian_mcp.tools import creation
+
+    monkeypatch.setattr(creation, "_client_name", lambda: "claude-code")
+    _tool("notes.create")("Backup", "", note_type="runbook")
+
+    assert _fm(vault / "Sistemas" / "Backup.md")["agente_creador"] == "Claude Code"
+
+
+def test_explicit_creator_wins_and_is_normalised(vault, monkeypatch):
+    from obsidian_mcp.tools import creation
+
+    monkeypatch.setattr(creation, "_client_name", lambda: "claude-code")
+    _tool("notes.create")("Backup", "", note_type="runbook", creator="hermes-agent")
+
+    assert _fm(vault / "Sistemas" / "Backup.md")["agente_creador"] == "Hermes"
+
+
+def test_client_name_comes_from_mcp_handshake(vault):
+    from fastmcp import Client
+    from mcp.types import Implementation
+
+    async def run():
+        info = Implementation(name="claude-code", version="1")
+        async with Client(create_server(), client_info=info) as client:
+            await client.call_tool(
+                "notes.create",
+                {"title": "Backup", "content": "", "note_type": "runbook"},
+            )
+
+    asyncio.run(run())
+    assert _fm(vault / "Sistemas" / "Backup.md")["agente_creador"] == "Claude Code"
+
+
+def test_content_frontmatter_creator_beats_client_name(vault, monkeypatch):
+    from obsidian_mcp.tools import creation
+
+    monkeypatch.setattr(creation, "_client_name", lambda: "claude-code")
+    content = "---\nagente_creador: investigador\n---\nhola"
+    _tool("notes.create")("Backup", content, note_type="runbook")
+
+    assert _fm(vault / "Sistemas" / "Backup.md")["agente_creador"] == "investigador"
+
+
+def test_unnamed_sdk_client_does_not_sign(vault):
+    from fastmcp import Client
+
+    async def run():
+        async with Client(create_server()) as client:  # SDK default name "mcp"
+            await client.call_tool(
+                "notes.create",
+                {"title": "Backup", "content": "", "note_type": "runbook"},
+            )
+
+    asyncio.run(run())
+    assert "agente_creador" not in _fm(vault / "Sistemas" / "Backup.md")
+
+
+def test_agent_name_is_sanitised_and_capped():
+    from obsidian_mcp.tools.creation_logic import normalize_agent_name
+
+    assert normalize_agent_name("a\x1b[31mb\x00c") == "a[31mbc"
+    assert len(normalize_agent_name("x" * 10_000)) == 64
+
+
+def test_template_creator_beats_client_name(vault, monkeypatch):
+    from obsidian_mcp.tools import creation
+
+    (vault / "Plantillas" / "Runbook.md").write_text(
+        "---\ntype: runbook\nagente_creador: Hermes\n---\n## Contexto\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(creation, "_client_name", lambda: "claude-code")
+    _tool("notes.create")("Backup", "", note_type="runbook")
+
+    assert _fm(vault / "Sistemas" / "Backup.md")["agente_creador"] == "Hermes"
+
+
+@pytest.mark.parametrize("creator_line", ["agente_creador:", "agente_creador: ''"])
+def test_empty_content_creator_gets_client_name(vault, monkeypatch, creator_line):
+    from obsidian_mcp.tools import creation
+
+    monkeypatch.setattr(creation, "_client_name", lambda: "claude-code")
+    _tool("notes.create")(
+        "Backup", f"---\n{creator_line}\n---\nhola", note_type="runbook"
+    )
+
+    assert _fm(vault / "Sistemas" / "Backup.md")["agente_creador"] == "Claude Code"
+
+
+def test_blank_creator_falls_back_to_client(vault, monkeypatch):
+    from obsidian_mcp.tools import creation
+
+    monkeypatch.setattr(creation, "_client_name", lambda: "claude-code")
+    _tool("notes.create")("Backup", "", note_type="runbook", creator="   ")
+
+    assert _fm(vault / "Sistemas" / "Backup.md")["agente_creador"] == "Claude Code"
+
+
+@pytest.mark.parametrize("raw", ["Claude Code", "Claude\tCode", "Claude\nCode"])
+def test_unicode_spaces_separate_words(raw):
+    from obsidian_mcp.tools.creation_logic import normalize_agent_name
+
+    assert normalize_agent_name(raw) == "Claude Code"
+
+
+def test_cut_does_not_leave_trailing_space_and_keeps_zwj():
+    from obsidian_mcp.tools.creation_logic import normalize_agent_name
+
+    assert normalize_agent_name("x" * 63 + " yz") == "x" * 63
+    assert (
+        normalize_agent_name("\U0001f468‍\U0001f4bb dev") == "\U0001f468‍\U0001f4bb dev"
+    )
