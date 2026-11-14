@@ -104,3 +104,31 @@ def test_every_middle_double_star_matches_zero_or_more_folders(path):
 def test_leading_and_middle_double_star_together():
     assert _match("b/c", "**/b/**/c")
     assert _match("x/b/y/c", "**/b/**/c")
+
+
+@pytest.mark.parametrize(
+    "path,pattern",
+    [
+        ("Privado/x.md", "Privado/**/"),
+        ("Privado/sub/x.md", "Privado/**/"),
+        ("cualquier/cosa.md", "**/"),
+        ("a/Privado/x.md", "**/Privado/"),
+        ("a/secrets.md", "/**/secrets.md"),
+        ("a/x", "./**/x"),
+        ("a/Privado/x.md", " **/Privado/*"),
+    ],
+)
+def test_pattern_spelling_variants_still_protect(path, pattern):
+    """Auditoría #132: '/' final, '/' o './' iniciales y espacios no deben abrir huecos."""
+    assert _match(path, pattern)
+
+
+@pytest.mark.parametrize(
+    "path", ["prod.env", "config/production.env", "x/local.env.bak"]
+)
+def test_packaged_patterns_keep_protecting_named_env_files(path):
+    """Auditoría #132: cobertura conservadora de ficheros .env con prefijo."""
+
+    assert _matching_forbidden_pattern(
+        Path(path), load_forbidden_patterns(force_reload=True)
+    )

@@ -23,3 +23,6 @@
 # Archivos de entorno
 **/.env
 **/.env.*
+# Ficheros de entorno con prefijo (prod.env, production.env.local)
+**/*.env
+**/*.env.*

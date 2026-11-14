@@ -39,12 +39,11 @@ def load_forbidden_patterns(
     if vault_path is None:
         vault_path = get_vault_path()
     resolved_vault = vault_path.resolve() if vault_path else None
-    if (
-        _forbidden_patterns is not None
-        and _forbidden_patterns_vault == resolved_vault
-        and not force_reload
-    ):
-        return _forbidden_patterns
+    # Read the cache once: another thread may invalidate it between the check
+    # and the return.
+    cached, cached_vault = _forbidden_patterns, _forbidden_patterns_vault
+    if cached is not None and cached_vault == resolved_vault and not force_reload:
+        return cached
 
     patterns: List[str] = []
     locations = [Path(__file__).parent.parent / ".forbidden_paths"]
@@ -77,6 +76,21 @@ def load_forbidden_patterns(
     _forbidden_patterns = patterns
     _forbidden_patterns_vault = resolved_vault
     return patterns
+
+
+def _normalise_pattern(pattern: str) -> str:
+    """Canonical form of a protection pattern.
+
+    Hand-written vault.yaml patterns may carry spaces, a leading "/" or "./",
+    or a trailing "/" ("Privado/**/"). Paths are vault-relative and never end
+    in "/", so a trailing slash means "the folder and everything below".
+    """
+    pattern = unicodedata.normalize("NFC", pattern.replace("\\", "/")).strip()
+    while pattern.startswith(("./", "/")):
+        pattern = pattern[2:] if pattern.startswith("./") else pattern[1:]
+    if pattern.endswith("/") and pattern != "/":
+        pattern += "**"
+    return pattern
 
 
 def _double_star_variants(pattern: str) -> list[str]:
@@ -135,7 +149,7 @@ def _matching_forbidden_pattern(relative_path: Path, patterns: List[str]) -> str
     # vault.yaml patterns are usually NFC.
     relative_str = unicodedata.normalize("NFC", relative_path.as_posix())
     for original_pattern in patterns:
-        pattern = unicodedata.normalize("NFC", original_pattern.replace("\\", "/"))
+        pattern = _normalise_pattern(original_pattern)
         if "**" in pattern:
             if any(
                 fnmatch.fnmatch(relative_str, v) for v in _double_star_variants(pattern)
