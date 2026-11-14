@@ -353,7 +353,11 @@ def normalize_agent_name(name: str) -> str:
     Non-printable characters are dropped and the result is capped at 64
     characters: the client's name reaches the note without the agent typing it.
     """
-    name = " ".join("".join(c for c in name if c.isprintable()).split())[:64]
+    # Split first so tabs and Unicode spaces become spaces; keep ZWJ emoji.
+    name = "".join(
+        c for c in " ".join(name.split()) if c.isprintable() or c == "\u200d"
+    )
+    name = nfc(name)[:64].rstrip()
     key = " ".join(re.sub(r"[-_]", " ", name).casefold().split())
     return _AGENT_ALIASES.get(key, name)
 
@@ -364,6 +368,7 @@ def _build_frontmatter(
     tags_list: list[str],
     agente_creador: str = "",
     extra_metadata: dict[str, Any] | None = None,
+    agente_por_defecto: str = "",
 ) -> str:
     """Build YAML frontmatter block combining metadata.
 
@@ -397,6 +402,9 @@ def _build_frontmatter(
 
     if agente_creador:
         metadata["agente_creador"] = agente_creador
+    elif agente_por_defecto and not metadata.get("agente_creador"):
+        # Default only: a signature from the template or content is kept.
+        metadata["agente_creador"] = agente_por_defecto
 
     yaml_content = yaml.dump(
         metadata,
@@ -922,8 +930,9 @@ def create_note_with_content(
     agente_creador: str = "",
     descripcion: str = "",
     tipo: str = "",
+    agente_por_defecto: str = "",
 ) -> tuple[Result[str], str | None]:
-    # pylint: disable=too-many-branches,too-many-statements,too-many-locals,too-many-positional-arguments
+    # pylint: disable=too-many-branches,too-many-statements,too-many-locals,too-many-positional-arguments,too-many-arguments
     """Create a new note in the vault and return the text written to disk.
 
     Args:
@@ -934,6 +943,8 @@ def create_note_with_content(
         plantilla: Name of the template file to use.
         agente_creador: Name of the creating agent.
         descripcion: Brief description for placeholders.
+        agente_por_defecto: ``agente_creador`` used only when neither
+            ``agente_creador`` nor the template or content set one.
         tipo: Note type. Picks the default template and folder from
             ``taxonomy.templates`` in vault.yaml and sets ``type``.
 
@@ -1096,6 +1107,7 @@ def create_note_with_content(
                 tags_list=tags_list,
                 agente_creador=agente_creador,
                 extra_metadata=combined_metadata if combined_metadata else None,
+                agente_por_defecto=agente_por_defecto,
             )
             contenido_final += _place_content(template_body, contenido_limpio)
         else:
@@ -1114,6 +1126,7 @@ def create_note_with_content(
             tags_list=tags_list,
             agente_creador=agente_creador,
             extra_metadata=extra_metadata if extra_metadata else None,
+            agente_por_defecto=agente_por_defecto,
         )
 
         contenido_final = frontmatter

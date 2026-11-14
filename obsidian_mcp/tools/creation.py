@@ -126,13 +126,6 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
             description: Short description for template placeholders.
             note_type: Note type from vault.yaml; picks template and folder.
         """
-        # The client's name is only a default: an `agente_creador` written in
-        # the content's frontmatter (a skill or persona signing) is kept.
-        if (
-            not creator
-            and "agente_creador" not in (_extract_frontmatter_from_content(content)[0])
-        ):
-            creator = _client_name()
         try:
             outcome, written = create_note_with_content(
                 title,
@@ -143,6 +136,8 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
                 normalize_agent_name(creator),
                 description,
                 tipo=note_type,
+                # Only a default: a signature in the template or content wins.
+                agente_por_defecto=normalize_agent_name(_client_name()),
             )
             result = outcome.to_display(success_prefix="OK")
             if written is None:
