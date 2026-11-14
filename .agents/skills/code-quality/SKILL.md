@@ -84,6 +84,7 @@ mensaje = (
 def process(data):
     return data.upper()
 
+
 # Después
 def process(data: str) -> str:
     return data.upper()
@@ -142,10 +143,10 @@ Si necesitas ignorar una regla específica:
 # Ignorar línea específica
 long_string = "..."  # noqa: E501
 
+
 # Ignorar bloque
 # ruff: noqa: E501
-def function_with_long_lines():
-    ...
+def function_with_long_lines(): ...
 ```
 
 > ⚠️ **Usar con moderación**. Preferir corregir el código.
