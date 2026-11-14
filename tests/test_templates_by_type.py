@@ -401,3 +401,33 @@ def test_code_span_is_not_a_fence(vault):
 def test_closing_hashes_match_template_heading(vault):
     body = _concepto(vault, "## Definición ##\nd")
     assert body.count("Definición") == 1
+
+
+def test_new_section_follows_preceding_matched_section(vault):
+    body = _concepto(vault, "## Definición\nd\n## Nueva\nn\n## Relacionado\nr")
+    assert (
+        body.index("## Definición")
+        < body.index("## Nueva")
+        < body.index("## Ejemplo")
+        < body.index("## Relacionado")
+    )
+
+
+def test_details_block_is_appended_not_merged(vault):
+    body = _concepto(vault, "<details>\n\n## Ejemplo\ne\n\n</details>")
+    assert body.index("## Relacionado") < body.index("<details>")
+
+
+def test_heading_colon_and_bold_still_match(vault):
+    body = _concepto(vault, "## Definición:\nd\n## **Ejemplo**\ne")
+    assert body.count("Definición") == 1 and body.count("Ejemplo") == 1
+
+
+def test_long_space_run_in_heading_is_fast():
+    import time
+
+    from obsidian_mcp.tools.creation_logic import _split_markdown
+
+    start = time.monotonic()
+    _split_markdown("# a" + " " * 50000 + "b")
+    assert time.monotonic() - start < 1

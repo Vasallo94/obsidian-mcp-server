@@ -242,7 +242,7 @@ def _extract_frontmatter_from_content(contenido: str) -> tuple[dict[str, Any], s
         return {}, contenido
 
 
-_HEADING_RE = re.compile(r"^ {0,3}(#{1,6})[ \t]+(\S.*?)[ \t]*$")
+_HEADING_RE = re.compile(r"^ {0,3}(#{1,6})[ \t]+(\S(?:.*\S)?)[ \t]*$")
 # A backtick fence's info string can't contain backticks (```npm i``` is code).
 _FENCE_OPEN_RE = re.compile(r"^ {0,3}(?:(`{3,})(?!.*`)|(~{3,}))")
 
@@ -267,7 +267,11 @@ def _split_markdown(
         elif opened := _FENCE_OPEN_RE.match(line):
             fence = opened.group(1) or opened.group(2)
         elif heading := _HEADING_RE.match(line):
-            words = re.sub(r"[ \t]+#+$", "", heading.group(2))
+            words = heading.group(2)
+            closing = words.rstrip("#")  # `## X ##`; rstrip, a regex is quadratic
+            if closing != words and closing[-1:] in (" ", "\t"):
+                words = closing.rstrip(" \t")
+            words = words.strip("*_ ").rstrip(":").strip("*_ ")
             heads.append((i, len(heading.group(1)), words))
     title, start = None, 0
     if heads and heads[0][1] == 1 and not "".join(lines[: heads[0][0]]).strip():
@@ -293,13 +297,13 @@ def _place_content(template_body: str, content: str) -> str:
     Nothing of the template is dropped except what the content replaces: a
     leading H1 in the content replaces the template's; a content section
     (with its subsections) replaces, in place, the template section with the
-    same heading; the rest of the content (plain text and new sections) goes
-    under the title and the template's intro, above the template's sections.
+    same heading; a new section goes right after the matched section that
+    precedes it in the content, or under the title and the template's intro.
     """
     if not content.strip():
         return template_body
     c_title, c_intro, c_sections, open_fence = _split_markdown(content)
-    if open_fence or "<!--" in content or "%%" in content:
+    if open_fence or any(m in content for m in ("<!--", "%%", "<details")):
         # ponytail: a comment or an unclosed fence could swallow the template
         # sections placed after it; such content is appended as is instead.
         blocks = [template_body, content]
@@ -307,14 +311,20 @@ def _place_content(template_body: str, content: str) -> str:
         t_title, t_intro, t_sections, _ = _split_markdown(template_body)
         template_keys = {key for key, _ in t_sections}
         replacements: dict[tuple[int, str], list[str]] = {}
-        blocks = [c_title or t_title or "", t_intro, c_intro]
+        # New sections follow the last matched section before them in the
+        # content (None: none yet, so they go under the intro).
+        after: dict[tuple[int, str] | None, list[str]] = {}
+        anchor: tuple[int, str] | None = None
         for key, text in c_sections:
             if key in template_keys:
                 replacements.setdefault(key, []).append(text)
+                anchor = key
             else:
-                blocks.append(text)
+                after.setdefault(anchor, []).append(text)
+        blocks = [c_title or t_title or "", t_intro, c_intro, *after.pop(None, [])]
         for key, text in t_sections:
             blocks.extend(replacements.pop(key, [text]))
+            blocks.extend(after.pop(key, []))
     return "\n\n".join(b.strip("\n") for b in blocks if b.strip()) + "\n"
 
 
