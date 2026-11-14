@@ -132,3 +132,21 @@ def test_packaged_patterns_keep_protecting_named_env_files(path):
     assert _matching_forbidden_pattern(
         Path(path), load_forbidden_patterns(force_reload=True)
     )
+
+
+@pytest.mark.parametrize("pattern", ["Privado//", "Privado///", "Privado//**"])
+def test_repeated_trailing_slashes_still_protect(pattern):
+    """Revisión de seguridad: barras repetidas no deben abrir un hueco."""
+    assert _match("Privado/x.md", pattern)
+    assert _match("Privado/sub/x.md", pattern)
+
+
+def test_spaces_that_belong_to_the_name_are_kept():
+    """Revisión de seguridad: el patrón original también cuenta (deniega si casa cualquiera)."""
+    assert _match(" Privado /x.md", " Privado /*")
+    assert _match("Privado/x.md", " Privado/*")
+
+
+def test_empty_pattern_after_normalisation_matches_nothing():
+    for pattern in ("   ", "/", "./"):
+        assert not _match("nota.md", pattern)

@@ -8,6 +8,7 @@ proper validation of restricted folder access.
 import fnmatch
 import logging
 import os
+import re
 import unicodedata
 from collections.abc import Iterator
 from pathlib import Path
@@ -86,10 +87,12 @@ def _normalise_pattern(pattern: str) -> str:
     in "/", so a trailing slash means "the folder and everything below".
     """
     pattern = unicodedata.normalize("NFC", pattern.replace("\\", "/")).strip()
+    pattern = re.sub(r"/{2,}", "/", pattern)
     while pattern.startswith(("./", "/")):
         pattern = pattern[2:] if pattern.startswith("./") else pattern[1:]
-    if pattern.endswith("/") and pattern != "/":
-        pattern += "**"
+    if pattern.endswith("/"):
+        stripped = pattern.rstrip("/")
+        pattern = f"{stripped}/**" if stripped else ""
     return pattern
 
 
@@ -143,25 +146,38 @@ def invalidate_forbidden_patterns_cache() -> None:
     _forbidden_patterns_vault = None
 
 
+def _pattern_matches(relative_str: str, pattern: str) -> bool:
+    """Match one already-normalised pattern against a vault-relative path."""
+    if not pattern:
+        return False  # an empty pattern must never cover the whole vault
+    if "**" in pattern:
+        return any(
+            fnmatch.fnmatch(relative_str, v) for v in _double_star_variants(pattern)
+        )
+    if fnmatch.fnmatch(relative_str, pattern):
+        return True
+    if not any(char in pattern for char in "*?[") and relative_str.startswith(
+        f"{pattern.rstrip('/')}/"
+    ):
+        return True
+    return pattern.endswith("*") and relative_str.startswith(pattern.rstrip("*"))
+
+
 def _matching_forbidden_pattern(relative_path: Path, patterns: List[str]) -> str:
-    """Return the first forbidden pattern matching a normalized vault path."""
+    """Return the first forbidden pattern matching a normalized vault path.
+
+    Each pattern is tried as written and in its tidied form, and the path is
+    denied if either matches: tidying ("Privado//", " **/Privado/*") may add
+    protection but can never remove it.
+    """
     # NFC on both sides: APFS keeps file names as written (often NFD) while
     # vault.yaml patterns are usually NFC.
     relative_str = unicodedata.normalize("NFC", relative_path.as_posix())
     for original_pattern in patterns:
-        pattern = _normalise_pattern(original_pattern)
-        if "**" in pattern:
-            if any(
-                fnmatch.fnmatch(relative_str, v) for v in _double_star_variants(pattern)
-            ):
-                return original_pattern
-        elif fnmatch.fnmatch(relative_str, pattern):
-            return original_pattern
-        elif not any(char in pattern for char in "*?[") and relative_str.startswith(
-            f"{pattern.rstrip('/')}/"
+        as_written = unicodedata.normalize("NFC", original_pattern.replace("\\", "/"))
+        if _pattern_matches(relative_str, as_written) or _pattern_matches(
+            relative_str, _normalise_pattern(original_pattern)
         ):
-            return original_pattern
-        elif pattern.endswith("*") and relative_str.startswith(pattern.rstrip("*")):
             return original_pattern
     return ""
 
