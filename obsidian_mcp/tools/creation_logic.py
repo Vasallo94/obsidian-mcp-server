@@ -242,35 +242,84 @@ def _extract_frontmatter_from_content(contenido: str) -> tuple[dict[str, Any], s
         return {}, contenido
 
 
-_FENCE_RE = re.compile(r"^(```|~~~).*?^\1", re.MULTILINE | re.DOTALL)
-_HEADING_RE = re.compile(r"^#{1,6}\s", re.MULTILINE)
-_H1_RE = re.compile(r"^# .*$", re.MULTILINE)
+_HEADING_RE = re.compile(r"^ {0,3}(#{1,6})[ \t]+(\S.*?)[ \t]*$")
+_FENCE_OPEN_RE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
+
+
+def _split_markdown(
+    text: str,
+) -> tuple[str, str | None, str, list[tuple[tuple[int, str], str]]]:
+    """Split Markdown into (before_title, title, intro, sections).
+
+    ``title`` is the first H1 if no other heading precedes it; ``intro`` is
+    the text between it and the first section. Each section is
+    ((level, normalised heading text), section text). Headings inside code
+    fences don't count (CommonMark: closed by the same character, at least as
+    long; an unclosed fence runs to the end).
+    """
+    before: list[str] = []
+    title: str | None = None
+    intro: list[str] = []
+    sections: list[tuple[tuple[int, str], list[str]]] = []
+    current = before
+    fence = ""
+    for line in text.replace("\r\n", "\n").split("\n"):
+        if fence:
+            if re.match(rf"^ {{0,3}}{fence[0]}{{{len(fence)},}}[ \t]*$", line):
+                fence = ""
+        elif opened := _FENCE_OPEN_RE.match(line):
+            fence = opened.group(1)
+        elif heading := _HEADING_RE.match(line):
+            level = len(heading.group(1))
+            if level == 1 and title is None and not sections:
+                title, current = line.strip(), intro
+                continue
+            key = (level, nfc(heading.group(2)).casefold())
+            sections.append((key, [line]))
+            current = sections[-1][1]
+            continue
+        current.append(line)
+    if title is None:  # no title: everything before the first section is intro
+        before, intro = [], before
+    return (
+        "\n".join(before),
+        title,
+        "\n".join(intro),
+        [(key, "\n".join(lines)) for key, lines in sections],
+    )
 
 
 def _place_content(template_body: str, content: str) -> str:
-    """Return the note body with the caller's content placed in the template.
+    """Return the note body merging the caller's content into the template.
 
-    Content with its own headings is the whole note: it replaces the
-    template's empty sections, keeping the template's H1 unless the content
-    brings one. Plain content goes right under the template's H1 (or first),
-    above the sections still to fill. Headings inside code fences don't count.
+    Nothing of the template is dropped except what the content replaces: the
+    content's H1 replaces the template's; a content section replaces the
+    template section with the same heading, in place; the rest of the content
+    (plain text and new sections) goes under the title and the template's
+    intro, above the template's sections.
     """
-    content = content.strip()
-    if not content:
+    if not content.strip():
         return template_body
-    # ponytail: the template's H1 is looked up without skipping code fences;
-    # templates are vault-owned and none opens a fence before its title.
-    h1 = _H1_RE.search(template_body)
-    prose = _FENCE_RE.sub("", content)
-    if _HEADING_RE.search(prose):
-        if h1 is None or _H1_RE.search(prose):
-            return f"{content}\n"
-        return f"{h1.group(0)}\n\n{content}\n"
-    if h1 is None:
-        return f"{content}\n\n{template_body}"
-    head = template_body[: h1.end()]
-    tail = template_body[h1.end() :].strip("\n")
-    return f"{head}\n\n{content}\n\n{tail}\n" if tail else f"{head}\n\n{content}\n"
+    t_before, t_title, t_intro, t_sections = _split_markdown(template_body)
+    c_before, c_title, c_intro, c_sections = _split_markdown(content)
+    replacements: dict[tuple[int, str], str] = {}
+    new_sections: list[str] = []
+    template_keys = {key for key, _ in t_sections}
+    for key, text in c_sections:
+        if key in template_keys and key not in replacements:
+            replacements[key] = text
+        else:
+            new_sections.append(text)
+    blocks = [
+        t_before,
+        c_title or t_title or "",
+        t_intro,
+        c_before,
+        c_intro,
+        *new_sections,
+        *(replacements.pop(key, text) for key, text in t_sections),
+    ]
+    return "\n\n".join(b.strip("\n") for b in blocks if b.strip()) + "\n"
 
 
 def _build_frontmatter(

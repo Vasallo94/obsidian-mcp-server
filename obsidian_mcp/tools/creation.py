@@ -85,6 +85,12 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
         without it the call fails and lists the options. `note_type` wins over
         the `type` of the template and of the frontmatter in `content`.
 
+        With a template, `content` is merged into it, never appended: a
+        `## Heading` in `content` fills the template section with that same
+        heading, in place; its `# Title`, if any, replaces the template's;
+        plain text and new sections go under the title, above the template's
+        sections. Template sections you don't write stay as they are.
+
         Paths are vault-relative. `folder` is a path relative to the vault root
         (e.g. "Projects/AFP"); missing parent folders are created automatically.
         Leave `folder` empty to auto-suggest a location (falls back to the vault

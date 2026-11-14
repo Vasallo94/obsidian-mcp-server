@@ -272,9 +272,10 @@ def test_plain_content_goes_after_title_before_skeleton(vault):
     assert "## Incidentes" in body
 
 
-def test_content_with_headings_replaces_skeleton(vault):
+def test_content_section_fills_matching_template_section(vault):
     (vault / "Plantillas" / "Runbook.md").write_text(
-        "---\ntype: runbook\n---\n# {{title}}\n\n## Contexto\n\n## Incidentes\n",
+        "---\ntype: runbook\n---\n# {{title}}\n\n## Contexto\n\nGuía.\n\n"
+        "## Incidentes\n\n[[Home|Volver]]\n",
         encoding="utf-8",
     )
     _tool("notes.create")(
@@ -282,16 +283,54 @@ def test_content_with_headings_replaces_skeleton(vault):
     )
 
     body = _body(vault / "Sistemas" / "Backup.md")
-    assert body.count("## Contexto") == 1
-    assert "## Incidentes" not in body
-    assert body.index("# Backup") < body.index("NAS en casa.")
+    assert body.count("## Contexto") == 1 and "Guía." not in body
+    assert (
+        body.index("# Backup")
+        < body.index("NAS en casa.")
+        < body.index("## Incidentes")
+    )
+    assert "[[Home|Volver]]" in body
 
 
-def test_content_with_own_h1_keeps_it(vault):
-    _tool("notes.create")("Backup", "# Mi título\n\n## Pasos\n", note_type="runbook")
+def test_content_with_only_h1_keeps_skeleton(vault):
+    _tool("notes.create")("Backup", "# Mi título\n\nResumen.", note_type="runbook")
 
     body = _body(vault / "Sistemas" / "Backup.md")
-    assert "# Mi título" in body and "## Contexto" not in body
+    assert body.count("\n# ") + body.startswith("# ") == 1
+    assert (
+        body.index("# Mi título") < body.index("Resumen.") < body.index("## Contexto")
+    )
+
+
+def test_template_intro_without_title_is_kept(vault):
+    (vault / "Plantillas" / "Runbook.md").write_text(
+        "---\ntype: runbook\n---\n> la cita\n\n## Contexto\n", encoding="utf-8"
+    )
+    _tool("notes.create")("Cita", "## Contexto\n\nDicho en 1900", note_type="runbook")
+
+    body = _body(vault / "Sistemas" / "Cita.md")
+    assert body.index("> la cita") < body.index("Dicho en 1900")
+
+
+def test_new_sections_go_above_template_sections(vault):
+    _tool("notes.create")("Backup", "## Pasos\n\n1. uno", note_type="runbook")
+
+    body = _body(vault / "Sistemas" / "Backup.md")
+    assert body.index("## Pasos") < body.index("## Contexto")
+
+
+def test_content_indentation_is_kept(vault):
+    _tool("notes.create")("Backup", "    sudo reboot\n    uptime", note_type="runbook")
+
+    assert "    sudo reboot\n    uptime" in _body(vault / "Sistemas" / "Backup.md")
+
+
+def test_longer_fence_hides_inner_heading(vault):
+    content = "````md\n```\n## Contexto\n```\n````\ntexto"
+    _tool("notes.create")("Backup", content, note_type="runbook")
+
+    body = _body(vault / "Sistemas" / "Backup.md")
+    assert body.count("## Contexto") == 2  # the template's and the one in code
 
 
 def test_skeleton_without_h1_gets_plain_content_first(vault):
