@@ -14,7 +14,7 @@ import difflib
 import json
 import re
 from datetime import date, datetime
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 import yaml
@@ -30,7 +30,7 @@ from ..utils import (
     resolve_vault_path,
     sanitize_filename,
 )
-from ..vault_config import get_vault_config, resolve_role
+from ..vault_config import get_vault_config, nfc, resolve_role
 
 
 def _json_serial(obj: Any) -> str:
@@ -723,45 +723,60 @@ def _resolve_type_defaults(
 ) -> tuple[str, str, str | None]:
     """Fill template and folder for ``tipo`` from taxonomy.templates.
 
-    Explicit ``plantilla``/``carpeta`` from the caller win. Returns
-    (plantilla, carpeta, error message or None).
+    ``taxonomy.types`` is the vocabulary (as in the middleware type rule).
+    Explicit ``plantilla`` wins; an explicit ``carpeta`` must sit inside the
+    type's base folder when the type is filed by topic (choose_subfolder).
+    Returns (plantilla, carpeta, error message or None).
     """
+    tipo = nfc(tipo)
     taxonomy = config.taxonomy if config else None
+    types = taxonomy.types if taxonomy else []
+    if types and tipo not in types:
+        return (
+            plantilla,
+            carpeta,
+            f"El tipo '{tipo}' no existe en taxonomy.types de .agents/vault.yaml. "
+            f"Tipos válidos: {', '.join(sorted(types))}",
+        )
     spec = taxonomy.templates.get(tipo) if taxonomy else None
-    known = set(taxonomy.types if taxonomy else []) | set(
-        taxonomy.templates if taxonomy else {}
-    )
     if spec is None:
-        if known and tipo not in known:
-            return (
-                plantilla,
-                carpeta,
-                f"El tipo '{tipo}' no existe en .agents/vault.yaml. "
-                f"Tipos válidos: {', '.join(sorted(known))}",
-            )
         return plantilla, carpeta, None
 
     plantilla = plantilla or spec.template
-    if carpeta:
-        return plantilla, carpeta, None
     if not spec.choose_subfolder:
-        return plantilla, spec.folder, None
+        return plantilla, carpeta or spec.folder, None
 
-    base, _ = resolve_vault_path(spec.folder, vault_path, "list folders in")
-    subfolders = (
-        sorted(
-            p.name for p in base.iterdir() if p.is_dir() and not p.name.startswith(".")
-        )
-        if base is not None and base.is_dir()
-        else []
-    )
-    opciones = ", ".join(f"{spec.folder}/{s}" for s in subfolders) or "(ninguna)"
+    base = PurePosixPath(spec.folder)
+    if carpeta:
+        target = PurePosixPath(carpeta.strip("/"))
+        if target != base and base in target.parents:
+            return plantilla, carpeta, None
     return (
         plantilla,
         carpeta,
         f"Las notas de tipo '{tipo}' van en una subcarpeta de {spec.folder}. "
-        f"Pasa folder con una de estas o una nueva dentro de {spec.folder}: {opciones}",
+        f"Pasa folder con una de estas o una nueva dentro de {spec.folder}: "
+        f"{_list_subfolders(vault_path, spec.folder)}",
     )
+
+
+def _list_subfolders(vault_path: Path, folder: str) -> str:
+    """Comma-separated visible subfolders of ``folder``, hiding private ones."""
+    base, _ = resolve_vault_path(folder, vault_path, "list folders in")
+    if base is None or not base.is_dir():
+        return "(ninguna)"
+    names = sorted(
+        p.name
+        for p in base.iterdir()
+        if p.is_dir()
+        and not p.is_symlink()
+        and not p.name.startswith(".")
+        and check_path_access(p, vault_path, "list")[0]
+        # private_paths patterns such as "**/Privado/*" match the contents,
+        # not the folder itself: probe a child path as well.
+        and check_path_access(p / "_.md", vault_path, "list")[0]
+    )
+    return ", ".join(f"{folder}/{n}" for n in names) or "(ninguna)"
 
 
 def create_note(
@@ -846,8 +861,6 @@ def create_note_with_content(
     if resolved_note is None:
         return Result.fail(error), None
     nota_path = resolved_note
-    carpeta_path = nota_path.parent
-    carpeta_path.mkdir(parents=True, exist_ok=True)
 
     # Verificar si ya existe
     if nota_path.exists():
@@ -1003,6 +1016,9 @@ def create_note_with_content(
     contenido_final = _process_date_placeholders(contenido_final)
     contenido_final = _normalize_frontmatter(contenido_final)
 
+    # The folder is created only once the template and content are ready, so a
+    # failed creation (missing template, rejected path) leaves no empty folders.
+    nota_path.parent.mkdir(parents=True, exist_ok=True)
     atomic_write_text(nota_path, contenido_final)
 
     ruta_relativa = nota_path.relative_to(vault_path)

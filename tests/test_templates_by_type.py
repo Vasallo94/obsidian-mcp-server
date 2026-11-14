@@ -99,3 +99,96 @@ def test_templates_list_shows_mapping(vault):
     result = _tool("templates.list")()
 
     assert "runbook" in result and "Runbook.md" in result and "Sistemas" in result
+
+
+def _rewrite_yaml(vault, text):
+    (vault / ".agents" / "vault.yaml").write_text(text, encoding="utf-8")
+    invalidate_rules_cache()  # also drops the vault.yaml cache
+
+
+def test_subfolder_listing_hides_private_folders(vault):
+    """Auditoría #131 (1): no se listan carpetas privadas."""
+    (vault / "Conocimiento" / "SecretoSalud").mkdir()
+    (vault / "Conocimiento" / "Privado").mkdir()
+    _rewrite_yaml(
+        vault, VAULT_YAML + 'private_paths: ["Conocimiento/Secreto*", "**/Privado/*"]\n'
+    )
+
+    result = _tool("notes.create")("X", "", note_type="apunte")
+
+    assert "IA" in result
+    assert "Secreto" not in result and "Privado" not in result
+
+
+def test_bad_templates_entry_does_not_disable_private_paths(vault):
+    """Auditoría #131 (2): una entrada mala no tumba vault.yaml (ni private_paths)."""
+    from obsidian_mcp.vault_config import get_vault_config
+
+    _rewrite_yaml(
+        vault,
+        "templates_folder: Plantillas\nprivate_paths: ['Diario/**']\n"
+        "taxonomy:\n  types: [runbook, apunte]\n  templates:\n"
+        "    runbook: Runbook.md\n    apunte: 3\n",
+    )
+
+    config = get_vault_config(vault)
+    assert config is not None
+    assert config.private_paths == ["Diario/**"]
+    assert config.taxonomy.templates["runbook"].template == "Runbook.md"
+    assert "apunte" not in config.taxonomy.templates
+
+
+def test_choose_subfolder_rejects_folder_outside_base(vault):
+    """Auditoría #131 (3): con choose_subfolder la carpeta va dentro de la base."""
+    create = _tool("notes.create")
+    for folder in ("Sistemas", "Conocimiento"):
+        result = create("X", "", folder=folder, note_type="apunte")
+        assert "Conocimiento" in result
+        assert not (vault / folder / "X.md").exists()
+
+
+def test_note_type_overrides_template_type(vault):
+    """Auditoría #131 (4): note_type gana al type de la plantilla."""
+    _tool("notes.create")(
+        "Mixta", "", folder="Conocimiento/IA", template="Runbook.md", note_type="apunte"
+    )
+
+    assert _fm(vault / "Conocimiento" / "IA" / "Mixta.md")["type"] == "apunte"
+
+
+def test_type_names_are_unicode_normalised(vault):
+    """Auditoría #131 (6): 'física' en NFD en vault.yaml casa con NFC del caller."""
+    import unicodedata
+
+    nfd = unicodedata.normalize("NFD", "física")
+    _rewrite_yaml(vault, f"templates_folder: Plantillas\ntaxonomy:\n  types: [{nfd}]\n")
+
+    _tool("notes.create")("N", "x", folder="Sistemas", note_type="física")
+
+    assert (vault / "Sistemas" / "N.md").exists()
+
+
+def test_type_only_in_templates_is_rejected(vault):
+    """Auditoría #131 (8): el vocabulario válido es taxonomy.types."""
+    _rewrite_yaml(
+        vault,
+        VAULT_YAML + "    solo_plantilla: {template: Runbook.md, folder: Sistemas}\n",
+    )
+
+    result = _tool("notes.create")("X", "", note_type="solo_plantilla")
+
+    assert not (vault / "Sistemas" / "X.md").exists()
+    assert "solo_plantilla" in result
+
+
+def test_missing_template_creates_no_folder(vault):
+    """Auditoría #131 (5): si la plantilla falla no quedan carpetas vacías."""
+    _rewrite_yaml(
+        vault,
+        "templates_folder: Plantillas\ntaxonomy:\n  types: [x]\n"
+        "  templates:\n    x: {template: NoExiste.md, folder: Nueva/Carpeta}\n",
+    )
+
+    _tool("notes.create")("X", "", note_type="x")
+
+    assert not (vault / "Nueva").exists()

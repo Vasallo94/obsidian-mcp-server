@@ -81,8 +81,9 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
         Prefer `note_type` (e.g. "runbook", "apunte"): it applies the vault's
         template for that type and its default folder (see templates.list) and
         sets `type` in the frontmatter. If the type is filed by topic or
-        project, pass `folder` with the subfolder; without it the call fails
-        and lists the options.
+        project, pass `folder` with a subfolder of the type's base folder;
+        without it the call fails and lists the options. `note_type` wins over
+        the `type` of the template and of the frontmatter in `content`.
 
         Paths are vault-relative. `folder` is a path relative to the vault root
         (e.g. "Projects/AFP"); missing parent folders are created automatically.
