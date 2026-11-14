@@ -1,12 +1,10 @@
 """MCP note creation and editing tools."""
 
 import json
-import re
 from time import perf_counter
 
 from fastmcp import FastMCP
 
-from ..config import get_vault_path
 from ..messages import ERRORS
 from ..middleware import enrich_response, invalidate_rules_cache
 from ..models.tool_inputs import EditOperation
@@ -15,6 +13,7 @@ from .creation_logic import (
 )
 from .creation_logic import (
     append_to_section,
+    create_note_with_content,
     edit_note,
     get_frontmatter_logic,
     inbox_capture_frontmatter,
@@ -23,9 +22,6 @@ from .creation_logic import (
     search_and_replace_global,
     suggest_folder_location,
     update_frontmatter_logic,
-)
-from .creation_logic import (
-    create_note as create_note_logic,
 )
 from .creation_logic import (
     delete_note as delete_note_logic,
@@ -52,23 +48,11 @@ def _extract_fm(content: str) -> dict:
     return frontmatter
 
 
-def _written_note_content(result: str, fallback: str) -> str:
-    """Return the text of the note notes.create just wrote, for validation.
+def _split_fm(content: str) -> tuple[dict, str]:
+    """Split content into (frontmatter dict, body) for middleware validation."""
+    from .creation_logic import _extract_frontmatter_from_content
 
-    The template supplies type/status/tags, so validating only the caller's
-    ``content`` reports fields as missing that the final note does have.
-    """
-    # ponytail: relies on the "Ubicación: <ruta>" line of the success message;
-    # return the path from create_note_logic if that message ever changes.
-    match = re.search(r"Ubicación: (.+)", result)
-    vault_path = get_vault_path()
-    if not match or vault_path is None:
-        return fallback
-    note = vault_path / match.group(1).strip()
-    try:
-        return note.read_text(encoding="utf-8")
-    except OSError:
-        return fallback
+    return _extract_frontmatter_from_content(content)
 
 
 def _parse_tags(tags: str) -> list[str]:
@@ -125,7 +109,7 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
             description: Short description for template placeholders.
         """
         try:
-            result = create_note_logic(
+            outcome, written = create_note_with_content(
                 title,
                 content,
                 folder,
@@ -133,14 +117,17 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
                 template,
                 creator,
                 description,
-            ).to_display(success_prefix="OK")
-            written = _written_note_content(result, content)
+            )
+            result = outcome.to_display(success_prefix="OK")
+            # Validate the note as written (template fields included), not the
+            # caller's input. Body rules see the body only, not the frontmatter.
+            frontmatter, body = _split_fm(written if written is not None else content)
             return enrich_response(
                 tool_name="notes.create",
                 result=result,
                 title=title,
-                content=written,
-                frontmatter=_extract_fm(written),
+                content=body,
+                frontmatter=frontmatter,
             )
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error creating note: {e}"

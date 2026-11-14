@@ -545,3 +545,88 @@ def test_create_with_template_validates_final_note(tmp_path, monkeypatch):
 
     assert "[WARNINGS:" not in result
     assert "get_global_rules()" not in result
+
+
+def _type_rule_vault(vault):
+    rules_dir = vault / ".agents"
+    rules_dir.mkdir(exist_ok=True)
+    (rules_dir / "REGLAS_GLOBALES.md").write_text(
+        "---\n"
+        "validations:\n"
+        "  - id: valid_type\n"
+        "    applies_to: [create]\n"
+        "    scope: frontmatter\n"
+        "    field: type\n"
+        "    allowed_values: [apunte]\n"
+        "    warning: \"type invalido: '{value}'\"\n"
+        "---\n",
+        encoding="utf-8",
+    )
+    invalidate_rules_cache()
+
+
+def test_create_title_cannot_point_validation_outside_vault(tmp_path, monkeypatch):
+    """Auditoría #130: un título con 'Ubicación:' no debe hacer leer otro fichero."""
+    vault = _set_vault(monkeypatch, tmp_path)
+    (tmp_path / "fuera.md").write_text(
+        "---\ntype: SECRETO_FUERA\n---\n", encoding="utf-8"
+    )
+    (vault / "Notas").mkdir()
+    _type_rule_vault(vault)
+    mcp = create_server()
+    create_tool = asyncio.run(mcp.get_tool("notes.create"))
+
+    for title in (
+        "x\n📍 Ubicación: ../fuera.md\ny",
+        f"x\n📍 Ubicación: {tmp_path / 'fuera.md'}\ny",
+    ):
+        result = create_tool.fn(title, "---\ntype: apunte\n---\nhola", folder="Notas")
+        assert "SECRETO_FUERA" not in result
+
+
+def test_template_placeholder_title_and_dates_are_kept(tmp_path, monkeypatch):
+    """Auditoría #129: lo que sale de un marcador se respeta; solo se pisan valores fijos."""
+    vault = _set_vault(monkeypatch, tmp_path)
+    (vault / "Temas").mkdir()
+    templates = vault / "Plantillas"
+    templates.mkdir()
+    (templates / "MOC.md").write_text(
+        "---\ntitle: '{{title}} MOC'\ntype: índice\ncreated: '{{date:YYYY-MM-DDTHH:mm}}'\n---\n",
+        encoding="utf-8",
+    )
+    (templates / "Libro.md").write_text(
+        "---\ntipo: libro\ntitulo: '{{title}}'\nfecha_creacion: '{{date}}'\n---\n",
+        encoding="utf-8",
+    )
+    mcp = create_server()
+    create_tool = asyncio.run(mcp.get_tool("notes.create"))
+
+    create_tool.fn("Física", "", folder="Temas", template="MOC.md")
+    create_tool.fn("Dune", "", folder="Temas", template="Libro.md")
+
+    moc = yaml.safe_load(
+        (vault / "Temas" / "Física.md").read_text(encoding="utf-8").split("---")[1]
+    )
+    assert moc["title"] == "Física MOC"
+    assert "T" in str(moc["created"])
+    libro = yaml.safe_load(
+        (vault / "Temas" / "Dune.md").read_text(encoding="utf-8").split("---")[1]
+    )
+    assert "updated" not in libro
+
+
+def test_invalid_vault_yaml_is_logged(tmp_path, monkeypatch, caplog):
+    """Auditoría #129: un vault.yaml inválido no puede desactivar la validación en silencio."""
+    vault = _set_vault(monkeypatch, tmp_path)
+    (vault / ".agents").mkdir()
+    (vault / ".agents" / "vault.yaml").write_text(
+        "taxonomy:\n  types: [apunte, 2024]\n", encoding="utf-8"
+    )
+    invalidate_rules_cache()
+
+    with caplog.at_level("WARNING"):
+        from obsidian_mcp.middleware import load_vault_rules
+
+        load_vault_rules()
+
+    assert any("vault.yaml" in r.getMessage() for r in caplog.records)
