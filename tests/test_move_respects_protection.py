@@ -90,3 +90,15 @@ def test_missing_and_non_file_sources_get_the_same_error(vault):
     assert folder.error.replace("Privado", "X") == missing.error.replace(
         "NoExiste", "X"
     )
+
+
+def test_symlinked_parent_does_not_hide_private_entry(vault):
+    """Revisión de seguridad: Publico/lnk -> Privado; la entrada real vive en Privado/."""
+    (vault / "Publico" / "lnk").symlink_to(vault / "Privado", target_is_directory=True)
+    (vault / "Privado" / "alias.md").symlink_to(vault / "Publico" / "nota.md")
+
+    assert not security.check_path_access("Publico/lnk/alias.md", vault)[0]
+    result = navigation_logic.move_note("Publico/lnk/alias.md", "Publico/fuera.md")
+
+    assert not result.success
+    assert (vault / "Privado" / "alias.md").is_symlink()

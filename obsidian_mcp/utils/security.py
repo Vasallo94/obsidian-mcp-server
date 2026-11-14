@@ -243,10 +243,25 @@ def check_path_access(
     # Privado/ that targets a public note must still count as private, because
     # rename/delete act on the entry itself, not on its target.
     lexical_path = _lexical_relative(candidate, vault_path, resolved_vault)
-    for rel in (relative_path, lexical_path):
+    entry_path = _entry_relative(candidate, resolved_vault)
+    for rel in (relative_path, lexical_path, entry_path):
         if rel is not None and _matching_forbidden_pattern(rel, patterns):
             return False, f"Access denied: cannot {operation} protected paths"
     return True, ""
+
+
+def _entry_relative(candidate: Path, resolved_vault: Path) -> Optional[Path]:
+    """Where the entry itself lives: parent resolved, last component not followed.
+
+    Catches "Publico/lnk/alias.md" when lnk -> Privado: the resolved target and
+    the lexical path both look public, but the entry rename/delete would touch
+    is Privado/alias.md.
+    """
+    try:
+        entry = Path(os.path.normpath(candidate))
+        return (entry.parent.resolve() / entry.name).relative_to(resolved_vault)
+    except (ValueError, OSError):
+        return None
 
 
 def _lexical_relative(
