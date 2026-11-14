@@ -359,10 +359,12 @@ def move_note(  # pylint: disable=too-many-locals,too-many-return-statements
     path_destino = vault_path / destino
 
     if not path_origen.exists():
-        return Result.fail(f"Source file does not exist: {origen}")
+        return Result.fail(f"Source is not an existing file: {origen}")
 
     if not path_origen.is_file():
-        return Result.fail(f"Source is not a file: {origen}")
+        # Same message as a missing source: it must not reveal that a
+        # (possibly private) folder exists.
+        return Result.fail(f"Source is not an existing file: {origen}")
 
     if path_destino.exists():
         return Result.fail(f"Destination file already exists: {destino}")

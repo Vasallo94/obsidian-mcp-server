@@ -53,3 +53,89 @@ def test_normal_move_still_works(vault):
 
     assert result.success, result.error
     assert (vault / "Publico" / "renombrada.md").exists()
+
+
+def test_symlink_inside_private_folder_cannot_be_moved_out(vault):
+    """Un symlink que vive en Privado/ se juzga por su ubicación, no solo por su destino."""
+    (vault / "Privado" / "alias.md").symlink_to(vault / "Publico" / "nota.md")
+
+    result = navigation_logic.move_note("Privado/alias.md", "Publico/alias.md")
+
+    assert not result.success
+    assert (vault / "Privado" / "alias.md").is_symlink()
+
+
+def test_dangling_symlink_inside_private_folder_cannot_be_replaced(vault):
+    (vault / "Privado" / "hueco.md").symlink_to(vault / "Publico" / "no_existe.md")
+
+    result = navigation_logic.move_note("Publico/nota.md", "Privado/hueco.md")
+
+    assert not result.success
+    assert (vault / "Publico" / "nota.md").exists()
+
+
+def test_check_path_access_judges_symlink_location(vault):
+    (vault / "Privado" / "alias.md").symlink_to(vault / "Publico" / "nota.md")
+
+    assert not security.check_path_access("Privado/alias.md", vault)[0]
+    assert security.check_path_access("Publico/nota.md", vault)[0]
+
+
+def test_missing_and_non_file_sources_get_the_same_error(vault):
+    """Sin oráculo: no se distingue si una carpeta (p. ej. Privado) existe."""
+    folder = navigation_logic.move_note("Privado", "Publico/x.md")
+    missing = navigation_logic.move_note("NoExiste", "Publico/x.md")
+
+    assert not folder.success and not missing.success
+    assert folder.error.replace("Privado", "X") == missing.error.replace(
+        "NoExiste", "X"
+    )
+
+
+def test_symlinked_parent_does_not_hide_private_entry(vault):
+    """Revisión de seguridad: Publico/lnk -> Privado; la entrada real vive en Privado/."""
+    (vault / "Publico" / "lnk").symlink_to(vault / "Privado", target_is_directory=True)
+    (vault / "Privado" / "alias.md").symlink_to(vault / "Publico" / "nota.md")
+
+    assert not security.check_path_access("Publico/lnk/alias.md", vault)[0]
+    result = navigation_logic.move_note("Publico/lnk/alias.md", "Publico/fuera.md")
+
+    assert not result.success
+    assert (vault / "Privado" / "alias.md").is_symlink()
+
+
+def test_dotdot_after_symlink_is_resolved_like_the_filesystem(vault):
+    """Revisión de seguridad: 'Publico/lnk/../alias.md' con lnk -> Privado/sub vive en Privado/."""
+    (vault / "Privado" / "sub").mkdir()
+    (vault / "Publico" / "lnk").symlink_to(
+        vault / "Privado" / "sub", target_is_directory=True
+    )
+    (vault / "Privado" / "alias.md").symlink_to(vault / "Publico" / "nota.md")
+
+    assert not security.check_path_access("Publico/lnk/../alias.md", vault)[0]
+
+
+def test_entry_outside_vault_fails_closed(vault, tmp_path):
+    """Revisión de seguridad: si la entrada real cae fuera del vault, se deniega."""
+    outside = tmp_path / "fuera"
+    outside.mkdir()
+    (outside / "f.md").symlink_to(vault / "Publico" / "nota.md")
+    (vault / "Publico" / "out").symlink_to(outside, target_is_directory=True)
+
+    assert not security.check_path_access("Publico/out/f.md", vault)[0]
+    assert security.check_path_access("Publico/nota.md", vault)[0]
+
+
+def test_dotdot_destination_cannot_replace_private_dangling_symlink(vault):
+    """Auditoría #134 (B2): 'Publico/lnk/../dang.md' es Privado/dang.md en disco."""
+    (vault / "Privado" / "sub").mkdir()
+    (vault / "Publico" / "lnk").symlink_to(
+        vault / "Privado" / "sub", target_is_directory=True
+    )
+    (vault / "Privado" / "dang.md").symlink_to(vault / "Publico" / "nuevo.md")
+
+    result = navigation_logic.move_note("Publico/nota.md", "Publico/lnk/../dang.md")
+
+    assert not result.success
+    assert (vault / "Publico" / "nota.md").exists()
+    assert (vault / "Privado" / "dang.md").is_symlink()
