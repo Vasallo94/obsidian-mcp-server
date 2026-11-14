@@ -510,3 +510,38 @@ def test_rules_add_without_confirm_does_not_write(tmp_path, monkeypatch):
 
     assert not (vault / ".agents" / "REGLAS_GLOBALES.md").exists()
     assert "confirm=True" in result
+
+
+def test_create_with_template_validates_final_note(tmp_path, monkeypatch):
+    """type y status que aporta la plantilla cuentan al validar."""
+    vault = _set_vault(monkeypatch, tmp_path)
+    (vault / "Proyectos").mkdir()
+    templates = vault / "Plantillas"
+    templates.mkdir()
+    (templates / "Proyecto.md").write_text(
+        "---\ntitle: '{{title}}'\ntype: proyecto\nstatus: en_proceso\ntags: []\n---\n\n## Objetivo\n",
+        encoding="utf-8",
+    )
+    rules_dir = vault / ".agents"
+    rules_dir.mkdir()
+    (rules_dir / "REGLAS_GLOBALES.md").write_text(
+        "---\n"
+        "validations:\n"
+        "  - id: required_frontmatter\n"
+        "    applies_to: [create]\n"
+        "    scope: frontmatter\n"
+        "    required_fields: [type, status, tags]\n"
+        '    warning: "Frontmatter incompleto: faltan {missing_fields}"\n'
+        "---\n\n# Reglas\n",
+        encoding="utf-8",
+    )
+    invalidate_rules_cache()
+    mcp = create_server()
+    create_tool = asyncio.run(mcp.get_tool("notes.create"))
+
+    result = create_tool.fn(
+        "Mi proyecto", "", folder="Proyectos", tags="ia", template="Proyecto.md"
+    )
+
+    assert "[WARNINGS:" not in result
+    assert "get_global_rules()" not in result

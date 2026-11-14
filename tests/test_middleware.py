@@ -290,7 +290,7 @@ class TestEnrichResponse:
             )
         assert "[WARNINGS:" not in result
         assert "[REGLAS ACTIVAS DEL VAULT]" not in result
-        assert "get_global_rules()" in result
+        assert "rules.get" in result
 
 
 class TestValidateNoteTool:

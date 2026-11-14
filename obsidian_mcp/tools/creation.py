@@ -1,10 +1,12 @@
 """MCP note creation and editing tools."""
 
 import json
+import re
 from time import perf_counter
 
 from fastmcp import FastMCP
 
+from ..config import get_vault_path
 from ..messages import ERRORS
 from ..middleware import enrich_response, invalidate_rules_cache
 from ..models.tool_inputs import EditOperation
@@ -48,6 +50,25 @@ def _extract_fm(content: str) -> dict:
 
     frontmatter, _ = _extract_frontmatter_from_content(content)
     return frontmatter
+
+
+def _written_note_content(result: str, fallback: str) -> str:
+    """Return the text of the note notes.create just wrote, for validation.
+
+    The template supplies type/status/tags, so validating only the caller's
+    ``content`` reports fields as missing that the final note does have.
+    """
+    # ponytail: relies on the "Ubicación: <ruta>" line of the success message;
+    # return the path from create_note_logic if that message ever changes.
+    match = re.search(r"Ubicación: (.+)", result)
+    vault_path = get_vault_path()
+    if not match or vault_path is None:
+        return fallback
+    note = vault_path / match.group(1).strip()
+    try:
+        return note.read_text(encoding="utf-8")
+    except OSError:
+        return fallback
 
 
 def _parse_tags(tags: str) -> list[str]:
@@ -113,12 +134,13 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
                 creator,
                 description,
             ).to_display(success_prefix="OK")
+            written = _written_note_content(result, content)
             return enrich_response(
                 tool_name="notes.create",
                 result=result,
                 title=title,
-                content=content,
-                frontmatter=_extract_fm(content),
+                content=written,
+                frontmatter=_extract_fm(written),
             )
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error creating note: {e}"

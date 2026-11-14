@@ -327,7 +327,7 @@ def enrich_response(
     elif tool_name in CONTENT_CREATION_TOOLS:
         parts.append("---")
         parts.append(
-            "[Reglas del vault activas. Llama a get_global_rules() si necesitas el texto completo.]"
+            "[Reglas del vault activas. Llama a rules.get si necesitas el texto completo.]"
         )
 
     return "\n".join(parts)
