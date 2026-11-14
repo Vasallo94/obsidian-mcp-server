@@ -365,3 +365,60 @@ class TestValidateNoteTool:
         result = validate_note_logic(content="x", mode="totally_invalid")
         assert not result.success
         assert "mode" in result.error
+
+
+TYPE_RULES_FILE = """\
+---
+validations:
+  - id: valid_type
+    applies_to: [create]
+    scope: frontmatter
+    field: type
+{allowed}    warning: "Valor de 'type' invalido: '{{value}}'"
+---
+"""
+
+
+def _vault_with_type_rule(tmp_path, allowed_line, taxonomy_types):
+    agents_dir = tmp_path / ".agents"
+    agents_dir.mkdir()
+    (agents_dir / "REGLAS_GLOBALES.md").write_text(
+        TYPE_RULES_FILE.format(allowed=allowed_line), encoding="utf-8"
+    )
+    if taxonomy_types is not None:
+        (agents_dir / "vault.yaml").write_text(
+            f"taxonomy:\n  types: {taxonomy_types}\n", encoding="utf-8"
+        )
+    return tmp_path
+
+
+class TestTypeVocabularyFromVaultYaml:
+    """El vocabulario de ``type`` vive en vault.yaml; REGLAS no debe duplicarlo."""
+
+    def _rules(self, vault):
+        from obsidian_mcp.vault_config import invalidate_vault_config_cache
+
+        invalidate_rules_cache()
+        invalidate_vault_config_cache()
+        with patch("obsidian_mcp.middleware.get_vault_path", return_value=vault):
+            return load_vault_rules()
+
+    def test_taxonomy_types_override_rules_list(self, tmp_path):
+        vault = _vault_with_type_rule(
+            tmp_path, "    allowed_values: [viejo]\n", "[runbook, apunte]"
+        )
+        rules = self._rules(vault)
+        assert run_validations(rules, "create", frontmatter={"type": "runbook"}) == []
+        assert run_validations(rules, "create", frontmatter={"type": "viejo"})
+
+    def test_rule_without_list_uses_taxonomy(self, tmp_path):
+        vault = _vault_with_type_rule(tmp_path, "", "[runbook]")
+        rules = self._rules(vault)
+        assert run_validations(rules, "create", frontmatter={"type": "runbook"}) == []
+        assert run_validations(rules, "create", frontmatter={"type": "otro"})
+
+    def test_without_taxonomy_keeps_rules_list(self, tmp_path):
+        vault = _vault_with_type_rule(tmp_path, "    allowed_values: [apunte]\n", None)
+        rules = self._rules(vault)
+        assert run_validations(rules, "create", frontmatter={"type": "apunte"}) == []
+        assert run_validations(rules, "create", frontmatter={"type": "runbook"})

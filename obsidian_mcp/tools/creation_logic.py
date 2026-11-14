@@ -857,6 +857,12 @@ def create_note(
                 contenido
             )
             combined_metadata = dict(template_metadata)
+            # La plantilla aporta estructura, no identidad: el título y las
+            # fechas son siempre los reales, aunque la plantilla traiga valores
+            # fijos. El frontmatter explícito del contenido sigue mandando.
+            combined_metadata.update(
+                {"title": titulo, "created": ahora, "updated": ahora}
+            )
             combined_metadata.update(extra_metadata)
 
             contenido_final = _build_frontmatter(

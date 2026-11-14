@@ -15,6 +15,7 @@ import yaml
 
 from .config import get_vault_path
 from .utils import get_logger
+from .vault_config import get_vault_config
 
 logger = get_logger(__name__)
 
@@ -64,8 +65,33 @@ def load_vault_rules(force_reload: bool = False) -> list[dict[str, Any]]:
 
     frontmatter, _ = _read_rules_file()
     validations = frontmatter.get("validations", [])
-    _rules_cache = validations if isinstance(validations, list) else []
+    validations = validations if isinstance(validations, list) else []
+    _rules_cache = _apply_taxonomy_types(validations)
     return _rules_cache
+
+
+def _apply_taxonomy_types(validations: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Make the ``type`` rule validate against ``taxonomy.types`` from vault.yaml.
+
+    vault.yaml is the single source of truth for the type vocabulary; a list
+    in REGLAS_GLOBALES.md is only a fallback for vaults without taxonomy.
+    """
+    vault_path = get_vault_path()
+    if vault_path is None:
+        return validations
+    try:
+        config = get_vault_config(vault_path)
+    except Exception:  # pylint: disable=broad-exception-caught
+        return validations
+    types = config.taxonomy.types if config else []
+    if not types:
+        return validations
+    return [
+        {**rule, "allowed_values": list(types)}
+        if rule.get("scope") == "frontmatter" and rule.get("field") == "type"
+        else rule
+        for rule in validations
+    ]
 
 
 def load_vault_rules_prose(force_reload: bool = False) -> str:
