@@ -66,3 +66,30 @@ def test_pattern_cache_reloads_after_vault_config_invalidation(tmp_path):
 
     patterns = load_forbidden_patterns(vault_path=tmp_path)
     assert "B/*" in patterns and "A/*" not in patterns
+
+
+def test_double_star_does_not_skip_names_with_newlines():
+    """Revisión de seguridad: '.' sin DOTALL dejaba pasar nombres con '\\n'."""
+    assert _match("Diario/a\nb.md", "Diario/**")
+    assert _match("x/Privado/a\nb.md", "**/Privado/*")
+
+
+def test_double_star_keeps_character_classes():
+    """Revisión de seguridad: '[...]' debe seguir siendo una clase, como en fnmatch."""
+    assert _match("x/privado/n.md", "**/[Pp]rivado/*")
+    assert _match("x/Privado/n.md", "**/[Pp]rivado/*")
+
+
+def test_middle_double_star_matches_zero_or_more_folders():
+    assert _match("a/b", "a/**/b")
+    assert _match("a/x/y/b", "a/**/b")
+    assert not _match("a/x/c", "a/**/b")
+
+
+def test_double_star_uses_fnmatch_case_rules():
+    """Misma regla de mayúsculas que el resto de patrones (fnmatch/normcase)."""
+    import fnmatch
+
+    assert _match("x/PRIVADO/n.md", "**/Privado/*") is fnmatch.fnmatch(
+        "PRIVADO/n.md", "Privado/*"
+    )

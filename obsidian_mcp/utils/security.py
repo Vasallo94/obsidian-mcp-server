@@ -8,7 +8,6 @@ proper validation of restricted folder access.
 import fnmatch
 import logging
 import os
-import re
 import unicodedata
 from collections.abc import Iterator
 from pathlib import Path
@@ -80,33 +79,34 @@ def load_forbidden_patterns(
     return patterns
 
 
-def _double_star_regex(pattern: str) -> re.Pattern[str]:
-    """Translate a glob with ``**`` into an anchored regex.
+def _double_star_variants(pattern: str) -> list[str]:
+    """Expand ``**`` segments into plain fnmatch patterns.
 
-    ``Dir/**`` covers Dir and everything below it (the old suffix-only check
-    matched every path in the vault); ``**/Dir/*`` covers Dir at any depth.
-    ``*`` keeps crossing ``/`` as fnmatch does, so nothing that was protected
-    before (e.g. subfolders of Privado) becomes reachable.
+    ``**/`` and ``/**/`` mean "zero or more folders" and ``/**`` at the end
+    means "the folder and everything below". fnmatch's ``*`` already crosses
+    ``/``, so each case becomes the zero-folder variant plus a ``*`` variant.
+    Matching stays in fnmatch, which keeps its character classes, DOTALL and
+    case rules identical to the non-``**`` patterns.
     """
-    out = []
-    i = 0
-    while i < len(pattern):
-        if pattern.startswith("**/", i):
-            out.append("(?:.*/)?")
-            i += 3
-        elif pattern.startswith("/**", i) and i + 3 == len(pattern):
-            out.append("(?:/.*)?")
-            i += 3
-        elif pattern.startswith("**", i) or pattern[i] == "*":
-            out.append(".*")
-            i += 2 if pattern.startswith("**", i) else 1
-        elif pattern[i] == "?":
-            out.append(".")
-            i += 1
+    variants = [pattern]
+    for old, zero, many in (("**/", "", "*/"), ("/**/", "/", "/*/")):
+        expanded = []
+        for v in variants:
+            if old == "**/" and v.startswith(old):
+                rest = v[len(old) :]
+                expanded += [zero + rest, many + rest]
+            elif old == "/**/" and old in v:
+                expanded += [v.replace(old, zero, 1), v.replace(old, many, 1)]
+            else:
+                expanded.append(v)
+        variants = expanded
+    result = []
+    for v in variants:
+        if v.endswith("/**"):
+            result += [v[: -len("/**")], v[: -len("**")] + "*"]
         else:
-            out.append(re.escape(pattern[i]))
-            i += 1
-    return re.compile("".join(out))
+            result.append(v)
+    return result
 
 
 def invalidate_forbidden_patterns_cache() -> None:
@@ -124,7 +124,9 @@ def _matching_forbidden_pattern(relative_path: Path, patterns: List[str]) -> str
     for original_pattern in patterns:
         pattern = unicodedata.normalize("NFC", original_pattern.replace("\\", "/"))
         if "**" in pattern:
-            if _double_star_regex(pattern).fullmatch(relative_str):
+            if any(
+                fnmatch.fnmatch(relative_str, v) for v in _double_star_variants(pattern)
+            ):
                 return original_pattern
         elif fnmatch.fnmatch(relative_str, pattern):
             return original_pattern
