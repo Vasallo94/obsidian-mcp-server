@@ -668,3 +668,23 @@ def test_failed_create_has_no_validation_noise(tmp_path, monkeypatch):
     result = create_tool.fn("Ya", "---\ntype: otro\n---\n", folder="Notas")
 
     assert "[WARNINGS:" not in result
+
+
+def test_template_without_trailing_newline_keeps_placeholder(tmp_path, monkeypatch):
+    """Auditoría #130 (r3): plantilla que acaba en '---' sin salto de línea."""
+    vault = _set_vault(monkeypatch, tmp_path)
+    (vault / "Notas").mkdir()
+    templates = vault / "Plantillas"
+    templates.mkdir()
+    (templates / "Año.md").write_text(
+        "---\ntitle: X\ncreated: '{{date:YYYY}}'\n---", encoding="utf-8"
+    )
+    mcp = create_server()
+    create_tool = asyncio.run(mcp.get_tool("notes.create"))
+
+    create_tool.fn("Real", "", folder="Notas", template="Año.md")
+
+    fm = yaml.safe_load(
+        (vault / "Notas" / "Real.md").read_text(encoding="utf-8").split("---")[1]
+    )
+    assert len(str(fm["created"])) == 4

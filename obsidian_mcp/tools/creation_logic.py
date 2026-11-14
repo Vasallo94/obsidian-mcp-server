@@ -885,7 +885,9 @@ def create_note_with_content(
             # Los marcadores se buscan solo en el frontmatter de la plantilla.
             # ponytail: solo reconoce `clave: valor` en una línea; una clave
             # entre comillas o un valor plegado (`title: >-`) cuenta como fijo.
-            raw_fm = _FRONTMATTER_BLOCK_RE.match(plantilla_raw)
+            raw_fm = _FRONTMATTER_BLOCK_RE.match(
+                plantilla_raw + "\n"
+            )  # plantilla sin salto final
             raw_fm_text = raw_fm.group(2) if raw_fm else ""
             for key, real in (
                 ("title", titulo),
