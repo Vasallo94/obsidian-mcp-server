@@ -9,10 +9,9 @@ from ..messages import ERRORS
 from ..middleware import enrich_response, invalidate_rules_cache
 from ..models.tool_inputs import EditOperation
 from .creation_logic import (
-    append_to_note as append_to_note_logic,
-)
-from .creation_logic import (
+    _extract_frontmatter_from_content,
     append_to_section,
+    create_note_with_content,
     edit_note,
     get_frontmatter_logic,
     inbox_capture_frontmatter,
@@ -23,7 +22,7 @@ from .creation_logic import (
     update_frontmatter_logic,
 )
 from .creation_logic import (
-    create_note as create_note_logic,
+    append_to_note as append_to_note_logic,
 )
 from .creation_logic import (
     delete_note as delete_note_logic,
@@ -40,14 +39,6 @@ from .registry import register_tool
 def _with_duration(result: str, started_at: float) -> str:
     """Append elapsed time context for synchronous write operations."""
     return f"{result}\n- Duración: {perf_counter() - started_at:.2f}s"
-
-
-def _extract_fm(content: str) -> dict:
-    """Extract frontmatter dict from content for middleware validation."""
-    from .creation_logic import _extract_frontmatter_from_content
-
-    frontmatter, _ = _extract_frontmatter_from_content(content)
-    return frontmatter
 
 
 def _parse_tags(tags: str) -> list[str]:
@@ -104,7 +95,7 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
             description: Short description for template placeholders.
         """
         try:
-            result = create_note_logic(
+            outcome, written = create_note_with_content(
                 title,
                 content,
                 folder,
@@ -112,13 +103,20 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
                 template,
                 creator,
                 description,
-            ).to_display(success_prefix="OK")
+            )
+            result = outcome.to_display(success_prefix="OK")
+            if written is None:
+                return result  # nothing was written: nothing to validate
+            # Validate the note as written (template fields and the auto-added
+            # "# title" heading included), not the caller's input. Body and
+            # heading rules see the body only, not the frontmatter.
+            frontmatter, body = _extract_frontmatter_from_content(written)
             return enrich_response(
                 tool_name="notes.create",
                 result=result,
                 title=title,
-                content=content,
-                frontmatter=_extract_fm(content),
+                content=body,
+                frontmatter=frontmatter,
             )
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error creating note: {e}"

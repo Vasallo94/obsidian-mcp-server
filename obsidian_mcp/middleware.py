@@ -15,7 +15,7 @@ import yaml
 
 from .config import get_vault_path
 from .utils import get_logger
-from .vault_config import get_vault_config
+from .vault_config import get_vault_config, invalidate_vault_config_cache
 
 logger = get_logger(__name__)
 
@@ -106,10 +106,15 @@ def load_vault_rules_prose(force_reload: bool = False) -> str:
 
 
 def invalidate_rules_cache() -> None:
-    """Invalidate both caches. Called when REGLAS_GLOBALES.md is edited."""
+    """Invalidate the rules caches and the vault config they depend on.
+
+    The type rule is built from vault.yaml, so both must be dropped together
+    or the rules keep a stale type list.
+    """
     global _rules_cache, _prose_cache  # pylint: disable=global-statement
     _rules_cache = None
     _prose_cache = None
+    invalidate_vault_config_cache()
 
 
 # --- Validation Engine ---
@@ -327,7 +332,7 @@ def enrich_response(
     elif tool_name in CONTENT_CREATION_TOOLS:
         parts.append("---")
         parts.append(
-            "[Reglas del vault activas. Llama a get_global_rules() si necesitas el texto completo.]"
+            "[Reglas del vault activas. Llama a rules.get si necesitas el texto completo.]"
         )
 
     return "\n".join(parts)

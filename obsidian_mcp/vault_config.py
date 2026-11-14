@@ -14,12 +14,15 @@ Usage:
 
 from __future__ import annotations
 
+import logging
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Optional
 
 import yaml
 from pydantic import BaseModel, Field
+
+logger = logging.getLogger(__name__)
 
 # Default excluded folders for semantic search
 DEFAULT_EXCLUDED_FOLDERS: tuple[str, ...] = (
@@ -140,11 +143,15 @@ def _load_vault_config_cached(vault_path_str: str) -> Optional[VaultConfig]:
             data = yaml.safe_load(f)
 
         if not isinstance(data, dict):
+            logger.warning("Ignoring %s: top level is not a mapping", config_path)
             return None
 
         return VaultConfig(**data)
 
-    except (OSError, ValueError, yaml.YAMLError):
+    except (OSError, ValueError, yaml.YAMLError) as e:
+        # Loud on purpose: an invalid vault.yaml silently disables taxonomy
+        # (type validation included), templates_folder and private_paths.
+        logger.warning("Ignoring invalid %s: %s", config_path, e)
         return None
 
 

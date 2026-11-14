@@ -727,8 +727,24 @@ def create_note(
     agente_creador: str = "",
     descripcion: str = "",
 ) -> Result[str]:
+    # pylint: disable=too-many-positional-arguments
+    """Create a new note in the vault. See ``create_note_with_content``."""
+    return create_note_with_content(
+        titulo, contenido, carpeta, etiquetas, plantilla, agente_creador, descripcion
+    )[0]
+
+
+def create_note_with_content(
+    titulo: str,
+    contenido: str,
+    carpeta: str = "",
+    etiquetas: str = "",
+    plantilla: str = "",
+    agente_creador: str = "",
+    descripcion: str = "",
+) -> tuple[Result[str], str | None]:
     # pylint: disable=too-many-branches,too-many-statements,too-many-locals,too-many-positional-arguments
-    """Create a new note in the vault.
+    """Create a new note in the vault and return the text written to disk.
 
     Args:
         titulo: Title of the note.
@@ -740,11 +756,13 @@ def create_note(
         descripcion: Brief description for placeholders.
 
     Returns:
-        Result with success message or error.
+        (Result with success message or error, final note text or None on
+        failure). The text lets callers validate the note as written without
+        re-reading the file or parsing paths out of the display message.
     """
     vault_path = get_vault_path()
     if not vault_path:
-        return Result.fail("La ruta del vault no está configurada.")
+        return Result.fail("La ruta del vault no está configurada."), None
 
     # Preparar nombre de archivo
     nombre_archivo = sanitize_filename(titulo)
@@ -770,14 +788,14 @@ def create_note(
     # Validate before mkdir so rejected paths cannot mutate the filesystem.
     resolved_note, error = resolve_vault_path(nota_path, vault_path, "crear nota en")
     if resolved_note is None:
-        return Result.fail(error)
+        return Result.fail(error), None
     nota_path = resolved_note
     carpeta_path = nota_path.parent
     carpeta_path.mkdir(parents=True, exist_ok=True)
 
     # Verificar si ya existe
     if nota_path.exists():
-        return Result.fail(f"Ya existe una nota con el nombre '{nombre_archivo}'")
+        return Result.fail(f"Ya existe una nota con el nombre '{nombre_archivo}'"), None
 
     # Preparar contenido final
     contenido_final = ""
@@ -805,7 +823,7 @@ def create_note(
                 "```yaml\n"
                 'templates_folder: "TuCarpetaDePlantillas"\n'
                 "```"
-            )
+            ), None
 
         plantilla_path = vault_path / templates_folder / plantilla
         if not plantilla.endswith(".md"):
@@ -814,12 +832,13 @@ def create_note(
             plantilla_path, vault_path, "read template from"
         )
         if resolved_template is None:
-            return Result.fail(error)
+            return Result.fail(error), None
         plantilla_path = resolved_template
 
         if plantilla_path.exists():
             with open(plantilla_path, "r", encoding="utf-8") as f:
                 plantilla_content = f.read()
+            plantilla_raw = plantilla_content
 
             # Reemplazos de título
             plantilla_content = plantilla_content.replace("{{title}}", titulo)
@@ -857,12 +876,28 @@ def create_note(
                 contenido
             )
             combined_metadata = dict(template_metadata)
-            # La plantilla aporta estructura, no identidad: el título y las
-            # fechas son siempre los reales, aunque la plantilla traiga valores
-            # fijos. El frontmatter explícito del contenido sigue mandando.
-            combined_metadata.update(
-                {"title": titulo, "created": ahora, "updated": ahora}
-            )
+            # La plantilla aporta estructura, no identidad: un título o una
+            # fecha escritos a fuego en la plantilla se sustituyen por los
+            # reales. Si el campo venía de un marcador ({{title}} MOC,
+            # {{date:...}}) se respeta lo que produjo. Si la plantilla no trae
+            # `updated`, no se añade; `title` y `created` los rellena siempre
+            # _build_frontmatter. El frontmatter del contenido sigue mandando.
+            # Los marcadores se buscan solo en el frontmatter de la plantilla.
+            # ponytail: solo reconoce `clave: valor` en una línea; una clave
+            # entre comillas o un valor plegado (`title: >-`) cuenta como fijo.
+            raw_fm = _FRONTMATTER_BLOCK_RE.match(
+                plantilla_raw + "\n"
+            )  # plantilla sin salto final
+            raw_fm_text = raw_fm.group(2) if raw_fm else ""
+            for key, real in (
+                ("title", titulo),
+                ("created", ahora),
+                ("updated", ahora),
+            ):
+                if key in template_metadata and not re.search(
+                    rf"^{key}:.*\{{\{{", raw_fm_text, re.MULTILINE
+                ):
+                    combined_metadata[key] = real
             combined_metadata.update(extra_metadata)
 
             contenido_final = _build_frontmatter(
@@ -881,7 +916,7 @@ def create_note(
                 else:
                     contenido_final += f"\n\n{contenido_limpio}"
         else:
-            return Result.fail(f"No se encontró la plantilla '{plantilla}'")
+            return Result.fail(f"No se encontró la plantilla '{plantilla}'"), None
     else:
         # Sin plantilla: detectar si el contenido ya tiene frontmatter
         # Extraer frontmatter del contenido si existe
@@ -918,7 +953,7 @@ def create_note(
     if agente_creador:
         resultado += f"🤖 Agente: {agente_creador}\n"
 
-    return Result.ok(resultado)
+    return Result.ok(resultado), contenido_final
 
 
 def list_templates() -> Result[str]:
