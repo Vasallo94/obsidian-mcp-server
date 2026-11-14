@@ -96,7 +96,20 @@ def _double_star_variants(pattern: str) -> list[str]:
                 rest = v[len(old) :]
                 expanded += [zero + rest, many + rest]
             elif old == "/**/" and old in v:
-                expanded += [v.replace(old, zero, 1), v.replace(old, many, 1)]
+                # Expand every occurrence, not just the first: a leftover
+                # "/**/" would demand at least one folder (fail-open).
+                pending = [v]
+                while any(old in w for w in pending):
+                    pending = [
+                        x
+                        for w in pending
+                        for x in (
+                            (w.replace(old, zero, 1), w.replace(old, many, 1))
+                            if old in w
+                            else (w,)
+                        )
+                    ]
+                expanded += pending
             else:
                 expanded.append(v)
         variants = expanded

@@ -93,3 +93,14 @@ def test_double_star_uses_fnmatch_case_rules():
     assert _match("x/PRIVADO/n.md", "**/Privado/*") is fnmatch.fnmatch(
         "PRIVADO/n.md", "Privado/*"
     )
+
+
+@pytest.mark.parametrize("path", ["a/b/c", "a/x/b/c", "a/b/y/c", "a/x/b/y/c"])
+def test_every_middle_double_star_matches_zero_or_more_folders(path):
+    """Revisión de seguridad: todos los '/**/' se expanden, no solo el primero."""
+    assert _match(path, "a/**/b/**/c")
+
+
+def test_leading_and_middle_double_star_together():
+    assert _match("b/c", "**/b/**/c")
+    assert _match("x/b/y/c", "**/b/**/c")
