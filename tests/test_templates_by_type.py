@@ -250,3 +250,184 @@ def test_empty_types_key_keeps_config(vault):
 
     config = get_vault_config(vault)
     assert config is not None and config.private_paths == ["X/*"]
+
+
+def _body(path):
+    return path.read_text(encoding="utf-8").split("---", 2)[2]
+
+
+def test_plain_content_goes_after_title_before_skeleton(vault):
+    (vault / "Plantillas" / "Runbook.md").write_text(
+        "---\ntype: runbook\n---\n# {{title}}\n\n## Contexto\n\n## Incidentes\n",
+        encoding="utf-8",
+    )
+    _tool("notes.create")("Backup", "Resumen rápido.", note_type="runbook")
+
+    body = _body(vault / "Sistemas" / "Backup.md")
+    assert (
+        body.index("# Backup")
+        < body.index("Resumen rápido.")
+        < body.index("## Contexto")
+    )
+    assert "## Incidentes" in body
+
+
+def test_content_section_fills_matching_template_section(vault):
+    (vault / "Plantillas" / "Runbook.md").write_text(
+        "---\ntype: runbook\n---\n# {{title}}\n\n## Contexto\n\nGuía.\n\n"
+        "## Incidentes\n\n[[Home|Volver]]\n",
+        encoding="utf-8",
+    )
+    _tool("notes.create")(
+        "Backup", "## Contexto\n\nNAS en casa.\n", note_type="runbook"
+    )
+
+    body = _body(vault / "Sistemas" / "Backup.md")
+    assert body.count("## Contexto") == 1 and "Guía." not in body
+    assert (
+        body.index("# Backup")
+        < body.index("NAS en casa.")
+        < body.index("## Incidentes")
+    )
+    assert "[[Home|Volver]]" in body
+
+
+def test_content_with_only_h1_keeps_skeleton(vault):
+    _tool("notes.create")("Backup", "# Mi título\n\nResumen.", note_type="runbook")
+
+    body = _body(vault / "Sistemas" / "Backup.md")
+    assert body.count("\n# ") + body.startswith("# ") == 1
+    assert (
+        body.index("# Mi título") < body.index("Resumen.") < body.index("## Contexto")
+    )
+
+
+def test_template_intro_without_title_is_kept(vault):
+    (vault / "Plantillas" / "Runbook.md").write_text(
+        "---\ntype: runbook\n---\n> la cita\n\n## Contexto\n", encoding="utf-8"
+    )
+    _tool("notes.create")("Cita", "## Contexto\n\nDicho en 1900", note_type="runbook")
+
+    body = _body(vault / "Sistemas" / "Cita.md")
+    assert body.index("> la cita") < body.index("Dicho en 1900")
+
+
+def test_new_sections_go_above_template_sections(vault):
+    _tool("notes.create")("Backup", "## Pasos\n\n1. uno", note_type="runbook")
+
+    body = _body(vault / "Sistemas" / "Backup.md")
+    assert body.index("## Pasos") < body.index("## Contexto")
+
+
+def test_content_indentation_is_kept(vault):
+    _tool("notes.create")("Backup", "    sudo reboot\n    uptime", note_type="runbook")
+
+    assert "    sudo reboot\n    uptime" in _body(vault / "Sistemas" / "Backup.md")
+
+
+def test_longer_fence_hides_inner_heading(vault):
+    content = "````md\n```\n## Contexto\n```\n````\ntexto"
+    _tool("notes.create")("Backup", content, note_type="runbook")
+
+    body = _body(vault / "Sistemas" / "Backup.md")
+    assert body.count("## Contexto") == 2  # the template's and the one in code
+
+
+def test_skeleton_without_h1_gets_plain_content_first(vault):
+    _tool("notes.create")("Backup", "Resumen.", note_type="runbook")
+
+    body = _body(vault / "Sistemas" / "Backup.md")
+    assert body.index("Resumen.") < body.index("## Contexto")
+
+
+def test_code_block_hash_is_not_a_heading(vault):
+    _tool("notes.create")(
+        "Backup", "```bash\n# comentario\nls\n```", note_type="runbook"
+    )
+
+    body = _body(vault / "Sistemas" / "Backup.md")
+    assert "## Contexto" in body
+
+
+CONCEPTO = "---\ntype: runbook\n---\n# {{title}}\n\n## Definición\n\n## Ejemplo\n\n## Relacionado\n"
+
+
+def _concepto(vault, content):
+    (vault / "Plantillas" / "Runbook.md").write_text(CONCEPTO, encoding="utf-8")
+    _tool("notes.create")("C", content, note_type="runbook")
+    return _body(vault / "Sistemas" / "C.md")
+
+
+def test_subsections_stay_with_their_parent(vault):
+    body = _concepto(vault, "## Definición\nd\n### Detalle\nx\n## Ejemplo\ne")
+    assert (
+        body.index("## Definición")
+        < body.index("### Detalle")
+        < body.index("## Ejemplo")
+    )
+    assert body.count("## Ejemplo") == 1
+
+
+def test_template_subsections_go_with_replaced_section(vault):
+    (vault / "Plantillas" / "Runbook.md").write_text(
+        "---\ntype: runbook\n---\n# T\n\n## A\nguía\n### A1\nguía A1\n## B\n",
+        encoding="utf-8",
+    )
+    _tool("notes.create")("C", "## A\nmío", note_type="runbook")
+    body = _body(vault / "Sistemas" / "C.md")
+    assert "guía" not in body and "## B" in body
+
+
+def test_h1_after_text_is_not_the_title(vault):
+    body = _concepto(vault, "Pensamiento\n# Idea grande\ndetalle")
+    assert body.index("# C") < body.index("Pensamiento") < body.index("# Idea grande")
+
+
+def test_duplicate_content_sections_keep_order(vault):
+    body = _concepto(vault, "## Definición\nprimera\n## Definición\nsegunda")
+    assert body.index("primera") < body.index("segunda") < body.index("## Ejemplo")
+
+
+def test_comment_or_open_fence_is_appended_not_merged(vault):
+    body = _concepto(vault, "<!--\n## Ejemplo\nborrador\n-->\nok")
+    assert body.index("## Relacionado") < body.index("<!--")
+
+
+def test_code_span_is_not_a_fence(vault):
+    body = _concepto(vault, "## Definición\n```npm i```\n## Ejemplo\ne")
+    assert body.count("## Ejemplo") == 1
+
+
+def test_closing_hashes_match_template_heading(vault):
+    body = _concepto(vault, "## Definición ##\nd")
+    assert body.count("Definición") == 1
+
+
+def test_new_section_follows_preceding_matched_section(vault):
+    body = _concepto(vault, "## Definición\nd\n## Nueva\nn\n## Relacionado\nr")
+    assert (
+        body.index("## Definición")
+        < body.index("## Nueva")
+        < body.index("## Ejemplo")
+        < body.index("## Relacionado")
+    )
+
+
+def test_details_block_is_appended_not_merged(vault):
+    body = _concepto(vault, "<details>\n\n## Ejemplo\ne\n\n</details>")
+    assert body.index("## Relacionado") < body.index("<details>")
+
+
+def test_heading_colon_and_bold_still_match(vault):
+    body = _concepto(vault, "## Definición:\nd\n## **Ejemplo**\ne")
+    assert body.count("Definición") == 1 and body.count("Ejemplo") == 1
+
+
+def test_long_space_run_in_heading_is_fast():
+    import time
+
+    from obsidian_mcp.tools.creation_logic import _split_markdown
+
+    start = time.monotonic()
+    _split_markdown("# a" + " " * 50000 + "b")
+    assert time.monotonic() - start < 1
