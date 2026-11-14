@@ -242,6 +242,37 @@ def _extract_frontmatter_from_content(contenido: str) -> tuple[dict[str, Any], s
         return {}, contenido
 
 
+_FENCE_RE = re.compile(r"^(```|~~~).*?^\1", re.MULTILINE | re.DOTALL)
+_HEADING_RE = re.compile(r"^#{1,6}\s", re.MULTILINE)
+_H1_RE = re.compile(r"^# .*$", re.MULTILINE)
+
+
+def _place_content(template_body: str, content: str) -> str:
+    """Return the note body with the caller's content placed in the template.
+
+    Content with its own headings is the whole note: it replaces the
+    template's empty sections, keeping the template's H1 unless the content
+    brings one. Plain content goes right under the template's H1 (or first),
+    above the sections still to fill. Headings inside code fences don't count.
+    """
+    content = content.strip()
+    if not content:
+        return template_body
+    # ponytail: the template's H1 is looked up without skipping code fences;
+    # templates are vault-owned and none opens a fence before its title.
+    h1 = _H1_RE.search(template_body)
+    prose = _FENCE_RE.sub("", content)
+    if _HEADING_RE.search(prose):
+        if h1 is None or _H1_RE.search(prose):
+            return f"{content}\n"
+        return f"{h1.group(0)}\n\n{content}\n"
+    if h1 is None:
+        return f"{content}\n\n{template_body}"
+    head = template_body[: h1.end()]
+    tail = template_body[h1.end() :].strip("\n")
+    return f"{head}\n\n{content}\n\n{tail}\n" if tail else f"{head}\n\n{content}\n"
+
+
 def _build_frontmatter(
     titulo: str,
     ahora: str,
@@ -981,14 +1012,7 @@ def create_note_with_content(
                 agente_creador=agente_creador,
                 extra_metadata=combined_metadata if combined_metadata else None,
             )
-            contenido_final += template_body
-
-            # Si hay contenido adicional, añadirlo al final
-            if contenido:
-                if contenido_final.endswith("\n\n"):
-                    contenido_final += contenido_limpio
-                else:
-                    contenido_final += f"\n\n{contenido_limpio}"
+            contenido_final += _place_content(template_body, contenido_limpio)
         else:
             return Result.fail(f"No se encontró la plantilla '{plantilla}'"), None
     else:

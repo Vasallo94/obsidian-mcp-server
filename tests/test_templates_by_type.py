@@ -250,3 +250,61 @@ def test_empty_types_key_keeps_config(vault):
 
     config = get_vault_config(vault)
     assert config is not None and config.private_paths == ["X/*"]
+
+
+def _body(path):
+    return path.read_text(encoding="utf-8").split("---", 2)[2]
+
+
+def test_plain_content_goes_after_title_before_skeleton(vault):
+    (vault / "Plantillas" / "Runbook.md").write_text(
+        "---\ntype: runbook\n---\n# {{title}}\n\n## Contexto\n\n## Incidentes\n",
+        encoding="utf-8",
+    )
+    _tool("notes.create")("Backup", "Resumen rápido.", note_type="runbook")
+
+    body = _body(vault / "Sistemas" / "Backup.md")
+    assert (
+        body.index("# Backup")
+        < body.index("Resumen rápido.")
+        < body.index("## Contexto")
+    )
+    assert "## Incidentes" in body
+
+
+def test_content_with_headings_replaces_skeleton(vault):
+    (vault / "Plantillas" / "Runbook.md").write_text(
+        "---\ntype: runbook\n---\n# {{title}}\n\n## Contexto\n\n## Incidentes\n",
+        encoding="utf-8",
+    )
+    _tool("notes.create")(
+        "Backup", "## Contexto\n\nNAS en casa.\n", note_type="runbook"
+    )
+
+    body = _body(vault / "Sistemas" / "Backup.md")
+    assert body.count("## Contexto") == 1
+    assert "## Incidentes" not in body
+    assert body.index("# Backup") < body.index("NAS en casa.")
+
+
+def test_content_with_own_h1_keeps_it(vault):
+    _tool("notes.create")("Backup", "# Mi título\n\n## Pasos\n", note_type="runbook")
+
+    body = _body(vault / "Sistemas" / "Backup.md")
+    assert "# Mi título" in body and "## Contexto" not in body
+
+
+def test_skeleton_without_h1_gets_plain_content_first(vault):
+    _tool("notes.create")("Backup", "Resumen.", note_type="runbook")
+
+    body = _body(vault / "Sistemas" / "Backup.md")
+    assert body.index("Resumen.") < body.index("## Contexto")
+
+
+def test_code_block_hash_is_not_a_heading(vault):
+    _tool("notes.create")(
+        "Backup", "```bash\n# comentario\nls\n```", note_type="runbook"
+    )
+
+    body = _body(vault / "Sistemas" / "Backup.md")
+    assert "## Contexto" in body
