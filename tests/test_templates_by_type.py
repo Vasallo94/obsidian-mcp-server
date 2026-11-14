@@ -483,3 +483,34 @@ def test_client_name_comes_from_mcp_handshake(vault):
 
     asyncio.run(run())
     assert _fm(vault / "Sistemas" / "Backup.md")["agente_creador"] == "Claude Code"
+
+
+def test_content_frontmatter_creator_beats_client_name(vault, monkeypatch):
+    from obsidian_mcp.tools import creation
+
+    monkeypatch.setattr(creation, "_client_name", lambda: "claude-code")
+    content = "---\nagente_creador: investigador\n---\nhola"
+    _tool("notes.create")("Backup", content, note_type="runbook")
+
+    assert _fm(vault / "Sistemas" / "Backup.md")["agente_creador"] == "investigador"
+
+
+def test_unnamed_sdk_client_does_not_sign(vault):
+    from fastmcp import Client
+
+    async def run():
+        async with Client(create_server()) as client:  # SDK default name "mcp"
+            await client.call_tool(
+                "notes.create",
+                {"title": "Backup", "content": "", "note_type": "runbook"},
+            )
+
+    asyncio.run(run())
+    assert "agente_creador" not in _fm(vault / "Sistemas" / "Backup.md")
+
+
+def test_agent_name_is_sanitised_and_capped():
+    from obsidian_mcp.tools.creation_logic import normalize_agent_name
+
+    assert normalize_agent_name("a\x1b[31mb\x00c") == "a[31mbc"
+    assert len(normalize_agent_name("x" * 10_000)) == 64

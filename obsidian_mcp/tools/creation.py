@@ -42,9 +42,11 @@ def _client_name() -> str:
     """Name the connected MCP client gives in its handshake, or ""."""
     try:
         params = get_context().session.client_params
-        return (params.clientInfo.name or "") if params else ""
+        name = (params.clientInfo.name or "") if params else ""
     except Exception:  # pylint: disable=broad-exception-caught
         return ""  # outside a request (tests, scripts) or no clientInfo
+    # "mcp" is the Python SDK's default when a client doesn't name itself.
+    return "" if name == "mcp" else name
 
 
 def _with_duration(result: str, started_at: float) -> str:
@@ -124,6 +126,13 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
             description: Short description for template placeholders.
             note_type: Note type from vault.yaml; picks template and folder.
         """
+        # The client's name is only a default: an `agente_creador` written in
+        # the content's frontmatter (a skill or persona signing) is kept.
+        if (
+            not creator
+            and "agente_creador" not in (_extract_frontmatter_from_content(content)[0])
+        ):
+            creator = _client_name()
         try:
             outcome, written = create_note_with_content(
                 title,
@@ -131,7 +140,7 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
                 folder,
                 tags,
                 template,
-                normalize_agent_name(creator or _client_name()),
+                normalize_agent_name(creator),
                 description,
                 tipo=note_type,
             )

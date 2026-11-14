@@ -348,8 +348,12 @@ _AGENT_ALIASES = {
 
 
 def normalize_agent_name(name: str) -> str:
-    """Return the canonical agent name for ``agente_creador``."""
-    name = " ".join(name.split())
+    """Return the canonical agent name for ``agente_creador``.
+
+    Non-printable characters are dropped and the result is capped at 64
+    characters: the client's name reaches the note without the agent typing it.
+    """
+    name = " ".join("".join(c for c in name if c.isprintable()).split())[:64]
     key = " ".join(re.sub(r"[-_]", " ", name).casefold().split())
     return _AGENT_ALIASES.get(key, name)
 
