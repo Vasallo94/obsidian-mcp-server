@@ -8,6 +8,8 @@ proper validation of restricted folder access.
 import fnmatch
 import logging
 import os
+import re
+import unicodedata
 from collections.abc import Iterator
 from pathlib import Path
 from typing import List, Optional, Tuple
@@ -78,19 +80,52 @@ def load_forbidden_patterns(
     return patterns
 
 
+def _double_star_regex(pattern: str) -> re.Pattern[str]:
+    """Translate a glob with ``**`` into an anchored regex.
+
+    ``Dir/**`` covers Dir and everything below it (the old suffix-only check
+    matched every path in the vault); ``**/Dir/*`` covers Dir at any depth.
+    ``*`` keeps crossing ``/`` as fnmatch does, so nothing that was protected
+    before (e.g. subfolders of Privado) becomes reachable.
+    """
+    out = []
+    i = 0
+    while i < len(pattern):
+        if pattern.startswith("**/", i):
+            out.append("(?:.*/)?")
+            i += 3
+        elif pattern.startswith("/**", i) and i + 3 == len(pattern):
+            out.append("(?:/.*)?")
+            i += 3
+        elif pattern.startswith("**", i) or pattern[i] == "*":
+            out.append(".*")
+            i += 2 if pattern.startswith("**", i) else 1
+        elif pattern[i] == "?":
+            out.append(".")
+            i += 1
+        else:
+            out.append(re.escape(pattern[i]))
+            i += 1
+    return re.compile("".join(out))
+
+
+def invalidate_forbidden_patterns_cache() -> None:
+    """Drop the cached protection patterns (e.g. after vault.yaml changes)."""
+    global _forbidden_patterns, _forbidden_patterns_vault  # pylint: disable=global-statement
+    _forbidden_patterns = None
+    _forbidden_patterns_vault = None
+
+
 def _matching_forbidden_pattern(relative_path: Path, patterns: List[str]) -> str:
     """Return the first forbidden pattern matching a normalized vault path."""
-    relative_str = relative_path.as_posix()
+    # NFC on both sides: APFS keeps file names as written (often NFD) while
+    # vault.yaml patterns are usually NFC.
+    relative_str = unicodedata.normalize("NFC", relative_path.as_posix())
     for original_pattern in patterns:
-        pattern = original_pattern.replace("\\", "/")
+        pattern = unicodedata.normalize("NFC", original_pattern.replace("\\", "/"))
         if "**" in pattern:
-            parts = pattern.split("**")
-            if len(parts) == 2:
-                suffix = parts[1].lstrip("/")
-                if fnmatch.fnmatch(relative_str, f"*{suffix}") or fnmatch.fnmatch(
-                    relative_path.name, suffix.lstrip("*")
-                ):
-                    return original_pattern
+            if _double_star_regex(pattern).fullmatch(relative_str):
+                return original_pattern
         elif fnmatch.fnmatch(relative_str, pattern):
             return original_pattern
         elif not any(char in pattern for char in "*?[") and relative_str.startswith(
