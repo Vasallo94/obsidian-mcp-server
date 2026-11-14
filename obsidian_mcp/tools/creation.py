@@ -74,8 +74,16 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
         template: str = "",
         creator: str = "",
         description: str = "",
+        note_type: str = "",
     ) -> str:
         """Create a new Markdown note in the vault.
+
+        Prefer `note_type` (e.g. "runbook", "apunte"): it applies the vault's
+        template for that type and its default folder (see templates.list) and
+        sets `type` in the frontmatter. If the type is filed by topic or
+        project, pass `folder` with a subfolder of the type's base folder;
+        without it the call fails and lists the options. `note_type` wins over
+        the `type` of the template and of the frontmatter in `content`.
 
         Paths are vault-relative. `folder` is a path relative to the vault root
         (e.g. "Projects/AFP"); missing parent folders are created automatically.
@@ -93,6 +101,7 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
             template: Template file name to apply.
             creator: Name of the creating agent.
             description: Short description for template placeholders.
+            note_type: Note type from vault.yaml; picks template and folder.
         """
         try:
             outcome, written = create_note_with_content(
@@ -103,6 +112,7 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
                 template,
                 creator,
                 description,
+                tipo=note_type,
             )
             result = outcome.to_display(success_prefix="OK")
             if written is None:

@@ -15,12 +15,13 @@ Usage:
 from __future__ import annotations
 
 import logging
+import unicodedata
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Optional
 
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError, field_validator
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +77,22 @@ class VaultProfileConfig(BaseModel):
     )
 
 
+def nfc(text: str) -> str:
+    """Return ``text`` in Unicode NFC form."""
+    return unicodedata.normalize("NFC", text)
+
+
+class TemplateSpec(BaseModel):
+    """Default template and folder for one note type."""
+
+    template: str = Field(description="Template file inside templates_folder")
+    folder: str = Field(default="", description="Default (base) folder for the type")
+    choose_subfolder: bool = Field(
+        default=False,
+        description="The folder is organised by topic/project: a subfolder must be chosen",
+    )
+
+
 class VaultTaxonomy(BaseModel):
     """
     Declarative description of how this vault is organised.
@@ -94,6 +111,46 @@ class VaultTaxonomy(BaseModel):
         default_factory=list,
         description="Valid frontmatter 'type' values for this vault",
     )
+    templates: dict[str, TemplateSpec] = Field(
+        default_factory=dict,
+        description="Note type to default template and folder",
+    )
+
+    @field_validator("types", mode="before")
+    @classmethod
+    def _normalise_types(cls, value: Any) -> Any:
+        """NFC-normalise type names (macOS file names and YAML may use NFD).
+
+        An empty ``types:`` key parses as None; treat it as no list instead of
+        invalidating the whole VaultConfig (and with it private_paths).
+        """
+        if value is None:
+            return []
+        if isinstance(value, list):
+            return [nfc(v) if isinstance(v, str) else v for v in value]
+        return value
+
+    @field_validator("templates", mode="before")
+    @classmethod
+    def _tolerant_templates(cls, value: Any) -> Any:
+        """Accept ``type: Template.md`` shorthand and drop invalid entries.
+
+        One bad entry must not invalidate the whole VaultConfig: that would
+        silently drop private_paths and the rest of the vault settings.
+        """
+        if not isinstance(value, dict):
+            if value is not None:
+                logger.warning("Ignoring taxonomy.templates: expected a mapping")
+            return {}
+        clean: dict[str, TemplateSpec] = {}
+        for key, spec in value.items():
+            if isinstance(spec, str):
+                spec = {"template": spec}
+            try:
+                clean[nfc(str(key))] = TemplateSpec.model_validate(spec)
+            except ValidationError as e:
+                logger.warning("Ignoring taxonomy.templates.%s: %s", key, e)
+        return clean
 
 
 class VaultConfig(BaseModel):

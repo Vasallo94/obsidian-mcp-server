@@ -438,3 +438,18 @@ def test_invalidate_rules_cache_reloads_taxonomy_types(tmp_path):
         )
         invalidate_rules_cache()
         assert load_vault_rules()[0]["allowed_values"] == ["b"]
+
+
+def test_allowed_values_with_non_hashable_values_warns_instead_of_crashing():
+    """Auditoría #131 r3: 'type: [a, b]' mal escrito no debe tumbar la validación."""
+    from obsidian_mcp.middleware import _check_allowed_values
+
+    rule = {
+        "field": "status",
+        "allowed_values": ["a", ["b"]],
+        "warning": "malo: {value}",
+    }
+    assert _check_allowed_values(rule, {"status": ["x", "y"]}) == "malo: ['x', 'y']"
+    assert _check_allowed_values(rule, {"status": {"k": 1}})
+    assert _check_allowed_values(rule, {"status": ["b"]}) is None
+    assert _check_allowed_values(rule, {"status": "a"}) is None
