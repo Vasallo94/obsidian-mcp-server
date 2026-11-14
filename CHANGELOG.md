@@ -8,6 +8,7 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 ## [Unreleased]
 
 ### Added
+- **Reglas del vault — `skip_when_present`**: una validación de `REGLAS_GLOBALES.md` puede listar campos de frontmatter que la desactivan si la nota los tiene (por ejemplo `skip_when_present: [tipo]` para que `required_fields` no exija `type`/`status` a las fichas de media, que usan `tipo`/`estado`).
 - Pipeline de MCPB con binario local para generar bundles instalables por plataforma sin depender del Python del usuario.
 - **AFP #51 — Reposición y borrado de grupos en canvas**: Nuevas tools `canvas.move_card(node_id, x, y)` (reposiciona cualquier nodo) y `canvas.remove_group(group_id, remove_contents=False)` (borra un grupo y, opcionalmente, las tarjetas que contiene). Antes había que editar el `.canvas` a mano.
 - **AFP #52 — Registro de reglas del vault**: Nueva tool `rules.add(rule_text, confirm=True)` (pack `agents_admin`) para que el agente registre una regla en `.agents/REGLAS_GLOBALES.md` a petición del usuario, con gate de confirmación (`confirm=True`) y sin acceso directo al fichero.

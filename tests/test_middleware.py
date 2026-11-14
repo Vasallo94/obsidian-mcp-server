@@ -453,3 +453,11 @@ def test_allowed_values_with_non_hashable_values_warns_instead_of_crashing():
     assert _check_allowed_values(rule, {"status": {"k": 1}})
     assert _check_allowed_values(rule, {"status": ["b"]}) is None
     assert _check_allowed_values(rule, {"status": "a"}) is None
+
+
+def test_skip_when_present_switches_rule_off_for_own_schema():
+    rule = {**REQUIRED_FM_RULE, "skip_when_present": ["tipo"]}
+
+    assert run_validations([rule], "create", frontmatter={"tipo": "libro"}) == []
+    assert run_validations([rule], "create", frontmatter={"tags": ["x"]})
+    assert run_validations([rule], "create", frontmatter={"tipo": ""})
