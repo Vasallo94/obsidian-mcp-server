@@ -749,7 +749,9 @@ def _resolve_type_defaults(
     base = PurePosixPath(spec.folder)
     if carpeta:
         target = PurePosixPath(carpeta.strip("/"))
-        if target != base and base in target.parents:
+        # PurePosixPath does not resolve "..": reject it instead of letting
+        # "Base/../Otra" pass the containment check.
+        if ".." not in target.parts and target != base and base in target.parents:
             return plantilla, carpeta, None
     return (
         plantilla,
@@ -835,6 +837,7 @@ def create_note_with_content(
     config = get_vault_config(vault_path)
 
     if tipo:
+        tipo = nfc(tipo)  # canonical form, also for the frontmatter written below
         plantilla, carpeta, error = _resolve_type_defaults(
             vault_path, config, tipo, plantilla, carpeta
         )

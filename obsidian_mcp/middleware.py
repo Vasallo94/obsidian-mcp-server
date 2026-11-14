@@ -15,7 +15,7 @@ import yaml
 
 from .config import get_vault_path
 from .utils import get_logger
-from .vault_config import get_vault_config, invalidate_vault_config_cache
+from .vault_config import get_vault_config, invalidate_vault_config_cache, nfc
 
 logger = get_logger(__name__)
 
@@ -217,7 +217,8 @@ def _check_allowed_values(rule: dict[str, Any], fm: dict[str, Any]) -> str | Non
     """Check that a frontmatter field value is in the allowed list."""
     field = rule["field"]
     value = fm.get(field, "")
-    if value and value not in rule["allowed_values"]:
+    allowed = {nfc(v) if isinstance(v, str) else v for v in rule["allowed_values"]}
+    if value and (nfc(value) if isinstance(value, str) else value) not in allowed:
         return rule["warning"].format(value=value)
     return None
 

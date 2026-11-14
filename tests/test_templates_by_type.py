@@ -192,3 +192,61 @@ def test_missing_template_creates_no_folder(vault):
     _tool("notes.create")("X", "", note_type="x")
 
     assert not (vault / "Nueva").exists()
+
+
+def test_nfd_note_type_is_written_in_nfc(vault):
+    """Auditoría #131 r2 (1): el type escrito queda en NFC aunque el caller mande NFD."""
+    import unicodedata
+
+    _rewrite_yaml(vault, "templates_folder: Plantillas\ntaxonomy:\n  types: [física]\n")
+
+    _tool("notes.create")(
+        "N", "x", folder="Sistemas", note_type=unicodedata.normalize("NFD", "física")
+    )
+
+    assert _fm(vault / "Sistemas" / "N.md")["type"] == unicodedata.normalize(
+        "NFC", "física"
+    )
+
+
+def test_choose_subfolder_rejects_dotdot(vault):
+    """Auditoría #131 r2 (3): 'Base/../Otra' no pasa por subcarpeta."""
+    _tool("notes.create")(
+        "X", "", folder="Conocimiento/../Sistemas", note_type="apunte"
+    )
+
+    assert not (vault / "Sistemas" / "X.md").exists()
+
+
+def test_subfolder_listing_checks_the_folder_itself(vault):
+    """Auditoría #131 r2 (4): un patrón que casa con la carpeta, no con su contenido."""
+    (vault / "Conocimiento" / "SecretoSalud").mkdir()
+    _rewrite_yaml(vault, VAULT_YAML + 'private_paths: ["*/SecretoSalud"]\n')
+
+    result = _tool("notes.create")("X", "", note_type="apunte")
+
+    assert "IA" in result and "SecretoSalud" not in result
+
+
+def test_subfolder_listing_skips_symlinks(vault):
+    """Auditoría #131 r2 (4): los enlaces simbólicos no se ofrecen."""
+    (vault / "Conocimiento" / "Atajo").symlink_to(
+        vault / "Sistemas", target_is_directory=True
+    )
+
+    result = _tool("notes.create")("X", "", note_type="apunte")
+
+    assert "IA" in result and "Atajo" not in result
+
+
+def test_empty_types_key_keeps_config(vault):
+    """Auditoría #131 r2 (9): 'types:' vacío no tumba vault.yaml."""
+    from obsidian_mcp.vault_config import get_vault_config
+
+    _rewrite_yaml(
+        vault,
+        "templates_folder: Plantillas\nprivate_paths: ['X/*']\ntaxonomy:\n  types:\n",
+    )
+
+    config = get_vault_config(vault)
+    assert config is not None and config.private_paths == ["X/*"]

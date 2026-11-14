@@ -119,7 +119,13 @@ class VaultTaxonomy(BaseModel):
     @field_validator("types", mode="before")
     @classmethod
     def _normalise_types(cls, value: Any) -> Any:
-        """NFC-normalise type names (macOS file names and YAML may use NFD)."""
+        """NFC-normalise type names (macOS file names and YAML may use NFD).
+
+        An empty ``types:`` key parses as None; treat it as no list instead of
+        invalidating the whole VaultConfig (and with it private_paths).
+        """
+        if value is None:
+            return []
         if isinstance(value, list):
             return [nfc(v) if isinstance(v, str) else v for v in value]
         return value
