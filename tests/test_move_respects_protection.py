@@ -53,3 +53,40 @@ def test_normal_move_still_works(vault):
 
     assert result.success, result.error
     assert (vault / "Publico" / "renombrada.md").exists()
+
+
+def test_symlink_inside_private_folder_cannot_be_moved_out(vault):
+    """Un symlink que vive en Privado/ se juzga por su ubicación, no solo por su destino."""
+    (vault / "Privado" / "alias.md").symlink_to(vault / "Publico" / "nota.md")
+
+    result = navigation_logic.move_note("Privado/alias.md", "Publico/alias.md")
+
+    assert not result.success
+    assert (vault / "Privado" / "alias.md").is_symlink()
+
+
+def test_dangling_symlink_inside_private_folder_cannot_be_replaced(vault):
+    (vault / "Privado" / "hueco.md").symlink_to(vault / "Publico" / "no_existe.md")
+
+    result = navigation_logic.move_note("Publico/nota.md", "Privado/hueco.md")
+
+    assert not result.success
+    assert (vault / "Publico" / "nota.md").exists()
+
+
+def test_check_path_access_judges_symlink_location(vault):
+    (vault / "Privado" / "alias.md").symlink_to(vault / "Publico" / "nota.md")
+
+    assert not security.check_path_access("Privado/alias.md", vault)[0]
+    assert security.check_path_access("Publico/nota.md", vault)[0]
+
+
+def test_missing_and_non_file_sources_get_the_same_error(vault):
+    """Sin oráculo: no se distingue si una carpeta (p. ej. Privado) existe."""
+    folder = navigation_logic.move_note("Privado", "Publico/x.md")
+    missing = navigation_logic.move_note("NoExiste", "Publico/x.md")
+
+    assert not folder.success and not missing.success
+    assert folder.error.replace("Privado", "X") == missing.error.replace(
+        "NoExiste", "X"
+    )

@@ -238,13 +238,28 @@ def check_path_access(
     except (ValueError, OSError) as exc:
         return False, f"Security error: Path escapes vault directory: {exc}"
 
-    pattern = _matching_forbidden_pattern(
-        relative_path,
-        load_forbidden_patterns(vault_path=resolved_vault),
-    )
-    if pattern:
-        return False, f"Access denied: cannot {operation} protected paths"
+    patterns = load_forbidden_patterns(vault_path=resolved_vault)
+    # Judge the entry where it lives as well as where it points: a symlink in
+    # Privado/ that targets a public note must still count as private, because
+    # rename/delete act on the entry itself, not on its target.
+    lexical_path = _lexical_relative(candidate, vault_path, resolved_vault)
+    for rel in (relative_path, lexical_path):
+        if rel is not None and _matching_forbidden_pattern(rel, patterns):
+            return False, f"Access denied: cannot {operation} protected paths"
     return True, ""
+
+
+def _lexical_relative(
+    candidate: Path, vault_path: Path, resolved_vault: Path
+) -> Optional[Path]:
+    """Vault-relative path with ".." collapsed but symlinks left unresolved."""
+    lexical = Path(os.path.normpath(candidate))
+    for root in (resolved_vault, Path(os.path.normpath(vault_path.absolute()))):
+        try:
+            return lexical.relative_to(root)
+        except ValueError:
+            continue
+    return None
 
 
 def resolve_vault_path(
