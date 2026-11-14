@@ -347,3 +347,57 @@ def test_code_block_hash_is_not_a_heading(vault):
 
     body = _body(vault / "Sistemas" / "Backup.md")
     assert "## Contexto" in body
+
+
+CONCEPTO = "---\ntype: runbook\n---\n# {{title}}\n\n## Definición\n\n## Ejemplo\n\n## Relacionado\n"
+
+
+def _concepto(vault, content):
+    (vault / "Plantillas" / "Runbook.md").write_text(CONCEPTO, encoding="utf-8")
+    _tool("notes.create")("C", content, note_type="runbook")
+    return _body(vault / "Sistemas" / "C.md")
+
+
+def test_subsections_stay_with_their_parent(vault):
+    body = _concepto(vault, "## Definición\nd\n### Detalle\nx\n## Ejemplo\ne")
+    assert (
+        body.index("## Definición")
+        < body.index("### Detalle")
+        < body.index("## Ejemplo")
+    )
+    assert body.count("## Ejemplo") == 1
+
+
+def test_template_subsections_go_with_replaced_section(vault):
+    (vault / "Plantillas" / "Runbook.md").write_text(
+        "---\ntype: runbook\n---\n# T\n\n## A\nguía\n### A1\nguía A1\n## B\n",
+        encoding="utf-8",
+    )
+    _tool("notes.create")("C", "## A\nmío", note_type="runbook")
+    body = _body(vault / "Sistemas" / "C.md")
+    assert "guía" not in body and "## B" in body
+
+
+def test_h1_after_text_is_not_the_title(vault):
+    body = _concepto(vault, "Pensamiento\n# Idea grande\ndetalle")
+    assert body.index("# C") < body.index("Pensamiento") < body.index("# Idea grande")
+
+
+def test_duplicate_content_sections_keep_order(vault):
+    body = _concepto(vault, "## Definición\nprimera\n## Definición\nsegunda")
+    assert body.index("primera") < body.index("segunda") < body.index("## Ejemplo")
+
+
+def test_comment_or_open_fence_is_appended_not_merged(vault):
+    body = _concepto(vault, "<!--\n## Ejemplo\nborrador\n-->\nok")
+    assert body.index("## Relacionado") < body.index("<!--")
+
+
+def test_code_span_is_not_a_fence(vault):
+    body = _concepto(vault, "## Definición\n```npm i```\n## Ejemplo\ne")
+    assert body.count("## Ejemplo") == 1
+
+
+def test_closing_hashes_match_template_heading(vault):
+    body = _concepto(vault, "## Definición ##\nd")
+    assert body.count("Definición") == 1

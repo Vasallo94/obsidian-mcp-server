@@ -243,82 +243,78 @@ def _extract_frontmatter_from_content(contenido: str) -> tuple[dict[str, Any], s
 
 
 _HEADING_RE = re.compile(r"^ {0,3}(#{1,6})[ \t]+(\S.*?)[ \t]*$")
-_FENCE_OPEN_RE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
+# A backtick fence's info string can't contain backticks (```npm i``` is code).
+_FENCE_OPEN_RE = re.compile(r"^ {0,3}(?:(`{3,})(?!.*`)|(~{3,}))")
 
 
 def _split_markdown(
     text: str,
-) -> tuple[str, str | None, str, list[tuple[tuple[int, str], str]]]:
-    """Split Markdown into (before_title, title, intro, sections).
+) -> tuple[str | None, str, list[tuple[tuple[int, str], str]], bool]:
+    """Split Markdown into (title, intro, sections, ends_inside_fence).
 
-    ``title`` is the first H1 if no other heading precedes it; ``intro`` is
-    the text between it and the first section. Each section is
-    ((level, normalised heading text), section text). Headings inside code
-    fences don't count (CommonMark: closed by the same character, at least as
-    long; an unclosed fence runs to the end).
+    ``title`` is a leading H1 (nothing but blank lines before it). Sections
+    are cut at the shallowest heading level left, so each one carries its
+    subsections; the key is (level, heading text in NFC, casefolded).
+    Headings inside code fences don't count (CommonMark closing rules).
     """
-    before: list[str] = []
-    title: str | None = None
-    intro: list[str] = []
-    sections: list[tuple[tuple[int, str], list[str]]] = []
-    current = before
+    lines = text.replace("\r\n", "\n").split("\n")
+    heads: list[tuple[int, int, str]] = []
     fence = ""
-    for line in text.replace("\r\n", "\n").split("\n"):
+    for i, line in enumerate(lines):
         if fence:
             if re.match(rf"^ {{0,3}}{fence[0]}{{{len(fence)},}}[ \t]*$", line):
                 fence = ""
         elif opened := _FENCE_OPEN_RE.match(line):
-            fence = opened.group(1)
+            fence = opened.group(1) or opened.group(2)
         elif heading := _HEADING_RE.match(line):
-            level = len(heading.group(1))
-            if level == 1 and title is None and not sections:
-                title, current = line.strip(), intro
-                continue
-            key = (level, nfc(heading.group(2)).casefold())
-            sections.append((key, [line]))
-            current = sections[-1][1]
-            continue
-        current.append(line)
-    if title is None:  # no title: everything before the first section is intro
-        before, intro = [], before
-    return (
-        "\n".join(before),
-        title,
-        "\n".join(intro),
-        [(key, "\n".join(lines)) for key, lines in sections],
-    )
+            words = re.sub(r"[ \t]+#+$", "", heading.group(2))
+            heads.append((i, len(heading.group(1)), words))
+    title, start = None, 0
+    if heads and heads[0][1] == 1 and not "".join(lines[: heads[0][0]]).strip():
+        title, start = lines[heads[0][0]].strip(), heads[0][0] + 1
+        heads = heads[1:]
+    if not heads:
+        return title, "\n".join(lines[start:]), [], bool(fence)
+    top = min(level for _, level, _ in heads)
+    cuts = [(i, words) for i, level, words in heads if level == top]
+    sections = [
+        (
+            (top, nfc(words).casefold()),
+            "\n".join(lines[i : cuts[n + 1][0] if n + 1 < len(cuts) else None]),
+        )
+        for n, (i, words) in enumerate(cuts)
+    ]
+    return title, "\n".join(lines[start : cuts[0][0]]), sections, bool(fence)
 
 
 def _place_content(template_body: str, content: str) -> str:
     """Return the note body merging the caller's content into the template.
 
-    Nothing of the template is dropped except what the content replaces: the
-    content's H1 replaces the template's; a content section replaces the
-    template section with the same heading, in place; the rest of the content
-    (plain text and new sections) goes under the title and the template's
-    intro, above the template's sections.
+    Nothing of the template is dropped except what the content replaces: a
+    leading H1 in the content replaces the template's; a content section
+    (with its subsections) replaces, in place, the template section with the
+    same heading; the rest of the content (plain text and new sections) goes
+    under the title and the template's intro, above the template's sections.
     """
     if not content.strip():
         return template_body
-    t_before, t_title, t_intro, t_sections = _split_markdown(template_body)
-    c_before, c_title, c_intro, c_sections = _split_markdown(content)
-    replacements: dict[tuple[int, str], str] = {}
-    new_sections: list[str] = []
-    template_keys = {key for key, _ in t_sections}
-    for key, text in c_sections:
-        if key in template_keys and key not in replacements:
-            replacements[key] = text
-        else:
-            new_sections.append(text)
-    blocks = [
-        t_before,
-        c_title or t_title or "",
-        t_intro,
-        c_before,
-        c_intro,
-        *new_sections,
-        *(replacements.pop(key, text) for key, text in t_sections),
-    ]
+    c_title, c_intro, c_sections, open_fence = _split_markdown(content)
+    if open_fence or "<!--" in content or "%%" in content:
+        # ponytail: a comment or an unclosed fence could swallow the template
+        # sections placed after it; such content is appended as is instead.
+        blocks = [template_body, content]
+    else:
+        t_title, t_intro, t_sections, _ = _split_markdown(template_body)
+        template_keys = {key for key, _ in t_sections}
+        replacements: dict[tuple[int, str], list[str]] = {}
+        blocks = [c_title or t_title or "", t_intro, c_intro]
+        for key, text in c_sections:
+            if key in template_keys:
+                replacements.setdefault(key, []).append(text)
+            else:
+                blocks.append(text)
+        for key, text in t_sections:
+            blocks.extend(replacements.pop(key, [text]))
     return "\n\n".join(b.strip("\n") for b in blocks if b.strip()) + "\n"
 
 
