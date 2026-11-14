@@ -166,7 +166,19 @@ def iter_violations(
 def _check_rule(
     rule: dict[str, Any], title: str, content: str, fm: dict[str, Any]
 ) -> str | None:
-    """Execute a single rule. Returns warning string or None."""
+    """Execute a single rule. Returns warning string or None.
+
+    ``skip_when_present`` lists frontmatter fields that switch the rule off
+    when any of them has a truthy value (case-sensitive), for notes with their own schema (media cards
+    use ``tipo``/``estado`` instead of ``type``/``status``).
+    """
+    skip = rule.get("skip_when_present") or []
+    if isinstance(skip, str):  # `skip_when_present: tipo` written without a list
+        skip = [skip]
+    if isinstance(skip, list) and any(
+        isinstance(field, str) and fm.get(field) for field in skip
+    ):
+        return None
     scope = rule.get("scope", "")
 
     if scope in ("headings", "title", "body") and "pattern" in rule:
