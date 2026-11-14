@@ -173,3 +173,30 @@ def test_case_bypass_end_to_end(tmp_path):
     invalidate_vault_config_cache()
     assert not check_path_access("Privado/x.md", tmp_path)[0]
     assert not check_path_access("privado/x.md", tmp_path)[0]
+
+
+@pytest.mark.parametrize(
+    "path,pattern",
+    [
+        ("Straße/x.md", "Stra?e/*"),
+        ("Straße/x.md", "Stra[ß]e/*"),
+        ("a/Straße/x.md", "**/Stra?e/*"),
+    ],
+)
+def test_casefold_does_not_drop_case_preserving_matches(path, pattern):
+    """Revisión de seguridad: casefold cambia longitudes (ß→ss); la forma original también cuenta."""
+    assert _match(path, pattern)
+
+
+@pytest.mark.parametrize(
+    "path,pattern",
+    [
+        ("Privado/x.md", "[!a-z]*"),
+        ("normal.md", "[!A-Z]*"),
+        ("a/b", "[Z-a]*"),
+        ("_x.md", "[A-z]*"),
+    ],
+)
+def test_case_sensitive_classes_keep_protecting(path, pattern):
+    """Auditoría #132 r2: casefold no debe vaciar clases negadas ni rangos."""
+    assert _match(path, pattern)

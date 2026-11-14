@@ -151,7 +151,7 @@ def _pattern_matches(relative_str: str, pattern: str) -> bool:
         return False  # an empty pattern must never cover the whole vault
     if "**" in pattern:
         return any(
-            fnmatch.fnmatch(relative_str, v) for v in _double_star_variants(pattern)
+            fnmatch.fnmatchcase(relative_str, v) for v in _double_star_variants(pattern)
         )
     if fnmatch.fnmatchcase(relative_str, pattern):
         return True
@@ -173,11 +173,21 @@ def _matching_forbidden_pattern(relative_path: Path, patterns: List[str]) -> str
     # vault.yaml patterns are usually NFC.
     # casefold on both sides: APFS (and NTFS) are case-insensitive, so
     # "privado/x.md" opens the same file as "Privado/x.md". Failing closed.
-    relative_str = unicodedata.normalize("NFC", relative_path.as_posix()).casefold()
+    # The case-preserving form is always tried too: casefold can change string
+    # lengths ("ß" -> "ss"), so a casefold-only match could drop a "?" match.
+    relative_str = unicodedata.normalize("NFC", relative_path.as_posix())
+    relative_folded = relative_str.casefold()
     for original_pattern in patterns:
         as_written = unicodedata.normalize("NFC", original_pattern.replace("\\", "/"))
-        if _pattern_matches(relative_str, as_written.casefold()) or _pattern_matches(
-            relative_str, _normalise_pattern(original_pattern).casefold()
+        tidied = _normalise_pattern(original_pattern)
+        if any(
+            _pattern_matches(path, pattern)
+            for path, pattern in (
+                (relative_str, as_written),
+                (relative_str, tidied),
+                (relative_folded, as_written.casefold()),
+                (relative_folded, tidied.casefold()),
+            )
         ):
             return original_pattern
     return ""
