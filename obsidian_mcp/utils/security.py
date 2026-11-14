@@ -354,50 +354,6 @@ def validate_path_within_vault(
         return False, f"Path validation error: {e}"
 
 
-def is_path_in_restricted_folder(
-    path: Path | str,
-    restricted_folders: List[str],
-    vault_path: Optional[Path] = None,
-) -> bool:
-    """
-    Check if path is in a restricted folder.
-    Uses proper path comparison, not string matching.
-
-    Args:
-        path: Path to check
-        restricted_folders: List of restricted folder paths relative to vault
-        vault_path: Vault root path
-
-    Returns:
-        True if path is in a restricted folder
-    """
-    if vault_path is None:
-        vault_path = get_vault_path()
-
-    if not vault_path:
-        return True  # Fail safe - deny if no vault path
-
-    try:
-        if isinstance(path, str):
-            path = Path(path)
-
-        if not path.is_absolute():
-            path = vault_path / path
-
-        resolved_path = path.resolve()
-
-        for folder in restricted_folders:
-            restricted_path = (vault_path / folder).resolve()
-            # Check if the path is under the restricted folder
-            if resolved_path.is_relative_to(restricted_path):
-                return True
-
-        return False
-
-    except (ValueError, OSError):
-        return True  # Fail safe - deny on error
-
-
 def get_safe_relative_path(
     path: Path | str,
     vault_path: Optional[Path] = None,
