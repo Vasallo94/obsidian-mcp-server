@@ -226,8 +226,13 @@ def get_vault_config(vault_path: Path) -> Optional[VaultConfig]:
 
 
 def invalidate_vault_config_cache() -> None:
-    """Invalidate the vault config cache."""
+    """Invalidate the vault config cache and what is derived from it."""
     _load_vault_config_cached.cache_clear()
+    # private_paths feed the protection patterns: drop that cache too.
+    # pylint: disable-next=import-outside-toplevel
+    from .utils.security import invalidate_forbidden_patterns_cache
+
+    invalidate_forbidden_patterns_cache()
 
 
 def resolve_role(vault_path: Path, role: str) -> Optional[Path]:
