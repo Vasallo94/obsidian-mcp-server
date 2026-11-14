@@ -295,6 +295,38 @@ def test_inbox_capture_ignores_stale_idea_template_frontmatter(tmp_path, monkeyp
     assert frontmatter["updated"] != "2020-01-01"
 
 
+def test_create_with_template_uses_real_title_and_dates(tmp_path, monkeypatch):
+    """Una plantilla con valores fijos no debe pisar el título ni las fechas reales."""
+    vault = _set_vault(monkeypatch, tmp_path)
+    (vault / "Proyectos").mkdir()
+    templates = vault / "Plantillas"
+    templates.mkdir()
+    (templates / "Proyecto.md").write_text(
+        "---\n"
+        "title: Proyecto\n"
+        "type: proyecto\n"
+        "status: en_proceso\n"
+        "created: '2020-01-01'\n"
+        "updated: '2020-01-01'\n"
+        "---\n\n"
+        "## Objetivo\n",
+        encoding="utf-8",
+    )
+    mcp = create_server()
+    create_tool = asyncio.run(mcp.get_tool("notes.create"))
+
+    create_tool.fn("Mi proyecto", "", folder="Proyectos", template="Proyecto.md")
+
+    text = (vault / "Proyectos" / "Mi proyecto.md").read_text(encoding="utf-8")
+    frontmatter = yaml.safe_load(text.split("---")[1])
+    assert frontmatter["title"] == "Mi proyecto"
+    assert str(frontmatter["created"]) != "2020-01-01"
+    assert str(frontmatter["updated"]) == str(frontmatter["created"])
+    # La plantilla sigue aportando el resto de campos y el cuerpo
+    assert frontmatter["type"] == "proyecto"
+    assert "## Objetivo" in text
+
+
 def test_tag_registry_missing_error_includes_setup_path(tmp_path, monkeypatch):
     _set_vault(monkeypatch, tmp_path)
 
