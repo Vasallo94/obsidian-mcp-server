@@ -585,7 +585,7 @@ def lint_vault(  # pylint: disable=too-many-locals,too-many-branches,too-many-st
 
         frontmatter, body = _extract_frontmatter_from_content(content)
         title = md_file.stem
-        rel = str(md_file.relative_to(vault_path))
+        rel = md_file.relative_to(vault_path).as_posix()
 
         # mode='edit' covers post-creation linting; frontmatter rules
         # that only apply at 'create' time are skipped by design.
@@ -595,6 +595,7 @@ def lint_vault(  # pylint: disable=too-many-locals,too-many-branches,too-many-st
             title=title,
             content=body,
             frontmatter=frontmatter or {},
+            path=rel,
         )
         can_auto_fix = True
         for rule, warning in violations:

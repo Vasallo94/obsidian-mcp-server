@@ -29,10 +29,12 @@ Always enabled.
 - `skills.list()`: List valid vault skills from `.agents/skills`.
 - `skills.read(name)`: Read a declared vault skill.
 - `rules.get()`: Read vault-level global agent rules.
-- `notes.validate(content, title, mode)`: Lint a note against vault rules WITHOUT
-  writing it. Returns JSON `{valid, mode, violations[]}`. Call before
-  `notes.create` / `notes.patch` to skip a write round-trip. `mode` is
-  `create` (default), `edit`, or `append`.
+- `notes.validate(content, title, mode, note_path)`: Lint a note against vault
+  rules WITHOUT writing it. Returns JSON `{valid, mode, violations[]}`. Call
+  before `notes.create` / `notes.patch` to skip a write round-trip. `mode` is
+  `create` (default), `edit`, or `append`. Pass `note_path` so folder-scoped
+  rules (`paths`/`exclude_paths`) apply. Rules with `block: true` make
+  `notes.create` refuse the write.
 
 ## Write Semantics
 

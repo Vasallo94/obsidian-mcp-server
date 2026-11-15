@@ -8,6 +8,7 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 ## [Unreleased]
 
 ### Added
+- **Validación por carpeta y bloqueante (fichas de media)**: las reglas `validations:` de `REGLAS_GLOBALES.md` aceptan `paths`/`exclude_paths` (globs relativos al vault, tolerantes a rutas NFD de macOS), `forbidden_fields` (esquema mezclado), `field` + `unique: true` (tags duplicadas), `field` + `pattern` (p. ej. tags en mayúsculas) y `block: true` (`notes.create` no escribe la nota si la incumple). `notes.validate` acepta `note_path`; `vault.lint`, `notes.update_frontmatter`, `notes.replace`, `notes.patch` y `notes.append` validan con la ruta real de la nota.
 - **`notes.create` enlaza la nota desde su índice**: busca el índice más cercano subiendo desde la carpeta (`Índice.md`, `index.md` o una nota `... MOC`) y añade `- [[Nota]]: descripción` en `## Por clasificar`, que crea encima del primer H2 para no quedar bajo el pie. No enlaza si la nota ya está enlazada, si es un índice o si el índice es privado. `link_from_index=False` lo desactiva.
 - **Kit de arranque para vaults nuevos**: `vault.init_kit(confirm)` (pack `agents_admin`) copia al vault las reglas, un `AGENTS.md` con huecos para completar y 10 plantillas base que viajan con el servidor (`obsidian_mcp/kit/`). Nunca sobrescribe. El prompt `bootstrap_vault_config` lo usa como primer paso y luego mapea las plantillas en `taxonomy.templates`.
 - **`agente_creador` normalizado**: `notes.create` toma por defecto el nombre que el cliente MCP envía en el handshake y normaliza los conocidos (`claude-code` → `Claude Code`, `Hermes Agent`/`hermes-agent` → `Hermes`, `codex-mcp-client` → `Codex`). Un `creator` explícito sigue mandando y también se normaliza.
@@ -51,6 +52,8 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 - Eliminados planes internos de desarrollo y scripts personales/backup que contenían rutas locales antes de publicar el repositorio.
 
 ### Fixed
+- Reglas `validations:` más robustas: una regla mal formada se ignora con aviso en el log en vez de impedir crear notas; `paths`/`exclude_paths` no distinguen mayúsculas, aceptan un string, `**` para cero o más carpetas y `[` literal (mismo matcher que `private_paths`); `note_type` no añade `type` a notas con esquema propio (`tipo`).
+- `notes.create` ya no añade `title`/`created` a notas que usan el esquema de media (`titulo`/`fecha_creacion`), y valida el frontmatter final escrito (plantilla incluida) en vez de solo el argumento `content`. `notes.replace` valida también las reglas de frontmatter.
 - **Fusión de plantillas**: una sección del content con otro nivel de cabecera (`### Notas` frente a `## Notas`) rellena la de la plantilla y toma su nivel, en vez de duplicarse. `%%`, `<!--` y `<details` dentro de código (bloques o en línea) ya no desactivan la fusión. La detección de vallas y de código en línea es lineal (antes, cuadrática con rachas largas de comillas invertidas).
 - **`agente_creador`** formado solo por ZWJ o espacios invisibles se descarta en vez de dejar una firma invisible.
 - **Rutas privadas con `[`** en el nombre (`Notas [2024]/*`) quedan protegidas: el corchete se prueba también como carácter literal.

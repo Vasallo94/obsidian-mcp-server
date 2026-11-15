@@ -300,6 +300,7 @@ def validate_note_logic(
     title: str = "",
     content: str = "",
     mode: str = "create",
+    note_path: str = "",
 ) -> Result[str]:
     """Run vault rules against arbitrary content without writing.
 
@@ -310,6 +311,8 @@ def validate_note_logic(
         title: Note title (used by rules with scope='title').
         content: Full note body, optionally including YAML frontmatter.
         mode: One of 'create', 'edit', 'append'. Determines which rules apply.
+        note_path: Vault-relative path of the note (e.g. '05_Media/Películas/X.md').
+            Needed for rules scoped with ``paths``/``exclude_paths``.
 
     Returns:
         Result with a JSON summary {valid, mode, violations[]}.
@@ -332,6 +335,7 @@ def validate_note_logic(
         title=title,
         content=body if frontmatter else content,
         frontmatter=frontmatter,
+        path=note_path,
     )
 
     payload: dict[str, Any] = {

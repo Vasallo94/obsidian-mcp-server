@@ -106,6 +106,46 @@ description: Mandatory protocol for agents working in this vault.
 - Ask before enabling write-heavy workflows.
 ```
 
+### Machine-readable validations
+
+The `validations:` list in the frontmatter is enforced by the write tools
+(`notes.create`, `notes.append`, `notes.patch`, `notes.replace`,
+`notes.update_frontmatter`), by `notes.validate` and by `vault.lint`.
+Each rule has `id`, `applies_to` (`create`, `edit`, `append`), `scope`
+(`title`, `headings`, `body`, `frontmatter`) and a `warning` template. Checks:
+
+- `pattern` (title/headings/body regex).
+- `required_fields` → `{missing_fields}`.
+- `forbidden_fields` → `{present_fields}` (fields of another schema).
+- `field` + `allowed_values` → `{value}`.
+- `field` + `unique: true` → `{value}` (repeated list items, e.g. tags).
+- `field` + `pattern` → `{value}` (list items or value matching the regex).
+
+Optional modifiers:
+
+- `paths` / `exclude_paths`: vault-relative globs (`05_Media/Películas/*`).
+  A rule with `paths` only runs when the note path is known and matches, so pass
+  `note_path` to `notes.validate`.
+- `block: true`: in `create` mode the note is **not written** and the tool
+  returns the violations. In other modes it only warns.
+
+```yaml
+validations:
+  - id: required_frontmatter
+    applies_to: [create]
+    scope: frontmatter
+    exclude_paths: ["05_Media/*"]
+    required_fields: [type, status, tags]
+    warning: "Missing {missing_fields}"
+  - id: media_mixed_schema
+    applies_to: [create, edit]
+    block: true
+    scope: frontmatter
+    paths: ["05_Media/Películas/*"]
+    forbidden_fields: [type, status, title, created]
+    warning: "Generic fields on a media note: {present_fields}"
+```
+
 ## Skills
 
 Each skill is a folder with a `SKILL.md` file:

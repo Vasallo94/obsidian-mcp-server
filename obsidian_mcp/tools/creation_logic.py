@@ -21,6 +21,7 @@ from typing import Any
 import yaml
 
 from ..config import get_vault_path
+from ..middleware import blocking_violations, load_vault_rules
 from ..result import Result
 from ..utils import (
     atomic_write_text,
@@ -631,8 +632,13 @@ def _build_frontmatter(
     if extra_metadata:
         metadata.update(extra_metadata)
 
-    metadata.setdefault("title", titulo)
-    metadata.setdefault("created", ahora)
+    # Notes following the Spanish media schema (``titulo``/``fecha_creacion``)
+    # must not get the generic ``title``/``created`` too: mixing both schemas
+    # is exactly what the media validation rules reject.
+    if "titulo" not in metadata:
+        metadata.setdefault("title", titulo)
+    if "fecha_creacion" not in metadata:
+        metadata.setdefault("created", ahora)
 
     existing_tags = metadata.get("tags", [])
     if isinstance(existing_tags, str):
@@ -1037,6 +1043,26 @@ def suggest_folder_location(titulo: str, contenido: str, etiquetas: str = "") ->
     return "📂 Sugerencia: Ubicación a confirmar con el usuario"
 
 
+def resolve_create_folder(
+    titulo: str, contenido: str, etiquetas: str, carpeta: str = ""
+) -> str:
+    """Return ``carpeta`` or, when empty, the auto-suggested folder ('' = root)."""
+    if carpeta:
+        return carpeta
+    res_sug = suggest_folder_location(titulo, contenido, etiquetas)
+    # Extrae el path de vuelta entre backticks: 📂 Sugerencia: `path`
+    match = re.search(r"`([^`]+)`", res_sug)
+    return match.group(1) if match else ""
+
+
+def note_relative_path(carpeta: str, titulo: str) -> Path:
+    """Vault-relative path where ``create_note`` writes ``titulo`` in ``carpeta``."""
+    nota_path = Path(carpeta) / sanitize_filename(titulo)
+    if nota_path.suffix != ".md":
+        nota_path = nota_path.with_suffix(".md")
+    return nota_path
+
+
 def _resolve_type_defaults(
     vault_path: Path, config: Any, tipo: str, plantilla: str, carpeta: str
 ) -> tuple[str, str, str | None]:
@@ -1127,8 +1153,8 @@ def create_note_with_content(
     tipo: str = "",
     agente_por_defecto: str = "",
     enlazar_indice: bool = False,
-) -> tuple[Result[str], str | None]:
-    # pylint: disable=too-many-branches,too-many-statements,too-many-locals,too-many-positional-arguments,too-many-arguments
+) -> tuple[Result[str], tuple[str, str] | None]:
+    # pylint: disable=too-many-branches,too-many-statements,too-many-locals,too-many-positional-arguments,too-many-arguments,too-many-return-statements
     """Create a new note in the vault and return the text written to disk.
 
     Args:
@@ -1147,7 +1173,8 @@ def create_note_with_content(
             (see ``link_from_index``).
 
     Returns:
-        (Result with success message or error, final note text or None on
+        (Result with success message or error, (final note text, vault-relative
+        path) or None on
         failure). The text lets callers validate the note as written without
         re-reading the file or parsing paths out of the display message.
     """
@@ -1155,10 +1182,6 @@ def create_note_with_content(
     if not vault_path:
         return Result.fail("La ruta del vault no está configurada."), None
 
-    # Preparar nombre de archivo
-    nombre_archivo = sanitize_filename(titulo)
-
-    # Determinar ruta (si no hay carpeta, usar ubicación sugerida)
     config = get_vault_config(vault_path)
 
     if tipo:
@@ -1169,20 +1192,9 @@ def create_note_with_content(
         if error:
             return Result.fail(error), None
 
-    if not carpeta:
-        # Intento de sugerencia automática si no se especifica
-        res_sug = suggest_folder_location(titulo, contenido, etiquetas)
-        # Extrae el path de vuelta entre backticks: 📂 Sugerencia: `path`
-        match = re.search(r"`([^`]+)`", res_sug)
-        if match:
-            carpeta = match.group(1)
-        else:
-            # Fallback to vault root
-            carpeta = ""
-
-    nota_path = vault_path / carpeta / nombre_archivo
-    if nota_path.suffix != ".md":
-        nota_path = nota_path.with_suffix(".md")
+    carpeta = resolve_create_folder(titulo, contenido, etiquetas, carpeta)
+    nombre_archivo = sanitize_filename(titulo)
+    nota_path = vault_path / note_relative_path(carpeta, titulo)
 
     # Validate before mkdir so rejected paths cannot mutate the filesystem.
     resolved_note, error = resolve_vault_path(nota_path, vault_path, "crear nota en")
@@ -1286,7 +1298,9 @@ def create_note_with_content(
                 ):
                     combined_metadata[key] = real
             combined_metadata.update(extra_metadata)
-            if tipo:
+            # Notes with their own schema (media: `tipo`/`estado`) don't get
+            # the generic `type`: their rules may forbid it.
+            if tipo and "tipo" not in combined_metadata:
                 combined_metadata["type"] = tipo
 
             contenido_final = _build_frontmatter(
@@ -1304,7 +1318,7 @@ def create_note_with_content(
         # Sin plantilla: detectar si el contenido ya tiene frontmatter
         # Extraer frontmatter del contenido si existe
         extra_metadata, contenido_limpio = _extract_frontmatter_from_content(contenido)
-        if tipo:
+        if tipo and "tipo" not in extra_metadata:
             extra_metadata["type"] = tipo
 
         # Construir frontmatter unificado
@@ -1329,12 +1343,32 @@ def create_note_with_content(
     contenido_final = _process_date_placeholders(contenido_final)
     contenido_final = _normalize_frontmatter(contenido_final)
 
+    ruta_relativa = nota_path.relative_to(vault_path)
+
+    # Vault rules marked ``block: true`` refuse the write (validated against
+    # the final note, template included, and its real path).
+    final_fm, final_body = _extract_frontmatter_from_content(contenido_final)
+    bloqueos = blocking_violations(
+        load_vault_rules(),
+        title=titulo,
+        content=final_body,
+        frontmatter=final_fm,
+        path=ruta_relativa.as_posix(),
+    )
+    if bloqueos:
+        return Result.fail(
+            f"Nota NO creada ({ruta_relativa}): incumple reglas bloqueantes "
+            "del vault.\n"
+            + "\n".join(f"- {b}" for b in bloqueos)
+            + "\nCorrige el frontmatter (usa la plantilla del tipo con "
+            "`template` y rellena los campos en `content`) y vuelve a intentarlo."
+        ), None
+
     # The folder is created only once the template and content are ready, so a
     # failed creation (missing template, rejected path) leaves no empty folders.
     nota_path.parent.mkdir(parents=True, exist_ok=True)
     atomic_write_text(nota_path, contenido_final)
 
-    ruta_relativa = nota_path.relative_to(vault_path)
     resultado = f"Nota creada: **{titulo}**\n"
     resultado += f"📍 Ubicación: {ruta_relativa}\n"
     if plantilla:
@@ -1352,7 +1386,7 @@ def create_note_with_content(
             if indice:
                 resultado += f"🔗 Enlazada desde: {indice}\n"
 
-    return Result.ok(resultado), contenido_final
+    return Result.ok(resultado), (contenido_final, ruta_relativa.as_posix())
 
 
 def list_templates() -> Result[str]:

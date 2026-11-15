@@ -6,9 +6,11 @@ from time import perf_counter
 from fastmcp import FastMCP
 from fastmcp.server.dependencies import get_context
 
+from ..config import get_vault_path
 from ..messages import ERRORS
 from ..middleware import enrich_response, invalidate_rules_cache
 from ..models.tool_inputs import EditOperation
+from ..utils import find_note_by_name
 from .creation_logic import (
     _extract_frontmatter_from_content,
     append_to_section,
@@ -52,6 +54,18 @@ def _client_name() -> str:
 def _with_duration(result: str, started_at: float) -> str:
     """Append elapsed time context for synchronous write operations."""
     return f"{result}\n- Duración: {perf_counter() - started_at:.2f}s"
+
+
+def _vault_rel_path(note_path: str) -> str:
+    """Vault-relative path of an existing note, for path-filtered vault rules."""
+    vault_path = get_vault_path()
+    found = find_note_by_name(note_path)
+    if not vault_path or found is None:
+        return ""
+    try:
+        return found.resolve().relative_to(vault_path.resolve()).as_posix()
+    except ValueError:
+        return ""
 
 
 def _parse_tags(tags: str) -> list[str]:
@@ -150,6 +164,7 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
             result = outcome.to_display(success_prefix="OK")
             if written is None:
                 return result  # nothing was written: nothing to validate
+            written, note_path = written
             # Validate the note as written (template fields and the auto-added
             # "# title" heading included), not the caller's input. Body and
             # heading rules see the body only, not the frontmatter.
@@ -160,6 +175,7 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
                 title=title,
                 content=body,
                 frontmatter=frontmatter,
+                path=note_path,
             )
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error creating note: {e}"
@@ -196,6 +212,7 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
                 tool_name="notes.append",
                 result=result,
                 content=content,
+                path=_vault_rel_path(note_path),
             )
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error appending to note: {e}"
@@ -252,6 +269,7 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
                 tool_name="notes.patch",
                 result=result,
                 content=combined_new,
+                path=_vault_rel_path(note_path),
             )
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error patching note: {e}"
@@ -274,8 +292,13 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
             ).to_display(success_prefix="OK")
             if "REGLAS_GLOBALES" in note_path:
                 invalidate_rules_cache()
+            replaced_fm, replaced_body = _extract_frontmatter_from_content(content)
             result = enrich_response(
-                tool_name="notes.replace", result=edit_result, content=content
+                tool_name="notes.replace",
+                result=edit_result,
+                content=replaced_body if replaced_fm else content,
+                frontmatter=replaced_fm,
+                path=_vault_rel_path(note_path),
             )
             return _with_duration(result, started_at)
         except Exception as e:  # pylint: disable=broad-exception-caught
@@ -378,6 +401,7 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
                 tool_name="notes.update_frontmatter",
                 result=result,
                 frontmatter=frontmatter,
+                path=_vault_rel_path(note_path),
             )
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error updating frontmatter: {e}"

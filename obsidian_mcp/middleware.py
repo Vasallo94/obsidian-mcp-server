@@ -9,6 +9,8 @@ This is agent-agnostic: any MCP client receives the same enforcement.
 """
 
 import re
+import unicodedata
+from pathlib import Path
 from typing import Any
 
 import yaml
@@ -126,12 +128,18 @@ def run_validations(
     title: str = "",
     content: str = "",
     frontmatter: dict[str, Any] | None = None,
+    path: str = "",
 ) -> list[str]:
     """Run applicable validations and return list of warning strings."""
     return [
         warning
         for _, warning in iter_violations(
-            rules, mode, title=title, content=content, frontmatter=frontmatter
+            rules,
+            mode,
+            title=title,
+            content=content,
+            frontmatter=frontmatter,
+            path=path,
         )
     ]
 
@@ -143,6 +151,7 @@ def iter_violations(
     title: str = "",
     content: str = "",
     frontmatter: dict[str, Any] | None = None,
+    path: str = "",
 ) -> list[tuple[dict[str, Any], str]]:
     """Like ``run_validations`` but also returns the rule that fired.
 
@@ -152,15 +161,79 @@ def iter_violations(
     Pass ``mode=None`` to ignore each rule's ``applies_to`` filter --
     useful for whole-vault lint sweeps where every rule should be
     enforced regardless of write mode.
+
+    ``path`` is the vault-relative note path. Rules with ``paths`` only
+    run when it matches one of those globs (so they are skipped when the
+    path is unknown); rules with ``exclude_paths`` are skipped when it
+    matches one of them.
     """
     pairs: list[tuple[dict[str, Any], str]] = []
     for rule in rules:
         if mode is not None and mode not in rule.get("applies_to", []):
             continue
-        warning = _check_rule(rule, title, content, frontmatter or {})
+        if not _rule_applies_to_path(rule, path):
+            continue
+        try:
+            warning = _check_rule(rule, title, content, frontmatter or {})
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            # A malformed rule (missing warning, wrong types) must not take
+            # down every write in the vault: skip it and say so in the log.
+            logger.warning("Regla %r mal formada, se ignora: %s", rule.get("id"), e)
+            continue
         if warning:
             pairs.append((rule, warning))
     return pairs
+
+
+def _nfc(text: str) -> str:
+    # macOS stores filenames decomposed (NFD); rules are typed composed (NFC).
+    return unicodedata.normalize("NFC", text)
+
+
+def _matches_any(path: str, patterns: Any) -> bool:
+    """Glob match with the private_paths rules: NFC, case-insensitive (APFS),
+    `**` for zero or more folders and `[` also as a literal character."""
+    if isinstance(patterns, str):
+        patterns = [patterns]
+    if not isinstance(patterns, list):
+        return False
+    # pylint: disable-next=import-outside-toplevel
+    from .utils.security import _matching_forbidden_pattern
+
+    return bool(_matching_forbidden_pattern(Path(path), [str(p) for p in patterns]))
+
+
+def _rule_applies_to_path(rule: dict[str, Any], path: str) -> bool:
+    """Apply the optional ``paths``/``exclude_paths`` glob filters."""
+    path = _nfc(path.replace("\\", "/").lstrip("/"))
+    if "paths" in rule and not (path and _matches_any(path, rule["paths"])):
+        return False
+    return not (path and _matches_any(path, rule.get("exclude_paths")))
+
+
+def blocking_violations(
+    rules: list[dict[str, Any]],
+    *,
+    title: str = "",
+    content: str = "",
+    frontmatter: dict[str, Any] | None = None,
+    path: str = "",
+) -> list[str]:
+    """Warnings of ``block: true`` rules that fire in create mode.
+
+    Used by note creation to refuse the write instead of warning after it.
+    """
+    return [
+        warning
+        for _, warning in iter_violations(
+            [rule for rule in rules if rule.get("block") is True],
+            "create",
+            title=title,
+            content=content,
+            frontmatter=frontmatter,
+            path=path,
+        )
+    ]
 
 
 def _check_rule(
@@ -187,8 +260,14 @@ def _check_rule(
     if scope == "frontmatter":
         if "required_fields" in rule:
             return _check_required_fields(rule, fm)
+        if "forbidden_fields" in rule:
+            return _check_forbidden_fields(rule, fm)
         if "field" in rule and "allowed_values" in rule:
             return _check_allowed_values(rule, fm)
+        if "field" in rule and rule.get("unique") is True:
+            return _check_unique_values(rule, fm)
+        if "field" in rule and "pattern" in rule:
+            return _check_field_pattern(rule, fm)
 
     return None
 
@@ -238,6 +317,48 @@ def _check_allowed_values(rule: dict[str, Any], fm: dict[str, Any]) -> str | Non
     allowed = [_nfc_if_str(v) for v in rule["allowed_values"]]
     if value and _nfc_if_str(value) not in allowed:
         return rule["warning"].format(value=value)
+    return None
+
+
+def _check_forbidden_fields(rule: dict[str, Any], fm: dict[str, Any]) -> str | None:
+    """Flag fields from another schema (e.g. generic ``type`` on a media note)."""
+    present = [f for f in rule["forbidden_fields"] if f in fm]
+    if present:
+        return rule["warning"].format(present_fields=", ".join(present))
+    return None
+
+
+def _field_values(fm: dict[str, Any], field: str) -> list[str]:
+    value = fm.get(field)
+    if value is None:
+        return []
+    values = value if isinstance(value, list) else [value]
+    return [str(v) for v in values]
+
+
+def _check_unique_values(rule: dict[str, Any], fm: dict[str, Any]) -> str | None:
+    """Flag repeated values in a list field (e.g. ``tags: [media, media]``)."""
+    seen: set[str] = set()
+    dupes: list[str] = []
+    for v in _field_values(fm, rule["field"]):
+        if v in seen and v not in dupes:
+            dupes.append(v)
+        seen.add(v)
+    if dupes:
+        return rule["warning"].format(value=", ".join(dupes))
+    return None
+
+
+def _check_field_pattern(rule: dict[str, Any], fm: dict[str, Any]) -> str | None:
+    """Flag field values (each item, for lists) that match ``pattern``."""
+    try:
+        pattern = re.compile(rule["pattern"])
+    except re.error as e:
+        logger.warning("Invalid regex in rule '%s': %s", rule.get("id", "?"), e)
+        return None
+    bad = [v for v in _field_values(fm, rule["field"]) if pattern.search(v)]
+    if bad:
+        return rule["warning"].format(value=", ".join(bad))
     return None
 
 
@@ -325,14 +446,18 @@ def enrich_response(
     title: str = "",
     content: str = "",
     frontmatter: dict[str, Any] | None = None,
+    path: str = "",
 ) -> str:
-    """Main entry point. Run validations and inject rules prose into tool response."""
+    """Main entry point. Run validations and inject rules prose into tool response.
+
+    ``path`` (vault-relative) enables rules filtered by ``paths``/``exclude_paths``.
+    """
     mode = TOOL_MODE_MAP.get(tool_name)
     if not mode:
         return result
 
     rules = load_vault_rules()
-    warnings = run_validations(rules, mode, title, content, frontmatter)
+    warnings = run_validations(rules, mode, title, content, frontmatter, path)
 
     parts = [result]
 
