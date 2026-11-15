@@ -69,12 +69,10 @@ validations:
 
 ### 3. Restricciones de Acceso
 - No accedas a archivos en `.forbidden_paths` ni en los `private_paths` de `.agents/vault.yaml`.
-- Respeta la privacidad de notas marcadas con `#privado`.
 
 ### 4. Diagramas en Mermaid
 - **PROHIBIDO** usar diagramas ASCII art (cajas con `┌──┐`, `│`, etc.).
 - **OBLIGATORIO** usar bloques ` ```mermaid ` para cualquier diagrama.
-- Antes de crear diagramas, consultar la skill [[diagrama-arquitectura]] para sintaxis segura en Obsidian.
 - Recordar: evitar `()` dentro de nodos `[]`, usar etiquetas en flechas para detalles.
 
 ### 5. Imágenes con Valor Semántico
@@ -85,8 +83,8 @@ validations:
 ### 6. Ortografía Correcta en Español
 - **OBLIGATORIO**: Todo el contenido en español debe usar tildes, signos de puntuación y ortografía correctos.
 - **PROHIBIDO** omitir tildes en palabras que las requieren, incluidos títulos, cabeceras, frontmatter y cuerpo de la nota.
-- Palabras de uso frecuente que **siempre** llevan tilde y suelen olvidarse: *también, más, así, qué, cómo, dónde, cuándo, sí, él, está, análisis, índice, último, única, crítico, método, teórico, información, cognición, función, señal, solución, relación, acción, comprensión, elaboración, heurística, hipótesis, tálamo, sueño, después, también, además, través*.
-- Los nombres propios en español también llevan tilde cuando corresponde (ej: *Briñol*).
+- Palabras de uso frecuente que **siempre** llevan tilde y suelen olvidarse: *también, más, así, qué, cómo, dónde, cuándo, sí, él, está, análisis, índice, último, única, crítico, método, teórico, información, cognición, función, señal, solución, relación, acción, comprensión, elaboración, heurística, hipótesis, sueño, después, también, además, través*.
+- Los nombres propios en español también llevan tilde cuando corresponde (ej: *Martínez*).
 - **Antes de guardar cualquier nota**, hacer una pasada mental verificando que las palabras esdrújulas, agudas y graves estén acentuadas correctamente.
 
 ### 7. Ciclo de Estados
@@ -99,7 +97,7 @@ validations:
 - Las tags son exclusivamente para temática y dominio de conocimiento.
 - **PROHIBIDO** usar tags para representar estado o tipo de nota.
 - Estado va en `status:` del frontmatter. Tipo va en `type:` del frontmatter.
-- Consultar el Registro de Tags del Vault para tags canónicas.
+- Si el vault tiene un registro de tags (`profile.local_docs.tag_registry` en `.agents/vault.yaml`), usa sus tags canónicas.
 
 ### 9. Markdown sin Hard-Wrap
 - **PROHIBIDO** cortar las líneas de prosa a mano a un ancho fijo (estilo commits de git o 80 columnas). En el editor de Obsidian esto se ve como estrofas de poema y dificulta la edición.

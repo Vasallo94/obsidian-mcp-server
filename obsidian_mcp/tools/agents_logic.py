@@ -349,38 +349,31 @@ def validate_note_logic(
 KIT_DIR = Path(__file__).resolve().parent.parent / "kit"
 
 
-def _kit_templates_folder(vault_path: Path) -> str:
-    """Folder the kit templates go to: configured, detected, or "Plantillas"."""
-    from ..vault_config import (
-        get_vault_config,  # pylint: disable=import-outside-toplevel
-    )
-
-    config = get_vault_config(vault_path)
-    if config:
-        if config.templates_folder:
-            return config.templates_folder
-        if config.taxonomy.roles.get("templates"):
-            return config.taxonomy.roles["templates"]
-    for item in sorted(vault_path.iterdir()):
-        if item.is_dir() and any(
-            t in item.name.lower() for t in ("plantilla", "template")
-        ):
-            return item.name
-    return "Plantillas"
-
-
 def init_vault_kit(write: bool) -> Result[str]:
     """Copy the starter kit into the vault, only where files are missing.
 
     The kit (rules, AGENTS.md and base templates) ships with the MCP so every
-    vault starts from the same base. Existing files are never overwritten.
+    vault starts from the same base. Every target goes through the same path
+    policy as the other write tools (private and forbidden paths included),
+    and the whole plan is checked before anything is written. Files are
+    created exclusively, so an existing file is never replaced.
     With ``write=False`` it only reports what it would create.
     """
+    # pylint: disable=import-outside-toplevel
+    from ..utils.security import resolve_vault_path
+    from ..vault_config import get_vault_config
+    from .creation_logic import find_templates_folder
+
     vault_path = get_vault_path()
     if not vault_path:
         return Result.fail("La ruta del vault no está configurada.")
-    root = vault_path.resolve()
-    templates_folder = _kit_templates_folder(vault_path)
+    templates_folder = (
+        find_templates_folder(vault_path, get_vault_config(vault_path)) or "Plantillas"
+    )
+    if Path(templates_folder) == Path("."):
+        return Result.fail(
+            "templates_folder apunta a la raíz del vault; usa una carpeta."
+        )
     plan = [
         (KIT_DIR / "REGLAS_GLOBALES.md", Path(".agents") / "REGLAS_GLOBALES.md"),
         (KIT_DIR / "AGENTS.template.md", Path("AGENTS.md")),
@@ -389,26 +382,41 @@ def init_vault_kit(write: bool) -> Result[str]:
             for src in sorted((KIT_DIR / "templates").glob("*.md"))
         ),
     ]
-    created, kept = [], []
+    to_create: list[tuple[Path, Path, str]] = []
+    kept: list[str] = []
     for src, rel in plan:
         target = vault_path / rel
-        # lexists: a dangling symlink also counts as "already there".
-        if target.exists() or target.is_symlink():
+        if target.exists() or target.is_symlink():  # a dangling link counts too
             kept.append(rel.as_posix())
             continue
-        if not target.parent.resolve().is_relative_to(root):
-            return Result.fail(f"{rel.as_posix()} quedaría fuera del vault.")
-        if write:
+        resolved, error = resolve_vault_path(target, vault_path, "write")
+        if resolved is None:
+            return Result.fail(f"{rel.as_posix()}: {error}. No se ha escrito nada.")
+        if resolved.parent.exists() and not resolved.parent.is_dir():
+            return Result.fail(
+                f"{rel.parent.as_posix()} no es una carpeta. No se ha escrito nada."
+            )
+        to_create.append((src, resolved, rel.as_posix()))
+
+    created: list[str] = []
+    if write:
+        for src, target, rel_text in to_create:
             target.parent.mkdir(parents=True, exist_ok=True)
-            atomic_write_text(target, src.read_text(encoding="utf-8"))
-        created.append(rel.as_posix())
+            try:
+                # "x": fails if the file appeared since the check above.
+                with open(target, "x", encoding="utf-8") as handle:
+                    handle.write(src.read_text(encoding="utf-8"))
+            except FileExistsError:
+                kept.append(rel_text)
+                continue
+            created.append(rel_text)
+        if created:
+            from ..middleware import invalidate_rules_cache
 
-    if write and created:
-        from ..middleware import (
-            invalidate_rules_cache,  # pylint: disable=import-outside-toplevel
-        )
+            invalidate_rules_cache()
+    else:
+        created = [rel_text for _, _, rel_text in to_create]
 
-        invalidate_rules_cache()
     verb = "Creados" if write else "Se crearían"
     lines = [f"{verb} ({len(created)}):", *(f"- {p}" for p in created)]
     lines += [f"Ya existían, sin tocar ({len(kept)}):", *(f"- {p}" for p in kept)]
@@ -416,7 +424,8 @@ def init_vault_kit(write: bool) -> Result[str]:
         lines.append("Llama con confirm=True para crearlos.")
     if created:
         lines.append(
-            f"Siguiente paso: añade a taxonomy.templates de .agents/vault.yaml las "
-            f"plantillas de {templates_folder} con su carpeta, y completa AGENTS.md."
+            f'Siguiente paso: fija templates_folder: "{templates_folder}" en '
+            ".agents/vault.yaml, añade los tipos de las plantillas a taxonomy.types "
+            "y a taxonomy.templates con su carpeta, y completa AGENTS.md."
         )
     return Result.ok("\n".join(lines))

@@ -75,8 +75,9 @@ def test_symlinked_folder_outside_vault_is_refused(vault, tmp_path):
 
     result = _tool("vault.init_kit")(confirm=True)
 
-    assert "fuera del vault" in result
+    assert "escapes vault" in result and "No se ha escrito nada" in result
     assert not list(outside.iterdir())
+    assert not (vault / "AGENTS.md").exists()
 
 
 def test_kit_templates_use_placeholders_not_fixed_dates():
@@ -84,3 +85,75 @@ def test_kit_templates_use_placeholders_not_fixed_dates():
         text = template.read_text(encoding="utf-8")
         assert "{{title}}" in text and "{{date}}" in text, template.name
         assert "2026-" not in text, template.name
+
+
+def _vault_yaml(vault, text):
+    (vault / ".agents").mkdir(exist_ok=True)
+    (vault / ".agents" / "vault.yaml").write_text(text, encoding="utf-8")
+
+
+@pytest.mark.parametrize(
+    "folder", ["Privado", ".obsidian", "../fuera", "/tmp/kit-fuera", "."]
+)
+def test_protected_or_outside_folder_writes_nothing(vault, folder):
+    _vault_yaml(vault, f'templates_folder: "{folder}"\n')
+    before = sorted(p.relative_to(vault) for p in vault.rglob("*"))
+
+    result = _tool("vault.init_kit")(confirm=True)
+
+    assert "❌" in result or "Error" in result
+    assert sorted(p.relative_to(vault) for p in vault.rglob("*")) == before
+
+
+def test_private_paths_are_respected(vault):
+    _vault_yaml(vault, 'templates_folder: "Secreto"\nprivate_paths: ["Secreto/**"]\n')
+
+    result = _tool("vault.init_kit")(confirm=True)
+
+    assert not (vault / "Secreto").exists() and not (vault / "AGENTS.md").exists()
+    assert "No se ha escrito nada" in result
+
+
+def test_templates_folder_that_is_a_file_writes_nothing(vault):
+    (vault / "Plantillas").write_text("no soy carpeta", encoding="utf-8")
+
+    result = _tool("vault.init_kit")(confirm=True)
+
+    assert "no es una carpeta" in result and not (vault / "AGENTS.md").exists()
+
+
+def test_kit_templates_are_found_by_templates_list(vault):
+    _tool("vault.init_kit")(confirm=True)
+
+    assert "Runbook.md" in _tool("templates.list")()
+
+
+def test_file_created_meanwhile_is_not_replaced(vault, monkeypatch):
+    import builtins
+
+    real_open = builtins.open
+
+    def racing_open(path, *args, **kwargs):
+        mode = args[0] if args else kwargs.get("mode", "r")
+        if mode == "x" and str(path).endswith("AGENTS.md"):
+            with real_open(path, "w", encoding="utf-8") as other:  # appears in between
+                other.write("mío")
+        return real_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "open", racing_open)
+    _tool("vault.init_kit")(confirm=True)
+
+    assert (vault / "AGENTS.md").read_text(encoding="utf-8") == "mío"
+
+
+def test_kit_has_no_personal_leftovers():
+    rules = (KIT_DIR / "REGLAS_GLOBALES.md").read_text(encoding="utf-8")
+    for leftover in (
+        "Briñol",
+        "tálamo",
+        "diagrama-arquitectura",
+        "Secundo",
+        "Synology",
+        "05_Media",
+    ):
+        assert leftover not in rules
