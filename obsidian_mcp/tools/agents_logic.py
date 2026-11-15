@@ -405,10 +405,15 @@ def init_vault_kit(write: bool) -> Result[str]:  # pylint: disable=too-many-loca
     created: list[str] = []
     if write:
         written: list[Path] = []
+        new_dirs: list[Path] = []
         try:
             for src, target, rel_text in to_create:
                 content = src.read_text(encoding="utf-8")
+                missing = [
+                    p for p in (target.parent, *target.parent.parents) if not p.exists()
+                ]
                 target.parent.mkdir(parents=True, exist_ok=True)
+                new_dirs.extend(missing)  # deepest first
                 try:
                     # "x": fails if the file appeared since the check above.
                     handle = open(target, "x", encoding="utf-8")  # pylint: disable=consider-using-with
@@ -423,7 +428,15 @@ def init_vault_kit(write: bool) -> Result[str]:  # pylint: disable=too-many-loca
             # All or nothing: drop the files this call created (a partial one
             # included), so a retry starts clean instead of keeping a stub.
             for path in written:
-                path.unlink(missing_ok=True)
+                try:
+                    path.unlink(missing_ok=True)
+                except OSError:
+                    pass
+            for folder in new_dirs:
+                try:
+                    folder.rmdir()  # only if still empty
+                except OSError:
+                    pass
             return Result.fail(
                 f"No se pudo escribir el kit ({e}). No se ha dejado nada."
             )

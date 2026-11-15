@@ -367,8 +367,8 @@ def find_templates_folder(vault_path: Path, config: Any) -> str | None:
 
     Auto-detection looks at visible top-level folders: an exact "Templates"
     or "Plantillas" wins; otherwise the first (sorted, so the choice is
-    stable) whose name contains "plantilla" or "template", skipping the
-    Templater plugin's script folder.
+    stable) whose name contains "plantilla" or "template", preferring any
+    other folder to the Templater plugin's one.
     """
     if config and config.templates_folder:
         return config.templates_folder
@@ -385,6 +385,9 @@ def find_templates_folder(vault_path: Path, config: Any) -> str | None:
         if "templater" not in lowered and (
             "plantilla" in lowered or "template" in lowered
         ):
+            return name
+    for name in folders:  # a Templater folder only when it is the only one
+        if "template" in name.casefold():
             return name
     return None
 

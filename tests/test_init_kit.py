@@ -202,3 +202,31 @@ def test_no_personal_leftovers_in_any_kit_file():
             "05_Media",
         ):
             assert leftover not in text, (path.name, leftover)
+
+
+def test_templater_folder_alone_is_still_the_templates_folder(vault):
+    (vault / "Templater").mkdir()
+    (vault / "Templater" / "Diario.md").write_text("# {{title}}\n", encoding="utf-8")
+
+    assert "Diario.md" in _tool("templates.list")()
+
+
+def test_rollback_removes_folders_it_created(vault, monkeypatch):
+    import builtins
+
+    real_open = builtins.open
+    calls = {"n": 0}
+
+    def failing_open(path, *args, **kwargs):
+        mode = args[0] if args else kwargs.get("mode", "r")
+        if mode == "x":
+            calls["n"] += 1
+            if calls["n"] == 5:
+                raise OSError(28, "No space left on device")
+        return real_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "open", failing_open)
+    result = _tool("vault.init_kit")(confirm=True)
+
+    assert "No se ha dejado nada" in result
+    assert not list(vault.iterdir())
