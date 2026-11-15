@@ -1,9 +1,11 @@
 """MCP context and routing tools for the active Obsidian vault."""
 
 import json
+import warnings
 from typing import Any
 
 from fastmcp import Context, FastMCP
+from mcp.shared.exceptions import MCPDeprecationWarning
 
 from .context_logic import (
     build_vault_health_report,
@@ -47,7 +49,11 @@ def register_context_tools(mcp: FastMCP) -> None:
     async def list_client_roots(ctx: Context) -> str:
         """List filesystem roots advertised by the connected MCP client."""
         try:
-            roots = await ctx.list_roots()
+            # roots is deprecated from protocol 2026-07-28 (SEP-2577), whose
+            # servers can't call the client: older clients still answer.
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", MCPDeprecationWarning)
+                roots = (await ctx.session.list_roots()).roots
             payload: dict[str, Any] = {
                 "supported": True,
                 "roots": [
@@ -65,8 +71,9 @@ def register_context_tools(mcp: FastMCP) -> None:
                 "roots": [],
                 "error": str(e),
                 "hint": (
-                    "The connected client may not support MCP roots/list, or this "
-                    "tool was executed outside an active MCP client session."
+                    "The connected client may not support MCP roots/list (it is "
+                    "gone from protocol 2026-07-28 on), or this tool was executed "
+                    "outside an active MCP client session."
                 ),
             }
             return json.dumps(payload, ensure_ascii=False, indent=2)

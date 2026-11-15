@@ -82,10 +82,10 @@ def test_write_tool_annotations_are_exposed(tmp_path, monkeypatch):
     create_note = asyncio.run(mcp.get_tool("notes.create"))
     delete_note = asyncio.run(mcp.get_tool("notes.delete"))
 
-    assert create_note.annotations.readOnlyHint is False
-    assert create_note.annotations.idempotentHint is False
+    assert create_note.annotations.read_only_hint is False
+    assert create_note.annotations.idempotent_hint is False
     assert create_note.meta == {"tool_set": "notes_write"}
-    assert delete_note.annotations.destructiveHint is True
+    assert delete_note.annotations.destructive_hint is True
 
 
 def test_mcpb_manifest_contract():
