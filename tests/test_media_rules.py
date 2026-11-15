@@ -412,7 +412,7 @@ def test_broken_rules_are_reported_by_validate_and_lint(vault):
     (vault / "Notas" / "n.md").write_text("---\ntags: [a]\n---\nx", encoding="utf-8")
 
     assert payload["ignored_rules"] == ["rota"]
-    assert "ignoradas: rota" in lint_vault().data
+    assert "pueden no aplicarse): rota" in lint_vault().data
 
 
 def test_invalid_applies_to_and_odd_ids_are_reported(vault):
@@ -427,3 +427,80 @@ def test_invalid_applies_to_and_odd_ids_are_reported(vault):
 
     assert payload["ignored_rules"] == ["dos lineas"]
     assert lint_vault(rule_ids=["required_frontmatter"]).success
+
+
+# --- Deuda baja ---
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        "    paths: 5\n",
+        "    paths: [null]\n",
+        "    exclude_paths: {a: 1}\n",
+    ],
+)
+def test_paths_of_the_wrong_type_mark_the_rule_broken(vault, extra):
+    _write_rules(
+        vault,
+        "  - id: rara\n    applies_to: [create]\n    scope: frontmatter\n"
+        "    required_fields: [zzz]\n    warning: w\n" + extra,
+    )
+    payload = json.loads(validate_note_logic(content="x", mode="create").data)
+
+    assert payload["ignored_rules"] == ["rara"]
+
+
+@pytest.mark.parametrize("applies", ["{}", "0"])
+def test_falsy_applies_to_of_the_wrong_type_is_broken(vault, applies):
+    _write_rules(
+        vault,
+        f"  - id: rara\n    applies_to: {applies}\n    scope: frontmatter\n"
+        "    required_fields: [zzz]\n    warning: w\n",
+    )
+    payload = json.loads(validate_note_logic(content="x", mode="create").data)
+
+    assert payload["ignored_rules"] == ["rara"]
+
+
+def test_broken_blocking_rule_is_reported_in_the_create_result(vault):
+    _write_rules(
+        vault,
+        "  - id: bloq_rota\n    applies_to: [create]\n    block: true\n"
+        "    scope: frontmatter\n    forbidden_fields: 5\n    warning: w\n",
+    )
+    result = _create(title="Libre", content="x", folder="Notas")
+
+    assert "Nota creada" in result
+    assert "Reglas bloqueantes mal formadas, no comprobadas: bloq_rota" in result
+
+
+def test_rule_without_id_is_named_by_what_it_checks(vault):
+    from obsidian_mcp.middleware import rule_label
+
+    assert rule_label({"field": "tags"}) == "sin id (tags)"
+    assert rule_label({"scope": "body"}) == "sin id (body)"
+    assert rule_label({"id": "x"}) == "x"
+
+
+def test_unique_sees_duplicates_inside_a_comma_string():
+    from obsidian_mcp.middleware import _check_unique_values
+
+    rule = {"field": "tags", "warning": "Tags duplicadas: {value}"}
+    assert _check_unique_values(rule, {"tags": "media, media"}) == (
+        "Tags duplicadas: media"
+    )
+    assert _check_unique_values(rule, {"tags": "media, cine"}) is None
+
+
+def test_rules_apply_through_a_symlinked_media_folder(vault, tmp_path):
+    real = tmp_path / "fuera_media"
+    (real / "Películas").mkdir(parents=True)
+    (vault / "05_Media").symlink_to(real, target_is_directory=True)
+    result = _create(
+        title="Pillion",
+        content="---\ntags: [media]\n---\nx",
+        folder="05_Media/Películas",
+    )
+
+    assert "Película incompleta" in result

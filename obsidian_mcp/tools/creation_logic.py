@@ -44,7 +44,10 @@ def _json_serial(obj: Any) -> str:
 
 logger = get_logger(__name__)
 
-_FRONTMATTER_BLOCK_RE = re.compile(r"^(---\s*\n)(.*?\n)(---\s*\n)", re.DOTALL)
+# "Plantillas", "_templates", "99 Templates": not "Contemplates".
+_TEMPLATE_WORD_RE = re.compile(r"(?<![^\W\d_])(?:plantilla|template)[sr]?(?![^\W\d_])")
+# Group 2 is optional so an empty block ("---\n---\n") ends at its own close.
+_FRONTMATTER_BLOCK_RE = re.compile(r"^(---\s*\n)((?:.*?\n)??)(---\s*\n)", re.DOTALL)
 
 
 def _normalize_frontmatter(content: str) -> str:
@@ -434,6 +437,11 @@ def link_from_index(  # pylint: disable=too-many-locals,too-many-branches,too-ma
         return ""
     templates = find_templates_folder(vault_path, get_vault_config(vault_path))
     templates_root = (vault_root / templates).resolve() if templates else None
+    if templates_root and vault_root not in templates_root.parents:
+        # "." or a path outside the vault would turn the exclusion off: refuse
+        # to link rather than bake a link into every template.
+        logger.warning("templates_folder %r no es una subcarpeta del vault", templates)
+        return ""
     # Compared as NFC casefolded parts: APFS ignores case, resolve() keeps it.
     templates_parts = (
         [nfc(part).casefold() for part in templates_root.relative_to(vault_root).parts]
@@ -451,7 +459,7 @@ def link_from_index(  # pylint: disable=too-many-locals,too-many-branches,too-ma
         # Hidden folders, the configured templates folder and any folder named
         # like one (a nested "Sistema/Plantillas" isn't auto-detected).
         return any(
-            f.startswith(".") or "plantilla" in f or "template" in f for f in folders
+            f.startswith(".") or _TEMPLATE_WORD_RE.search(f) for f in folders
         ) or bool(
             templates_parts and folders[: len(templates_parts)] == templates_parts
         )
@@ -952,6 +960,13 @@ def edit_note(  # pylint: disable=too-many-locals,too-many-return-statements,too
     return Result.ok(f"Nota editada: {ruta_relativa} ({n} operaciones aplicadas)")
 
 
+def _has_word(text: str, keywords: list[str]) -> bool:
+    """Whole-word (plural allowed) match: "ia" must not fire on "media",
+    nor "red" on "receta de pared"."""
+    alternatives = "|".join(re.escape(k) for k in keywords)
+    return re.search(rf"(?<!\w)(?:{alternatives})(?:e?s)?(?!\w)", text) is not None
+
+
 def suggest_folder_location(titulo: str, contenido: str, etiquetas: str = "") -> str:
     # pylint: disable=too-many-return-statements,too-many-branches,too-many-locals
     """Helper to suggest location from keywords and the vault's declared taxonomy.
@@ -972,9 +987,9 @@ def suggest_folder_location(titulo: str, contenido: str, etiquetas: str = "") ->
     crea = crea_role.name if crea_role else "03_Creaciones"
 
     # IA / Machine Learning
-    if any(
-        k in texto
-        for k in [
+    if _has_word(
+        texto,
+        [
             "ia",
             "inteligencia artificial",
             "mcp",
@@ -987,18 +1002,18 @@ def suggest_folder_location(titulo: str, contenido: str, etiquetas: str = "") ->
             "machine learning",
             "ml",
             "modelo",
-        ]
+        ],
     ):
         return f"📂 Sugerencia: `{know}/IA`"
 
     # Lógica simple de categorización basada en la estructura del vault
-    if any(k in texto for k in ["poema", "poesía", "verso", "rima"]):
+    if _has_word(texto, ["poema", "poesía", "verso", "rima"]):
         return f"📂 Sugerencia: `{crea}/Poemas`"
-    if any(k in texto for k in ["reflexión", "pienso", "creo", "opinión"]):
+    if _has_word(texto, ["reflexión", "reflexiones", "pienso", "creo", "opinión"]):
         return f"📂 Sugerencia: `{crea}/Reflexiones`"
-    if any(
-        k in texto
-        for k in [
+    if _has_word(
+        texto,
+        [
             "código",
             "python",
             "sql",
@@ -1007,12 +1022,12 @@ def suggest_folder_location(titulo: str, contenido: str, etiquetas: str = "") ->
             "script",
             "git",
             "docker",
-        ]
+        ],
     ):
         return f"📂 Sugerencia: `{know}/Programación`"
-    if any(
-        k in texto
-        for k in [
+    if _has_word(
+        texto,
+        [
             "sistema",
             "linux",
             "ssh",
@@ -1020,12 +1035,12 @@ def suggest_folder_location(titulo: str, contenido: str, etiquetas: str = "") ->
             "red",
             "networking",
             "homelab",
-        ]
+        ],
     ):
         return f"📂 Sugerencia: `{know}/Sistemas`"
-    if any(k in texto for k in ["filosofía", "ética", "aristóteles", "dualismo"]):
+    if _has_word(texto, ["filosofía", "ética", "aristóteles", "dualismo"]):
         return f"📂 Sugerencia: `{know}/Filosofía`"
-    if any(k in texto for k in ["psicología", "cognitivo", "mente", "ego"]):
+    if _has_word(texto, ["psicología", "cognitivo", "mente", "ego"]):
         return f"📂 Sugerencia: `{know}/Psicología`"
 
     # Default fallback - scan for inbox-like folders or use root
@@ -1194,7 +1209,8 @@ def create_note_with_content(
 
     carpeta = resolve_create_folder(titulo, contenido, etiquetas, carpeta)
     nombre_archivo = sanitize_filename(titulo)
-    nota_path = vault_path / note_relative_path(carpeta, titulo)
+    ruta_pedida = Path(note_relative_path(carpeta, titulo)).as_posix()
+    nota_path = vault_path / ruta_pedida
 
     # Validate before mkdir so rejected paths cannot mutate the filesystem.
     resolved_note, error = resolve_vault_path(nota_path, vault_path, "crear nota en")
@@ -1348,13 +1364,23 @@ def create_note_with_content(
     # Vault rules marked ``block: true`` refuse the write (validated against
     # the final note, template included, and its real path).
     final_fm, final_body = _extract_frontmatter_from_content(contenido_final)
-    bloqueos = blocking_violations(
-        load_vault_rules(),
-        title=titulo,
-        content=final_body,
-        frontmatter=final_fm,
-        path=ruta_relativa.as_posix(),
-    )
+    bloqueantes_rotas: set[str] = set()
+    bloqueos: list[str] = []
+    # Both the requested and the resolved path: a symlinked folder
+    # ("05_Media" -> elsewhere in the vault) must not dodge path rules.
+    for ruta in dict.fromkeys((ruta_pedida, ruta_relativa.as_posix())):
+        bloqueos += [
+            b
+            for b in blocking_violations(
+                load_vault_rules(),
+                title=titulo,
+                content=final_body,
+                frontmatter=final_fm,
+                path=ruta,
+                broken=bloqueantes_rotas,
+            )
+            if b not in bloqueos
+        ]
     if bloqueos:
         return Result.fail(
             f"Nota NO creada ({ruta_relativa}): incumple reglas bloqueantes "
@@ -1371,6 +1397,12 @@ def create_note_with_content(
 
     resultado = f"Nota creada: **{titulo}**\n"
     resultado += f"📍 Ubicación: {ruta_relativa}\n"
+    if bloqueantes_rotas:
+        resultado += (
+            "⚠️ Reglas bloqueantes mal formadas, no comprobadas: "
+            + ", ".join(sorted(bloqueantes_rotas))
+            + " (corrígelas en .agents/REGLAS_GLOBALES.md)\n"
+        )
     if plantilla:
         resultado += f"📝 Plantilla usada: {plantilla}\n"
     if agente_creador:

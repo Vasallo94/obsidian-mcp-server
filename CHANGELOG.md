@@ -52,6 +52,10 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 - Eliminados planes internos de desarrollo y scripts personales/backup que contenían rutas locales antes de publicar el repositorio.
 
 ### Fixed
+- **Deuda baja de las auditorías (#139, #142, #143)**:
+  - Enlace desde el índice: un frontmatter vacío (`---\n---`) ya no hace que se reescriba un `updated:` del cuerpo; las carpetas que solo contienen «template» como subcadena (`Contemplates/`) vuelven a recibir enlaces; un `templates_folder` que es la raíz del vault o está fuera de él desactiva el enlace en vez de la exclusión; `atomic_write_text` escribe sin traducir saltos de línea (CRLF en Windows).
+  - Reglas del vault: `paths`/`exclude_paths` de tipo inválido y `applies_to: {}`/`0` marcan la regla como rota; una regla `block: true` mal formada se avisa en el resultado de `notes.create`; las reglas sin `id` se nombran por lo que comprueban; `unique` detecta duplicados en un string separado por comas; las reglas por carpeta también se aplican a través de una carpeta enlazada con symlink.
+  - `notes.suggest_location` compara palabras enteras: «ia» ya no salta con «media» ni «red» con «receta».
 - **Reglas del vault**: las entradas de `validations` que no son reglas se ignoran, `applies_to` admite un string o vacío, y las reglas mal formadas que se saltan aparecen en `notes.validate` (`ignored_rules`) y en `vault.lint`. Con `tipo: ''`, `note_type` sí añade `type`.
 - Reglas `validations:` más robustas: una regla mal formada se ignora con aviso en el log en vez de impedir crear notas; `paths`/`exclude_paths` no distinguen mayúsculas, aceptan un string, `**` para cero o más carpetas y `[` literal (mismo matcher que `private_paths`); `note_type` no añade `type` a notas con esquema propio (`tipo`).
 - `notes.create` ya no añade `title`/`created` a notas que usan el esquema de media (`titulo`/`fecha_creacion`), y valida el frontmatter final escrito (plantilla incluida) en vez de solo el argumento `content`. `notes.replace` valida también las reglas de frontmatter.

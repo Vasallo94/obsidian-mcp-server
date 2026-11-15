@@ -190,7 +190,9 @@ def atomic_write_text(path: Path, content: str) -> None:
         )
         os.chmod(temporary_path, mode)
         owned_descriptor, descriptor = descriptor, -1
-        with os.fdopen(owned_descriptor, "w", encoding="utf-8") as temporary_file:
+        with os.fdopen(
+            owned_descriptor, "w", encoding="utf-8", newline=""
+        ) as temporary_file:
             temporary_file.write(content)
             temporary_file.flush()
             os.fsync(temporary_file.fileno())

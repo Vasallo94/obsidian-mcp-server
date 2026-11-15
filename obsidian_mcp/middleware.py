@@ -181,9 +181,10 @@ def iter_violations(
     """
     pairs: list[tuple[dict[str, Any], str]] = []
     for rule in rules:
-        applies = rule.get("applies_to") or []
+        applies = rule.get("applies_to")
+        applies = [] if applies is None else applies
         applies = [applies] if isinstance(applies, str) else applies
-        rule_id = " ".join(str(rule.get("id", "?")).split())  # one line in reports
+        rule_id = rule_label(rule)
         if not isinstance(applies, list):
             if broken is not None:
                 broken.add(rule_id)  # a dict or a number is a typo: say so
@@ -205,6 +206,14 @@ def iter_violations(
     return pairs
 
 
+def rule_label(rule: dict[str, Any]) -> str:
+    """One-line name of a rule for reports: its id, or what it checks."""
+    if rule.get("id") is not None:
+        return " ".join(str(rule["id"]).split())
+    what = rule.get("field") or rule.get("scope") or "?"
+    return f"sin id ({' '.join(str(what).split())})"
+
+
 def _nfc(text: str) -> str:
     # macOS stores filenames decomposed (NFD); rules are typed composed (NFC).
     return unicodedata.normalize("NFC", text)
@@ -213,10 +222,14 @@ def _nfc(text: str) -> str:
 def _matches_any(path: str, patterns: Any) -> bool:
     """Glob match with the private_paths rules: NFC, case-insensitive (APFS),
     `**` for zero or more folders and `[` also as a literal character."""
+    if patterns is None:
+        return False
     if isinstance(patterns, str):
         patterns = [patterns]
-    if not isinstance(patterns, list):
-        return False
+    if not isinstance(patterns, list) or not all(isinstance(p, str) for p in patterns):
+        # A number, a mapping or [None] is a typo: raise so the rule is
+        # reported as broken instead of silently never applying.
+        raise ValueError(f"paths/exclude_paths no es una lista de globs: {patterns!r}")
     # pylint: disable-next=import-outside-toplevel
     from .utils.security import _matching_forbidden_pattern
 
@@ -226,9 +239,10 @@ def _matches_any(path: str, patterns: Any) -> bool:
 def _rule_applies_to_path(rule: dict[str, Any], path: str) -> bool:
     """Apply the optional ``paths``/``exclude_paths`` glob filters."""
     path = _nfc(path.replace("\\", "/").lstrip("/"))
-    if "paths" in rule and not (path and _matches_any(path, rule["paths"])):
-        return False
-    return not (path and _matches_any(path, rule.get("exclude_paths")))
+    # Match even without a path, so a malformed glob list is always reported.
+    included = "paths" not in rule or _matches_any(path, rule["paths"])
+    excluded = _matches_any(path, rule.get("exclude_paths"))
+    return bool(path or "paths" not in rule) and included and not (path and excluded)
 
 
 def blocking_violations(
@@ -238,10 +252,12 @@ def blocking_violations(
     content: str = "",
     frontmatter: dict[str, Any] | None = None,
     path: str = "",
+    broken: set[str] | None = None,
 ) -> list[str]:
     """Warnings of ``block: true`` rules that fire in create mode.
 
     Used by note creation to refuse the write instead of warning after it.
+    Malformed blocking rules are added to ``broken`` so the caller can say so.
     """
     return [
         warning
@@ -252,6 +268,7 @@ def blocking_violations(
             content=content,
             frontmatter=frontmatter,
             path=path,
+            broken=broken,
         )
     ]
 
@@ -352,6 +369,8 @@ def _field_values(fm: dict[str, Any], field: str) -> list[str]:
     value = fm.get(field)
     if value is None:
         return []
+    if isinstance(value, str):  # `tags: "a, a"` is a comma-separated list
+        return [v.strip() for v in value.split(",") if v.strip()]
     values = value if isinstance(value, list) else [value]
     return [str(v) for v in values]
 
