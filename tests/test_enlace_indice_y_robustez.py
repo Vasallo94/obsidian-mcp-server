@@ -338,3 +338,69 @@ def test_escaped_backtick_keeps_markers_as_prose():
 @pytest.mark.parametrize("raw", ["ㅤ", "⠀", "ᅟᅠ"])
 def test_blank_printable_creator_is_dropped(raw):
     assert normalize_agent_name(raw) == ""
+
+
+# --- Hallazgos de la reauditoría ---
+
+TPL_MOC = "---\nupdated: {{date:YYYY-MM-DD}}\n---\n# {{title}}\n"
+
+
+def _templates(vault, rel="Plantillas"):
+    folder = vault / rel
+    folder.mkdir(parents=True)
+    (folder / "MOC.md").write_text(TPL_MOC, encoding="utf-8")
+    return folder / "MOC.md"
+
+
+def test_templates_folder_case_differs_from_config(vault):
+    moc = _templates(vault)
+    (vault / ".agents").mkdir()
+    (vault / ".agents" / "vault.yaml").write_text(
+        "templates_folder: plantillas\n", encoding="utf-8"
+    )
+    reset_settings()
+    _tool("notes.create")("Nueva", "x", folder="plantillas")
+
+    assert moc.read_text(encoding="utf-8") == TPL_MOC
+
+
+def test_index_symlinked_into_templates_is_not_touched(vault):
+    moc = _templates(vault)
+    (vault / "Proyectos").mkdir()
+    (vault / "Proyectos" / "MOC.md").symlink_to(moc)
+    _tool("notes.create")("Nueva", "x", folder="Proyectos")
+
+    assert moc.read_text(encoding="utf-8") == TPL_MOC
+
+
+def test_nested_templates_folder_without_config(vault):
+    moc = _templates(vault, "Sistema/Plantillas")
+    _tool("notes.create")("Nueva", "x", folder="Sistema/Plantillas")
+
+    assert moc.read_text(encoding="utf-8") == TPL_MOC
+
+
+def test_inline_code_percent_does_not_hide_sections(vault):
+    index = vault / "Conocimiento" / "Física" / "Índice.md"
+    index.write_text(
+        "# F\n\nEscribe `%%` para comentar.\n\n## Uso de `%%`\n\n## Por clasificar\n\n- [[A]]\n",
+        encoding="utf-8",
+    )
+    _tool("notes.create")("Caos", "x", folder="Conocimiento/Física")
+
+    text = index.read_text(encoding="utf-8")
+    assert text.count("## Por clasificar") == 1 and text.endswith(
+        "- [[A]]\n- [[Caos]]\n"
+    )
+
+
+@pytest.mark.parametrize("raw", ["\ufe0f", "\u034f", " \u0301 "])
+def test_combining_only_creator_is_dropped(raw):
+    assert normalize_agent_name(raw) == ""
+
+
+def test_link_from_index_outside_vault_returns_empty(tmp_path):
+    from obsidian_mcp.tools.creation_logic import link_from_index
+
+    (tmp_path / "v").mkdir()
+    assert link_from_index(tmp_path / "otro" / "n.md", tmp_path / "v") == ""

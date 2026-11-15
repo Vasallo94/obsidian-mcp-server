@@ -13,6 +13,7 @@ All functions return Result[str] for consistent error handling.
 import difflib
 import json
 import re
+import unicodedata
 from datetime import date, datetime
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -432,12 +433,26 @@ def link_from_index(  # pylint: disable=too-many-locals,too-many-branches,too-ma
         return ""
     templates = find_templates_folder(vault_path, get_vault_config(vault_path))
     templates_root = (vault_root / templates).resolve() if templates else None
+    # Compared as NFC casefolded parts: APFS ignores case, resolve() keeps it.
+    templates_parts = (
+        [nfc(part).casefold() for part in templates_root.relative_to(vault_root).parts]
+        if templates_root and vault_root in templates_root.parents
+        else []
+    )
 
     def excluded(path: Path) -> bool:
-        rel = path.relative_to(vault_root)
-        return any(part.startswith(".") for part in rel.parts) or bool(
-            templates_root
-            and (path == templates_root or templates_root in path.parents)
+        path = path.resolve()  # an index may be a symlink into the templates
+        if vault_root not in path.parents:
+            return True
+        folders = [
+            nfc(part).casefold() for part in path.relative_to(vault_root).parts[:-1]
+        ]
+        # Hidden folders, the configured templates folder and any folder named
+        # like one (a nested "Sistema/Plantillas" isn't auto-detected).
+        return any(
+            f.startswith(".") or "plantilla" in f or "template" in f for f in folders
+        ) or bool(
+            templates_parts and folders[: len(templates_parts)] == templates_parts
         )
 
     if excluded(note_path):
@@ -483,11 +498,13 @@ def link_from_index(  # pylint: disable=too-many-locals,too-many-branches,too-ma
         if fence:
             if re.match(rf"^ {{0,3}}{fence[0]}{{{len(fence)},}}[ \t]*$", line):
                 fence = ""
-        elif comment or "%%" in line:  # headings inside %% comments are hidden
-            if line.count("%%") % 2:
-                comment = not comment
-        elif opened := _fence_open(line):
+            continue
+        prose = _strip_inline_code(line)  # `%%` in code is not a comment
+        if not comment and (opened := _fence_open(line)):
             fence = opened
+        elif comment or "%%" in prose:  # headings inside %% comments are hidden
+            if prose.count("%%") % 2:
+                comment = not comment
         elif heading := _HEADING_RE.match(line):
             heads.append((i, len(heading.group(1)), heading.group(2).strip()))
     section = next(
@@ -554,7 +571,10 @@ def normalize_agent_name(name: str) -> str:
         c for c in " ".join(name.split()) if c.isprintable() or c == "\u200d"
     )
     name = nfc(name)[:64].rstrip()
-    if not name.translate(_INVISIBLE).strip():
+    if all(
+        c.isspace() or unicodedata.category(c) in ("Mn", "Me")
+        for c in name.translate(_INVISIBLE)
+    ):
         return ""  # only invisible characters: no signature at all
     key = " ".join(re.sub(r"[-_]", " ", name).casefold().split())
     return _AGENT_ALIASES.get(key, name)
@@ -1379,6 +1399,7 @@ def create_note_with_content(
             indice = link_from_index(nota_path, vault_path, descripcion)
         except Exception as e:  # pylint: disable=broad-exception-caught
             # The note is already written: report, never fail the creation.
+            logger.exception("No se pudo enlazar %s desde su índice", nota_path)
             resultado += f"⚠️ No se pudo enlazar desde el índice: {e}\n"
         else:
             if indice:
