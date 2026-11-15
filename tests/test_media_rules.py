@@ -353,3 +353,77 @@ def test_path_glob_semantics(patterns, path, expected):
     from obsidian_mcp.middleware import _matches_any
 
     assert _matches_any(path, patterns) is expected
+
+
+# --- Seguimiento del PR #142 ---
+
+
+def _write_rules(vault, extra):
+    (vault / ".agents" / "REGLAS_GLOBALES.md").write_text(
+        RULES.replace("validations:\n", "validations:\n" + extra), encoding="utf-8"
+    )
+    invalidate_rules_cache()
+
+
+def test_empty_tipo_still_gets_note_type(vault):
+    _set_vault_yaml(
+        vault,
+        'templates_folder: "ZZ_Plantillas"\ntaxonomy:\n  types: [concepto]\n',
+    )
+    result = _create(
+        title="Vacío",
+        content="---\ntipo: ''\n---\nx",
+        note_type="concepto",
+        folder="Notas",
+        tags="a",
+    )
+
+    text = (vault / "Notas" / "Vacío.md").read_text(encoding="utf-8")
+    assert "type: concepto" in text, result
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        "  - hola\n",
+        "  - id: sin_modo\n    applies_to:\n    block: true\n    scope: frontmatter\n"
+        "    forbidden_fields: [x]\n    warning: w\n",
+        "  - id: modo_texto\n    applies_to: create\n    scope: frontmatter\n"
+        "    required_fields: [zzz]\n    warning: 'falta {missing_fields}'\n",
+    ],
+)
+def test_odd_rule_shapes_do_not_break_creation(vault, extra):
+    _write_rules(vault, extra)
+    result = _create(title="Libre", content="x", folder="Notas", tags="a")
+
+    assert (vault / "Notas" / "Libre.md").exists(), result
+    if "modo_texto" in extra:  # a string applies_to counts as one mode
+        assert "falta zzz" in result
+
+
+def test_broken_rules_are_reported_by_validate_and_lint(vault):
+    _write_rules(
+        vault,
+        "  - id: rota\n    applies_to: [create, edit]\n    scope: frontmatter\n"
+        "    forbidden_fields: 5\n",
+    )
+    payload = json.loads(validate_note_logic(content="x", mode="create").data)
+    (vault / "Notas").mkdir()
+    (vault / "Notas" / "n.md").write_text("---\ntags: [a]\n---\nx", encoding="utf-8")
+
+    assert payload["ignored_rules"] == ["rota"]
+    assert "ignoradas: rota" in lint_vault().data
+
+
+def test_invalid_applies_to_and_odd_ids_are_reported(vault):
+    _write_rules(
+        vault,
+        "  - id: [lista]\n    applies_to: [edit]\n    scope: frontmatter\n"
+        "    required_fields: [zzz]\n    warning: w\n"
+        '  - id: "dos\\nlineas"\n    applies_to: {create: true}\n    scope: frontmatter\n'
+        "    required_fields: [zzz]\n    warning: w\n",
+    )
+    payload = json.loads(validate_note_logic(content="x", mode="create").data)
+
+    assert payload["ignored_rules"] == ["dos lineas"]
+    assert lint_vault(rule_ids=["required_frontmatter"]).success

@@ -1300,7 +1300,7 @@ def create_note_with_content(
             combined_metadata.update(extra_metadata)
             # Notes with their own schema (media: `tipo`/`estado`) don't get
             # the generic `type`: their rules may forbid it.
-            if tipo and "tipo" not in combined_metadata:
+            if tipo and not combined_metadata.get("tipo"):
                 combined_metadata["type"] = tipo
 
             contenido_final = _build_frontmatter(
@@ -1318,7 +1318,7 @@ def create_note_with_content(
         # Sin plantilla: detectar si el contenido ya tiene frontmatter
         # Extraer frontmatter del contenido si existe
         extra_metadata, contenido_limpio = _extract_frontmatter_from_content(contenido)
-        if tipo and "tipo" not in extra_metadata:
+        if tipo and not extra_metadata.get("tipo"):
             extra_metadata["type"] = tipo
 
         # Construir frontmatter unificado

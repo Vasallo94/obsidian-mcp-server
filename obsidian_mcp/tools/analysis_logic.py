@@ -501,6 +501,13 @@ def analyze_links() -> Result[str]:
     return Result.ok(resultado)
 
 
+def _broken_rules_note(ids: set[str]) -> str:
+    return (
+        "Advertencia: reglas mal formadas en REGLAS_GLOBALES.md, ignoradas: "
+        + ", ".join(sorted(ids))
+    )
+
+
 def lint_vault(  # pylint: disable=too-many-locals,too-many-branches,too-many-statements
     folder: str = "",
     rule_ids: list[str] | None = None,
@@ -554,7 +561,7 @@ def lint_vault(  # pylint: disable=too-many-locals,too-many-branches,too-many-st
     rules = load_vault_rules()
     if rule_ids:
         wanted = set(rule_ids)
-        rules = [r for r in rules if r.get("id") in wanted]
+        rules = [r for r in rules if isinstance(r.get("id"), str) and r["id"] in wanted]
         if not rules:
             return Result.fail(
                 f"Ningun rule_id de {sorted(wanted)} esta definido en REGLAS_GLOBALES.md."
@@ -565,6 +572,7 @@ def lint_vault(  # pylint: disable=too-many-locals,too-many-branches,too-many-st
     total_violations = 0
     files_scanned = 0
     files_skipped = 0
+    broken_rules: set[str] = set()
     fix_failures: set[str] = set()
 
     for md_file in iter_safe_vault_files(vault_path, root=scan_root):
@@ -596,6 +604,7 @@ def lint_vault(  # pylint: disable=too-many-locals,too-many-branches,too-many-st
             content=body,
             frontmatter=frontmatter or {},
             path=rel,
+            broken=broken_rules,
         )
         can_auto_fix = True
         for rule, warning in violations:
@@ -623,6 +632,8 @@ def lint_vault(  # pylint: disable=too-many-locals,too-many-branches,too-many-st
         )
         if files_skipped:
             message += f"\nAdvertencia: {files_skipped} archivos ilegibles omitidos."
+        if broken_rules:
+            message += f"\n{_broken_rules_note(broken_rules)}"
         return Result.ok(message)
 
     lines: list[str] = [
@@ -641,6 +652,8 @@ def lint_vault(  # pylint: disable=too-many-locals,too-many-branches,too-many-st
         lines.append("")
     if files_skipped:
         lines.append(f"Advertencia: {files_skipped} archivos ilegibles omitidos.\n")
+    if broken_rules:
+        lines.append(f"{_broken_rules_note(broken_rules)}\n")
     if fix_failures:
         lines.append(
             f"Advertencia: no se pudieron corregir {len(fix_failures)} archivos.\n"

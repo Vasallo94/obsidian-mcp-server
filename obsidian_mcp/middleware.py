@@ -68,6 +68,12 @@ def load_vault_rules(force_reload: bool = False) -> list[dict[str, Any]]:
     frontmatter, _ = _read_rules_file()
     validations = frontmatter.get("validations", [])
     validations = validations if isinstance(validations, list) else []
+    dropped = [v for v in validations if not isinstance(v, dict)]
+    if dropped:
+        logger.warning(
+            "validations: %d entradas que no son reglas, ignoradas", len(dropped)
+        )
+    validations = [v for v in validations if isinstance(v, dict)]
     _rules_cache = _apply_taxonomy_types(validations)
     return _rules_cache
 
@@ -129,6 +135,7 @@ def run_validations(
     content: str = "",
     frontmatter: dict[str, Any] | None = None,
     path: str = "",
+    broken: set[str] | None = None,
 ) -> list[str]:
     """Run applicable validations and return list of warning strings."""
     return [
@@ -140,6 +147,7 @@ def run_validations(
             content=content,
             frontmatter=frontmatter,
             path=path,
+            broken=broken,
         )
     ]
 
@@ -152,6 +160,7 @@ def iter_violations(
     content: str = "",
     frontmatter: dict[str, Any] | None = None,
     path: str = "",
+    broken: set[str] | None = None,
 ) -> list[tuple[dict[str, Any], str]]:
     """Like ``run_validations`` but also returns the rule that fired.
 
@@ -166,19 +175,30 @@ def iter_violations(
     run when it matches one of those globs (so they are skipped when the
     path is unknown); rules with ``exclude_paths`` are skipped when it
     matches one of them.
+
+    A malformed rule is skipped (logged, and its id added to ``broken`` when
+    given) instead of raising: one bad rule must not take down every write.
     """
     pairs: list[tuple[dict[str, Any], str]] = []
     for rule in rules:
-        if mode is not None and mode not in rule.get("applies_to", []):
-            continue
-        if not _rule_applies_to_path(rule, path):
+        applies = rule.get("applies_to") or []
+        applies = [applies] if isinstance(applies, str) else applies
+        rule_id = " ".join(str(rule.get("id", "?")).split())  # one line in reports
+        if not isinstance(applies, list):
+            if broken is not None:
+                broken.add(rule_id)  # a dict or a number is a typo: say so
+            if mode is not None:
+                continue
+        elif mode is not None and mode not in applies:
             continue
         try:
+            if not _rule_applies_to_path(rule, path):
+                continue
             warning = _check_rule(rule, title, content, frontmatter or {})
         except Exception as e:  # pylint: disable=broad-exception-caught
-            # A malformed rule (missing warning, wrong types) must not take
-            # down every write in the vault: skip it and say so in the log.
             logger.warning("Regla %r mal formada, se ignora: %s", rule.get("id"), e)
+            if broken is not None:
+                broken.add(rule_id)
             continue
         if warning:
             pairs.append((rule, warning))
