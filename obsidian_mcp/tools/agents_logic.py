@@ -329,6 +329,7 @@ def validate_note_logic(
 
     frontmatter, body = _extract_frontmatter_from_content(content)
     rules = load_vault_rules()
+    broken: set[str] = set()
     warnings = run_validations(
         rules,
         mode=mode,
@@ -336,6 +337,7 @@ def validate_note_logic(
         content=body if frontmatter else content,
         frontmatter=frontmatter,
         path=note_path,
+        broken=broken,
     )
 
     payload: dict[str, Any] = {
@@ -343,6 +345,8 @@ def validate_note_logic(
         "mode": mode,
         "violations": warnings,
     }
+    if broken:  # skipped, so `valid` can't vouch for them
+        payload["ignored_rules"] = sorted(broken)
     return Result.ok(json.dumps(payload, ensure_ascii=False, indent=2))
 
 
