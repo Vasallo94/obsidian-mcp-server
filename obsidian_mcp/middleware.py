@@ -239,6 +239,8 @@ def _matches_any(path: str, patterns: Any) -> bool:
 def _rule_applies_to_path(rule: dict[str, Any], path: str) -> bool:
     """Apply the optional ``paths``/``exclude_paths`` glob filters."""
     path = _nfc(path.replace("\\", "/").lstrip("/"))
+    if "paths" in rule and rule["paths"] in (None, []):
+        raise ValueError("paths vacío: la regla no se aplicaría nunca")
     # Match even without a path, so a malformed glob list is always reported.
     included = "paths" not in rule or _matches_any(path, rule["paths"])
     excluded = _matches_any(path, rule.get("exclude_paths"))
@@ -369,8 +371,6 @@ def _field_values(fm: dict[str, Any], field: str) -> list[str]:
     value = fm.get(field)
     if value is None:
         return []
-    if isinstance(value, str):  # `tags: "a, a"` is a comma-separated list
-        return [v.strip() for v in value.split(",") if v.strip()]
     values = value if isinstance(value, list) else [value]
     return [str(v) for v in values]
 
@@ -379,7 +379,10 @@ def _check_unique_values(rule: dict[str, Any], fm: dict[str, Any]) -> str | None
     """Flag repeated values in a list field (e.g. ``tags: [media, media]``)."""
     seen: set[str] = set()
     dupes: list[str] = []
-    for v in _field_values(fm, rule["field"]):
+    values = _field_values(fm, rule["field"])
+    if len(values) == 1:  # `tags: "a, a"` is a comma-separated list
+        values = [v.strip() for v in values[0].split(",") if v.strip()]
+    for v in values:
         if v in seen and v not in dupes:
             dupes.append(v)
         seen.add(v)

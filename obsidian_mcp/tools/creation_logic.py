@@ -12,6 +12,7 @@ All functions return Result[str] for consistent error handling.
 
 import difflib
 import json
+import os
 import re
 import unicodedata
 from datetime import date, datetime
@@ -437,7 +438,10 @@ def link_from_index(  # pylint: disable=too-many-locals,too-many-branches,too-ma
         return ""
     templates = find_templates_folder(vault_path, get_vault_config(vault_path))
     templates_root = (vault_root / templates).resolve() if templates else None
-    if templates_root and vault_root not in templates_root.parents:
+    # Judged on the configured text, not the resolved path: a templates
+    # folder symlinked to a shared folder outside the vault is still valid.
+    configured = Path(os.path.normpath(vault_root / templates)) if templates else None
+    if configured and vault_root not in configured.parents:
         # "." or a path outside the vault would turn the exclusion off: refuse
         # to link rather than bake a link into every template.
         logger.warning("templates_folder %r no es una subcarpeta del vault", templates)
@@ -542,7 +546,7 @@ def link_from_index(  # pylint: disable=too-many-locals,too-many-branches,too-ma
     if head and _extract_frontmatter_from_content(head)[0]:
         head = _update_frontmatter_date(head)
     new_text = head + "\n".join(lines)
-    atomic_write_text(index, new_text.replace("\n", newline))
+    atomic_write_text(index, new_text.replace("\n", newline), newline="")
     return index.relative_to(vault_root).as_posix()
 
 
@@ -1009,12 +1013,17 @@ def suggest_folder_location(titulo: str, contenido: str, etiquetas: str = "") ->
     # Lógica simple de categorización basada en la estructura del vault
     if _has_word(texto, ["poema", "poesía", "verso", "rima"]):
         return f"📂 Sugerencia: `{crea}/Poemas`"
-    if _has_word(texto, ["reflexión", "reflexiones", "pienso", "creo", "opinión"]):
+    if _has_word(
+        texto, ["reflexión", "reflexiones", "pienso", "creo", "opinión", "opiniones"]
+    ):
         return f"📂 Sugerencia: `{crea}/Reflexiones`"
     if _has_word(
         texto,
         [
             "código",
+            "github",
+            "gitlab",
+            "dockerfile",
             "python",
             "sql",
             "config",
@@ -1209,7 +1218,8 @@ def create_note_with_content(
 
     carpeta = resolve_create_folder(titulo, contenido, etiquetas, carpeta)
     nombre_archivo = sanitize_filename(titulo)
-    ruta_pedida = Path(note_relative_path(carpeta, titulo)).as_posix()
+    # normpath: "05_Media/../Notas" must not match rules for 05_Media.
+    ruta_pedida = Path(os.path.normpath(note_relative_path(carpeta, titulo))).as_posix()
     nota_path = vault_path / ruta_pedida
 
     # Validate before mkdir so rejected paths cannot mutate the filesystem.

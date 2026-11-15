@@ -175,8 +175,12 @@ def get_note_metadata(note_path: Path) -> Dict[str, Any]:
 # --- File Operations ---
 
 
-def atomic_write_text(path: Path, content: str) -> None:
-    """Replace a text file atomically after flushing its complete new content."""
+def atomic_write_text(path: Path, content: str, newline: str | None = None) -> None:
+    """Replace a text file atomically after flushing its complete new content.
+
+    ``newline=""`` writes line endings exactly as given (a CRLF index); the
+    default translates ``\\n`` to the platform's separator, as before.
+    """
     destination = path.resolve() if path.is_symlink() else path
     descriptor, temporary_name = tempfile.mkstemp(
         dir=destination.parent,
@@ -191,7 +195,7 @@ def atomic_write_text(path: Path, content: str) -> None:
         os.chmod(temporary_path, mode)
         owned_descriptor, descriptor = descriptor, -1
         with os.fdopen(
-            owned_descriptor, "w", encoding="utf-8", newline=""
+            owned_descriptor, "w", encoding="utf-8", newline=newline
         ) as temporary_file:
             temporary_file.write(content)
             temporary_file.flush()

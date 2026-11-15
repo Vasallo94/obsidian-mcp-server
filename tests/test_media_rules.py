@@ -494,7 +494,7 @@ def test_unique_sees_duplicates_inside_a_comma_string():
 
 
 def test_rules_apply_through_a_symlinked_media_folder(vault, tmp_path):
-    real = tmp_path / "fuera_media"
+    real = tmp_path / "fuera_media"  # inside the vault (isolated_vault is tmp_path)
     (real / "Películas").mkdir(parents=True)
     (vault / "05_Media").symlink_to(real, target_is_directory=True)
     result = _create(
@@ -504,3 +504,35 @@ def test_rules_apply_through_a_symlinked_media_folder(vault, tmp_path):
     )
 
     assert "Película incompleta" in result
+
+
+def test_field_pattern_sees_the_whole_string():
+    from obsidian_mcp.middleware import _check_field_pattern
+
+    commas = {"field": "tags", "pattern": ",", "warning": "{value}"}
+    assert _check_field_pattern(commas, {"tags": "a, b"}) == "a, b"
+    link = {"field": "director", "pattern": r"^(?!\[\[)", "warning": "{value}"}
+    assert _check_field_pattern(link, {"director": "[[Coen, Joel]]"}) is None
+
+
+@pytest.mark.parametrize("paths", ["", "[]"])
+def test_empty_paths_mark_the_rule_broken(vault, paths):
+    _write_rules(
+        vault,
+        "  - id: vacia\n    applies_to: [create]\n    scope: frontmatter\n"
+        f"    paths: {paths}\n    required_fields: [zzz]\n    warning: w\n",
+    )
+    payload = json.loads(validate_note_logic(content="x", mode="create").data)
+
+    assert payload["ignored_rules"] == ["vacia"]
+
+
+def test_dotdot_in_folder_does_not_trigger_rules_of_the_folder_it_leaves(vault):
+    (vault / "05_Media").mkdir()
+    result = _create(
+        title="Libre",
+        content="---\ntags: [media]\n---\nx",
+        folder="05_Media/Películas/../../Notas",
+    )
+
+    assert "Nota creada" in result and "Película incompleta" not in result
