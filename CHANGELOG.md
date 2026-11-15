@@ -8,6 +8,7 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 ## [Unreleased]
 
 ### Added
+- **Kit de arranque para vaults nuevos**: `vault.init_kit(confirm)` (pack `agents_admin`) copia al vault las reglas, un `AGENTS.md` con huecos para completar y 10 plantillas base que viajan con el servidor (`obsidian_mcp/kit/`). Nunca sobrescribe. El prompt `bootstrap_vault_config` lo usa como primer paso y luego mapea las plantillas en `taxonomy.templates`.
 - **`agente_creador` normalizado**: `notes.create` toma por defecto el nombre que el cliente MCP envía en el handshake y normaliza los conocidos (`claude-code` → `Claude Code`, `Hermes Agent`/`hermes-agent` → `Hermes`, `codex-mcp-client` → `Codex`). Un `creator` explícito sigue mandando y también se normaliza.
 - **Reglas del vault — `skip_when_present`**: una validación de `REGLAS_GLOBALES.md` puede listar campos de frontmatter que la desactivan si la nota los tiene (por ejemplo `skip_when_present: [tipo]` para que `required_fields` no exija `type`/`status` a las fichas de media, que usan `tipo`/`estado`).
 - Pipeline de MCPB con binario local para generar bundles instalables por plataforma sin depender del Python del usuario.

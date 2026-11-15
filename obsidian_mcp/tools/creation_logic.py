@@ -362,6 +362,36 @@ def normalize_agent_name(name: str) -> str:
     return _AGENT_ALIASES.get(key, name)
 
 
+def find_templates_folder(vault_path: Path, config: Any) -> str | None:
+    """Return the vault's templates folder: configured, else auto-detected.
+
+    Auto-detection looks at visible top-level folders: an exact "Templates"
+    or "Plantillas" wins; otherwise the first (sorted, so the choice is
+    stable) whose name contains "plantilla" or "template", preferring any
+    other folder to the Templater plugin's one.
+    """
+    if config and config.templates_folder:
+        return config.templates_folder
+    folders = [
+        item.name
+        for item in sorted(vault_path.iterdir())
+        if item.is_dir() and not item.name.startswith(".")
+    ]
+    for name in folders:
+        if name.casefold() in ("templates", "plantillas", "_templates"):
+            return name
+    for name in folders:
+        lowered = name.casefold()
+        if "templater" not in lowered and (
+            "plantilla" in lowered or "template" in lowered
+        ):
+            return name
+    for name in folders:  # a Templater folder only when it is the only one
+        if "template" in name.casefold():
+            return name
+    return None
+
+
 def _build_frontmatter(
     titulo: str,
     ahora: str,
@@ -1003,17 +1033,7 @@ def create_note_with_content(
 
     # Si se usa plantilla
     if plantilla:
-        # Get templates folder
-        templates_folder = None
-        if config and config.templates_folder:
-            templates_folder = config.templates_folder
-        else:
-            for item in vault_path.iterdir():
-                if item.is_dir() and any(
-                    t in item.name.lower() for t in ["plantilla", "template"]
-                ):
-                    templates_folder = item.name
-                    break
+        templates_folder = find_templates_folder(vault_path, config)
 
         if not templates_folder:
             return Result.fail(
@@ -1169,18 +1189,7 @@ def list_templates() -> Result[str]:
 
     config = get_vault_config(vault_path)
 
-    # Determine templates folder from config or auto-detect
-    templates_folder = None
-    if config and config.templates_folder:
-        templates_folder = config.templates_folder
-    else:
-        # Auto-detect: look for folders with "plantilla" or "template"
-        for item in vault_path.iterdir():
-            if item.is_dir() and any(
-                t in item.name.lower() for t in ["plantilla", "template"]
-            ):
-                templates_folder = item.name
-                break
+    templates_folder = find_templates_folder(vault_path, config)
 
     if not templates_folder:
         return Result.fail(
