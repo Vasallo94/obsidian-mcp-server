@@ -2,7 +2,8 @@
 name: Git Workflow
 description: >
   Skill para manejar el flujo de trabajo de Git: changelog, commits,
-  push, y releases. Automatiza el proceso de versionado y publicación.
+  push y releases. Cada commit, push, tag o release necesita permiso
+  explícito del usuario (ver AGENTS.md).
 tools:
   - run_command
   - read
@@ -12,6 +13,10 @@ tools:
 # Git Workflow Skill
 
 ## Cuándo usar esta skill
+
+> Lee antes `AGENTS.md` (sección Git Workflow). Cargar esta skill no autoriza
+> ningún commit ni push: cada operación necesita permiso explícito, y pedir un
+> commit no autoriza el push.
 
 - Cuando necesites actualizar el CHANGELOG.md con nuevos cambios.
 - Cuando vayas a hacer commit de cambios al repositorio.
@@ -39,7 +44,7 @@ type(scope): description
 
 ### Ejemplos:
 ```bash
-feat(semantic): add image caption indexing
+feat(creation): link new notes from their folder index
 fix(navigation): resolve path validation error
 docs: update tool reference with new parameters
 ```
@@ -51,6 +56,9 @@ docs: update tool reference with new parameters
 ```bash
 # Ver estado de archivos
 git status
+
+# Ver qué hay ya en el índice (no mezclar trabajo ajeno)
+git diff --cached
 
 # Ver historial reciente
 git log --oneline -10
@@ -73,13 +81,16 @@ git log --oneline -10
 - Corrección del bug en W.
 ```
 
-**Secciones válidas**: Added, Changed, Deprecated, Removed, Fixed, Security
+**Secciones válidas**: Added, Changed, Deprecated, Removed, Fixed, Security y Docs
 
 ### 3. Realizar commit
 
+Solo si el usuario ha pedido el commit:
+
 ```bash
-# Añadir todos los cambios
-git add .
+# Añadir solo las rutas de la tarea, nunca todo el árbol
+git add -- <rutas-de-la-tarea>
+git diff --cached
 
 # Commit con mensaje convencional
 git commit -m "type(scope): descripción"
@@ -93,8 +104,11 @@ git commit -m "type(scope): descripción"
 
 ### 4. Push al remoto
 
+Solo si el usuario ha pedido el push, y a la rama acordada (normalmente una
+rama de trabajo con su PR, no `main`):
+
 ```bash
-git push origin main
+git push -u origin <rama>
 ```
 
 ## Proceso de Release
@@ -119,11 +133,21 @@ version = "1.2.0"
 
 ### 3. Commit de release
 
+Una release necesita permiso explícito propio, aparte del commit:
+
 ```bash
-git add .
+git add -- CHANGELOG.md pyproject.toml uv.lock
 git commit -m "chore(release): bump to v1.2.0"
+git push -u origin <rama>
+```
+
+El tag va sobre el commit ya fusionado en `main` (con squash, el de la rama
+desaparece), y también con permiso explícito:
+
+```bash
+git switch main && git pull --ff-only
 git tag v1.2.0
-git push origin main --tags
+git push origin v1.2.0
 ```
 
 ## Checklist Pre-Push
@@ -139,12 +163,14 @@ Antes de hacer push, verifica:
 ## Comandos Rápidos
 
 ```bash
-# Quick commit de docs
-git add . && git commit -m "docs: update documentation"
+# Commit de docs autorizado
+git add -- <rutas> && git commit -m "docs: update documentation"
 
-# Quick commit de fix
-git add . && git commit -m "fix(module): brief description"
+# Commit de fix autorizado
+git add -- <rutas> && git commit -m "fix(module): brief description"
 
 # Ver cambios desde última release
 git log --oneline $(git describe --tags --abbrev=0)..HEAD
 ```
+
+`<...>` son marcadores: sustitúyelos por las rutas, rama o versión revisadas.
