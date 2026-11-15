@@ -261,8 +261,8 @@ def _strip_inline_code(line: str) -> str:
     Linear: a regex with a backreference backtracks quadratically on long
     backtick runs. A span crossing lines is left as prose, the safe side.
     """
-    if "`" not in line:
-        return line
+    if "`" not in line or "\\`" in line:
+        return line  # an escaped backtick: keep it all as prose, the safe side
     runs = list(re.finditer(r"`+", line))
     closer: dict[int, int] = {}  # run index -> next run index of equal length
     last: dict[int, int] = {}
@@ -412,32 +412,62 @@ def _is_index_note(path: Path) -> bool:
     return name in _INDEX_NAMES or name.removesuffix(".md").endswith("moc")
 
 
-def link_from_index(note_path: Path, vault_path: Path, description: str = "") -> str:  # pylint: disable=too-many-locals
+def link_from_index(  # pylint: disable=too-many-locals,too-many-branches,too-many-return-statements
+    note_path: Path, vault_path: Path, description: str = ""
+) -> str:
     """Link a new note from the index of its folder; return the index's path.
 
     The index is the nearest one going up from the note's folder (never the
     vault root). The link goes to a "## Por clasificar" section, created
     right before the index's first H2 so it stays above any footer. Returns
     "" when there is no index, the note is an index itself, the index is
-    protected or already links the note.
+    protected or already links the note, the note's name can't be a wikilink
+    target, or either lives in the templates folder or a hidden one (a
+    template "MOC.md" is not an index: linking would bake the link into
+    every note made from it).
     """
     vault_root = vault_path.resolve()
-    if _is_index_note(note_path):
+    stem = nfc(note_path.stem)
+    if _is_index_note(note_path) or any(c in stem for c in "#|[]^"):
+        return ""
+    templates = find_templates_folder(vault_path, get_vault_config(vault_path))
+    templates_root = (vault_root / templates).resolve() if templates else None
+
+    def excluded(path: Path) -> bool:
+        rel = path.relative_to(vault_root)
+        return any(part.startswith(".") for part in rel.parts) or bool(
+            templates_root
+            and (path == templates_root or templates_root in path.parents)
+        )
+
+    if excluded(note_path):
         return ""
     folder, index = note_path.parent, None
     while folder != vault_root and vault_root in folder.parents:
         index = next(
-            (p for p in sorted(folder.glob("*.md")) if _is_index_note(p)), None
+            (
+                p
+                for p in sorted(folder.glob("*.md"))
+                if p.is_file() and _is_index_note(p)
+            ),
+            None,
         )
         if index:
             break
         folder = folder.parent
-    if index is None or not check_path_access(index, vault_path, "modificar")[0]:
+    if (
+        index is None
+        or excluded(index)
+        or not check_path_access(index, vault_path, "modificar")[0]
+    ):
         return ""
-    text = index.read_text(encoding="utf-8")  # rewritten as is, not normalised
-    stem = nfc(note_path.stem)
+    with open(index, encoding="utf-8", newline="") as handle:
+        raw = handle.read()
+    newline = "\r\n" if "\r\n" in raw else "\n"
+    text = raw.replace("\r\n", "\n")  # written back with its own line endings
+    # "[" in the class keeps the search linear on many unclosed "[[".
     if re.search(
-        rf"\[\[(?:[^\]|#\n]*/)?{re.escape(stem)}(?:\.md)?[|#\]]",
+        rf"\[\[(?:[^\]\[|#\n]*/)?{re.escape(stem)}(?:\.md)?[|#\]]",
         nfc(text),
         re.IGNORECASE,
     ):
@@ -445,17 +475,20 @@ def link_from_index(note_path: Path, vault_path: Path, description: str = "") ->
     entry = f"- [[{stem}]]" + (
         f": {' '.join(description.split())}" if description else ""
     )
-    lines = text.split("\n")
     frontmatter = _FRONTMATTER_BLOCK_RE.match(text)
-    first = frontmatter.group(0).count("\n") if frontmatter else 0
-    heads, fence = [], ""
-    for i in range(first, len(lines)):
+    head = frontmatter.group(0) if frontmatter else ""
+    lines = text[len(head) :].split("\n")
+    heads, fence, comment = [], "", False
+    for i, line in enumerate(lines):
         if fence:
-            if re.match(rf"^ {{0,3}}{fence[0]}{{{len(fence)},}}[ \t]*$", lines[i]):
+            if re.match(rf"^ {{0,3}}{fence[0]}{{{len(fence)},}}[ \t]*$", line):
                 fence = ""
-        elif opened := _fence_open(lines[i]):
+        elif comment or "%%" in line:  # headings inside %% comments are hidden
+            if line.count("%%") % 2:
+                comment = not comment
+        elif opened := _fence_open(line):
             fence = opened
-        elif heading := _HEADING_RE.match(lines[i]):
+        elif heading := _HEADING_RE.match(line):
             heads.append((i, len(heading.group(1)), heading.group(2).strip()))
     section = next(
         (h for h in heads if nfc(h[2]).casefold() == _INDEX_SECTION.casefold()), None
@@ -471,11 +504,19 @@ def link_from_index(note_path: Path, vault_path: Path, description: str = "") ->
     else:
         h2 = next((i for i, lvl, _ in heads if lvl == 2), None)
         block = [f"## {_INDEX_SECTION}", "", entry, ""]
-        if h2 is None:
-            lines += ["", *block] if lines[-1:] != [""] else block
-        else:
+        if h2 is not None:
             lines[h2:h2] = ["", *block] if h2 and lines[h2 - 1].strip() else block
-    atomic_write_text(index, _update_frontmatter_date("\n".join(lines)))
+        elif not "".join(lines).strip():
+            lines = block
+        else:
+            lines += block if lines[-1] == "" else ["", *block]
+    # The date only inside the frontmatter: the body may hold an inline
+    # `updated::` field or a ```yaml block that must stay as written.
+    # A "---" block that isn't a YAML mapping is a rule around prose: no date.
+    if head and _extract_frontmatter_from_content(head)[0]:
+        head = _update_frontmatter_date(head)
+    new_text = head + "\n".join(lines)
+    atomic_write_text(index, new_text.replace("\n", newline))
     return index.relative_to(vault_root).as_posix()
 
 
@@ -498,6 +539,10 @@ _AGENT_ALIASES = {
 }
 
 
+# Printable but blank: joiner, Hangul fillers, Braille blank.
+_INVISIBLE = dict.fromkeys(map(ord, "\u200d\u115f\u1160\u3164\uffa0\u2800"))
+
+
 def normalize_agent_name(name: str) -> str:
     """Return the canonical agent name for ``agente_creador``.
 
@@ -509,8 +554,8 @@ def normalize_agent_name(name: str) -> str:
         c for c in " ".join(name.split()) if c.isprintable() or c == "\u200d"
     )
     name = nfc(name)[:64].rstrip()
-    if not name.replace("‍", "").strip():
-        return ""  # only joiners: an invisible signature is no signature
+    if not name.translate(_INVISIBLE).strip():
+        return ""  # only invisible characters: no signature at all
     key = " ".join(re.sub(r"[-_]", " ", name).casefold().split())
     return _AGENT_ALIASES.get(key, name)
 
@@ -1332,7 +1377,8 @@ def create_note_with_content(
     if enlazar_indice:
         try:
             indice = link_from_index(nota_path, vault_path, descripcion)
-        except (OSError, UnicodeDecodeError) as e:  # the note is already written
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            # The note is already written: report, never fail the creation.
             resultado += f"⚠️ No se pudo enlazar desde el índice: {e}\n"
         else:
             if indice:

@@ -238,3 +238,103 @@ def test_kit_rollback_keeps_folders_another_process_created(tmp_path, monkeypatc
     assert not result.success
     assert (v / "Plantillas").is_dir()  # not ours: kept
     assert not (v / ".agents").exists()  # ours: rolled back
+
+
+# --- Hallazgos de la auditoría ---
+
+
+def test_templates_and_hidden_folders_are_never_linked(vault):
+    plantillas = vault / "Plantillas"
+    plantillas.mkdir()
+    moc = "---\nupdated: {{date:YYYY-MM-DD}}\n---\n# {{title}}\n"
+    (plantillas / "MOC.md").write_text(moc, encoding="utf-8")
+    (vault / ".agents").mkdir()
+    (vault / ".agents" / "Índice.md").write_text("# x\n", encoding="utf-8")
+    from obsidian_mcp.tools.creation_logic import link_from_index
+
+    assert _tool("notes.create")("Plantilla Reunión", "x", folder="Plantillas")
+    assert link_from_index(vault / ".agents" / "nota.md", vault) == ""
+    assert (plantillas / "MOC.md").read_text(encoding="utf-8") == moc
+
+
+def test_index_date_changes_only_in_its_frontmatter(vault):
+    index = vault / "Conocimiento" / "Física" / "Índice.md"
+    body = "# F\n\nestado:: ok\nupdated:: 2024-01-01\n\n```yaml\ncreated: x\n```\n"
+    index.write_text("---\ntitle: F\n---\n" + body, encoding="utf-8")
+    _tool("notes.create")("Caos", "x", folder="Conocimiento/Física")
+
+    text = index.read_text(encoding="utf-8")
+    assert text.startswith("---\ntitle: F\nupdated: ")
+    assert "updated:: 2024-01-01\n" in text and "```yaml\ncreated: x\n```" in text
+
+
+def test_index_without_frontmatter_gets_no_date(vault):
+    index = vault / "Conocimiento" / "Física" / "Índice.md"
+    index.write_text("---\n\nTexto\n\n---\nMás\n", encoding="utf-8")
+    _tool("notes.create")("Caos", "x", folder="Conocimiento/Física")
+
+    assert "updated" not in index.read_text(encoding="utf-8")
+
+
+def test_crlf_index_keeps_its_line_endings(vault):
+    index = vault / "Conocimiento" / "Física" / "Índice.md"
+    index.write_bytes(b"# F\r\n\r\n## A\r\n")
+    _tool("notes.create")("Caos", "x", folder="Conocimiento/Física")
+
+    assert index.read_bytes() == (
+        b"# F\r\n\r\n## Por clasificar\r\n\r\n- [[Caos]]\r\n\r\n## A\r\n"
+    )
+
+
+@pytest.mark.parametrize("title", ["C# tips", "Nota ]x"])
+def test_titles_that_cannot_be_link_targets_are_not_linked(vault, title):
+    before = _moc(vault)
+    _tool("notes.create")(title, "x", folder="Conocimiento/Sistemas")
+
+    assert _moc(vault) == before
+
+
+def test_folder_named_like_an_index_is_skipped(vault):
+    fisica = vault / "Conocimiento" / "Física"
+    (fisica / "index.md").mkdir()
+    (fisica / "Índice.md").write_text("# F\n", encoding="utf-8")
+    result = _tool("notes.create")("Caos", "x", folder="Conocimiento/Física")
+
+    assert "Enlazada desde: Conocimiento/Física/Índice.md" in result
+
+
+def test_section_inside_a_comment_is_ignored(vault):
+    index = vault / "Conocimiento" / "Física" / "Índice.md"
+    index.write_text("# F\n\n%%\n## Por clasificar\n%%\n\n## A\n", encoding="utf-8")
+    _tool("notes.create")("Caos", "x", folder="Conocimiento/Física")
+
+    assert "%%\n\n## Por clasificar\n\n- [[Caos]]\n\n## A" in (
+        index.read_text(encoding="utf-8")
+    )
+
+
+def test_empty_index_gets_only_the_section(vault):
+    index = vault / "Conocimiento" / "Física" / "Índice.md"
+    index.write_text("", encoding="utf-8")
+    _tool("notes.create")("Caos", "x", folder="Conocimiento/Física")
+
+    assert index.read_text(encoding="utf-8") == "## Por clasificar\n\n- [[Caos]]\n"
+
+
+def test_duplicate_check_is_linear(vault):
+    index = vault / "Conocimiento" / "Física" / "Índice.md"
+    index.write_text("[[" * 20_000, encoding="utf-8")
+    start = time.perf_counter()
+    _tool("notes.create")("Caos", "x", folder="Conocimiento/Física")
+    assert time.perf_counter() - start < 1
+
+
+def test_escaped_backtick_keeps_markers_as_prose():
+    body = _place_content(TEMPLATE, "## Notas\n\n\\`%%\\` texto\n")
+
+    assert body.count("## Notas") == 2  # appended unmerged, as before
+
+
+@pytest.mark.parametrize("raw", ["ㅤ", "⠀", "ᅟᅠ"])
+def test_blank_printable_creator_is_dropped(raw):
+    assert normalize_agent_name(raw) == ""
