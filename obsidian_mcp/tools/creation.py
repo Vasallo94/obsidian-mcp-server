@@ -78,7 +78,7 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
             return f"Error suggesting note location: {e}"
 
     @register_tool(mcp, "notes.create")
-    def create_note(
+    def create_note(  # pylint: disable=too-many-arguments
         title: str,
         content: str,
         *,
@@ -88,6 +88,7 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
         creator: str = "",
         description: str = "",
         note_type: str = "",
+        link_from_index: bool = True,
     ) -> str:
         """Create a new Markdown note in the vault.
 
@@ -104,7 +105,12 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
         plain text goes under the title; a new section goes after the matched
         section written before it. Template sections you don't write stay as
         they are. Use the template's exact headings to fill them; content
-        with `<!--`, `%%` or `<details` is appended unmerged.
+        with `<!--`, `%%` or `<details` outside code is appended unmerged.
+
+        The new note is linked from the nearest index going up from its
+        folder (`Índice.md`, `index.md` or a note named "... MOC"), under a
+        "## Por clasificar" section; the result says which index. Pass
+        `link_from_index=False` to skip it.
 
         Paths are vault-relative. `folder` is a path relative to the vault root
         (e.g. "Projects/AFP"); missing parent folders are created automatically.
@@ -125,6 +131,7 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
                 "Claude Code", hermes-agent -> "Hermes").
             description: Short description for template placeholders.
             note_type: Note type from vault.yaml; picks template and folder.
+            link_from_index: Link the note from its folder's index.
         """
         try:
             outcome, written = create_note_with_content(
@@ -138,6 +145,7 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
                 tipo=note_type,
                 # Only a default: a signature in the template or content wins.
                 agente_por_defecto=normalize_agent_name(_client_name()),
+                enlazar_indice=link_from_index,
             )
             result = outcome.to_display(success_prefix="OK")
             if written is None:

@@ -349,7 +349,7 @@ def validate_note_logic(
 KIT_DIR = Path(__file__).resolve().parent.parent / "kit"
 
 
-def init_vault_kit(write: bool) -> Result[str]:  # pylint: disable=too-many-locals,too-many-branches,too-many-return-statements
+def init_vault_kit(write: bool) -> Result[str]:  # pylint: disable=too-many-locals,too-many-branches,too-many-return-statements,too-many-statements
     """Copy the starter kit into the vault, only where files are missing.
 
     The kit (rules, AGENTS.md and base templates) ships with the MCP so every
@@ -406,14 +406,20 @@ def init_vault_kit(write: bool) -> Result[str]:  # pylint: disable=too-many-loca
     if write:
         written: list[Path] = []
         new_dirs: list[Path] = []
+        vault_root = vault_path.resolve()  # targets are resolved, inside it
         try:
             for src, target, rel_text in to_create:
                 content = src.read_text(encoding="utf-8")
-                missing = [
-                    p for p in (target.parent, *target.parent.parents) if not p.exists()
-                ]
-                target.parent.mkdir(parents=True, exist_ok=True)
-                new_dirs.extend(missing)  # deepest first
+                # One folder at a time, shallowest first, recording only the
+                # ones this call created: a folder another process creates in
+                # between is not ours to remove on rollback.
+                folders = [target.parent, *target.parent.parents]
+                for folder in reversed(folders[: folders.index(vault_root)]):
+                    try:
+                        folder.mkdir()
+                    except FileExistsError:
+                        continue
+                    new_dirs.insert(0, folder)  # deepest first
                 try:
                     # "x": fails if the file appeared since the check above.
                     handle = open(target, "x", encoding="utf-8")  # pylint: disable=consider-using-with

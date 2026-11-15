@@ -50,7 +50,7 @@ Optional tools are enabled from `.agents/vault.yaml` with
 ### `notes_write`
 
 - `notes.suggest_location(title, content, tags)`: Suggest a vault folder.
-- `notes.create(title, content, folder, tags, template, creator, description)`: Create a note.
+- `notes.create(title, content, folder, tags, template, creator, description, note_type, link_from_index=True)`: Create a note and link it from the nearest index going up from its folder (`Índice.md`, `index.md` or `... MOC.md`), under `## Por clasificar`.
   `tags` is a comma-separated string (e.g. `"astro, equipo"`); it is normalized
   to a YAML list in the saved frontmatter. If `content` already starts with a
   `---...---` frontmatter block, embedded fields (`type`, `status`, custom keys)
