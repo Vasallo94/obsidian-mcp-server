@@ -383,7 +383,7 @@ def test_nested_templates_folder_without_config(vault):
 def test_inline_code_percent_does_not_hide_sections(vault):
     index = vault / "Conocimiento" / "Física" / "Índice.md"
     index.write_text(
-        "# F\n\nEscribe `%%` para comentar.\n\n## Uso de `%%`\n\n## Por clasificar\n\n- [[A]]\n",
+        "# F\n\nEscribe `%%` para comentar.\n\n## Uso de `%%x%%`\n\n## Por clasificar\n\n- [[A]]\n",
         encoding="utf-8",
     )
     _tool("notes.create")("Caos", "x", folder="Conocimiento/Física")
