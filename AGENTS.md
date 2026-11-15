@@ -189,7 +189,7 @@ This repo has its own `.agents/` directory with **development-specific** guidanc
 - **Skills** (`.agents/skills/`): `code-quality`, `docs-updater`, `git-workflow`, `mcp-developer`, `python-patterns`, `refactoring`, `test-runner`
 - **Workflows** (`.agents/workflows/`): `debug-tests`, `dev-server`, `new-tool`, `quality-check`, `quick-push`
 
-Read these before performing related tasks. Workflows can be invoked via `/slash-command` syntax.
+Read the relevant procedure before related work; slash-command availability depends on the harness. Procedures and skills do not grant commit, push, release, dependency-installation, or live-vault mutation authority. The approval and explicit-path staging rules below apply even when an older recipe says `git add .` or pushes `main`.
 
 ### Docs
 
@@ -198,6 +198,9 @@ Detailed documentation in `docs/`:
 
 ## Git Workflow
 
+- Local implementation and tests stay within the requested scope. Ask separately before commits, pushes, tags/releases, deployments, global configuration changes, or operations on a live vault/service or real data. Test vault operations only on isolated synthetic fixtures by default.
+- Inspect status/diffs first; preserve unrelated staged, unstaged, and untracked work and the current branch/worktree. Stage explicit task-owned paths, never the whole worktree by default. A request to commit does not authorize push or release.
+- Use focused checks for small changes and plans plus fresh independent review for complex, security-sensitive, or cross-cutting work. Keep path-validation, protocol, and privacy regression tests; report checks actually run and pre-existing failures.
 - Conventional commits: `type(scope): description`
 - Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `ci`, `build`
 - **CHANGELOG.md**: Before every commit, add an entry to `CHANGELOG.md` describing the change. Group entries by version under `## [Unreleased]` until a release is tagged.
@@ -210,6 +213,7 @@ Detailed documentation in `docs/`:
 1. **Skills are in the user's vault**, not this repo. The `.agents/skills/` here are for **development guidance**, not runtime skills.
 2. **stdout is sacred**: Only MCP protocol JSON goes to stdout. Everything else → stderr.
 3. **Path validation is critical**: Always validate through `utils/security.py` to prevent directory traversal.
-4. **`vault_config.yaml` vs `.env`**: Vault-specific settings (folders, exclusions) from vault config. Server settings (path, log level) from `.env`.
-5. **Type narrowing**: Pyright is strict about `Optional`. Always check for `None` before using Optional values.
-6. **Pylint pre-commit**: May block commits on pre-existing warnings. Use `--no-verify` only if warnings are not from your changes.
+4. **ObsidianRAG may be down**: Handle an unavailable external ObsidianRAG service explicitly.
+5. **`vault_config.yaml` vs `.env`**: Vault-specific settings (folders, exclusions) from vault config. Server settings (path, log level) from `.env`.
+6. **Type narrowing**: Pyright is strict about `Optional`. Always check for `None` before using Optional values.
+7. **Pre-existing hook failures**: Report unrelated warnings separately. Do not bypass hooks with `--no-verify` without explicit approval; a failing baseline does not make new validation optional.

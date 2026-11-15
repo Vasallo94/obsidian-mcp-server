@@ -84,6 +84,7 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 - **Import circular** en `security.py` que impedía el arranque del servidor MCP. El import de `vault_config` se movió a nivel de función para romper el ciclo de dependencias.
 
 ### Docs
+- `AGENTS.md`: reglas de Git Workflow para agentes (pedir permiso antes de commit, push o release; stagear solo rutas propias; revisión independiente en cambios complejos), no saltarse hooks con `--no-verify` sin aprobación y tratar explícitamente un ObsidianRAG caído.
 - Reorganizada la documentación como wiki pública con `docs/index.md`, arquitectura actualizada, guía `.agents` vigente, página de semantic search con ObsidianRAG y contratos contra links rotos/nombres antiguos de tools.
 - Pulido el README para la beta pública con instalación Git/uvx visible, ejemplo de Codex, grafo del vault y clientes actuales.
 - Añadidas plantillas de issues para bugs, ayuda de instalación y feedback de beta.
