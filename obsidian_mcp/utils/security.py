@@ -155,7 +155,8 @@ def _pattern_matches(relative_str: str, pattern: str) -> bool:
         )
     if fnmatch.fnmatchcase(relative_str, pattern):
         return True
-    if not any(char in pattern for char in "*?[") and relative_str.startswith(
+    # "[" is left out on purpose: "Notas [2024]" is a real folder name too.
+    if not any(char in pattern for char in "*?") and relative_str.startswith(
         f"{pattern.rstrip('/')}/"
     ):
         return True
@@ -180,13 +181,16 @@ def _matching_forbidden_pattern(relative_path: Path, patterns: List[str]) -> str
     for original_pattern in patterns:
         as_written = unicodedata.normalize("NFC", original_pattern.replace("\\", "/"))
         tidied = _normalise_pattern(original_pattern)
+        forms = [as_written, tidied]
+        # "[" is both a character class and a legal folder name character
+        # ("Notas [2024]/*"): the literal reading is tried as well.
+        forms += [f.replace("[", "[[]") for f in forms if "[" in f]
         if any(
             _pattern_matches(path, pattern)
+            for form in forms
             for path, pattern in (
-                (relative_str, as_written),
-                (relative_str, tidied),
-                (relative_folded, as_written.casefold()),
-                (relative_folded, tidied.casefold()),
+                (relative_str, form),
+                (relative_folded, form.casefold()),
             )
         ):
             return original_pattern

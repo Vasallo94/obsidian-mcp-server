@@ -225,7 +225,13 @@ def _suggest_close_matches(
 
 
 def _extract_frontmatter_from_content(contenido: str) -> tuple[dict[str, Any], str]:
-    """Extract YAML frontmatter from content if it exists."""
+    """Extract YAML frontmatter from content if it exists.
+
+    A leading ``---`` block that parses as a mapping is frontmatter, even
+    with blank lines inside: the Kanban and Excalidraw plugins write
+    ``---``, a blank line, then the keys. A horizontal rule that happens to
+    wrap ``key: value`` text is indistinguishable and is read the same way.
+    """
     frontmatter_pattern = re.compile(r"^---\s*\n(.*?)\n---\s*\n?", re.DOTALL)
     match = frontmatter_pattern.match(contenido)
     if not match:
@@ -243,29 +249,73 @@ def _extract_frontmatter_from_content(contenido: str) -> tuple[dict[str, Any], s
 
 
 _HEADING_RE = re.compile(r"^ {0,3}(#{1,6})[ \t]+(\S(?:.*\S)?)[ \t]*$")
-# A backtick fence's info string can't contain backticks (```npm i``` is code).
-_FENCE_OPEN_RE = re.compile(r"^ {0,3}(?:(`{3,})(?!.*`)|(~{3,}))")
+# Fence run plus the rest of the line; `.*` always matches, so no backtracking.
+_FENCE_OPEN_RE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)")
+# Markers that can hide what follows them (Obsidian comments, HTML).
+_OPAQUE_MARKERS = ("<!--", "%%", "<details")
+
+
+def _strip_inline_code(line: str) -> str:
+    """Drop `code spans` from one line (a run closes at the next run of equal length).
+
+    Linear: a regex with a backreference backtracks quadratically on long
+    backtick runs. A span crossing lines is left as prose, the safe side.
+    """
+    if "`" not in line:
+        return line
+    runs = list(re.finditer(r"`+", line))
+    closer: dict[int, int] = {}  # run index -> next run index of equal length
+    last: dict[int, int] = {}
+    for k in range(len(runs) - 1, -1, -1):
+        size = len(runs[k].group())
+        if size in last:
+            closer[k] = last[size]
+        last[size] = k
+    out, pos, k = [], 0, 0
+    while k < len(runs):
+        if k in closer:
+            out.append(line[pos : runs[k].start()])
+            pos, k = runs[closer[k]].end(), closer[k] + 1
+        else:
+            k += 1
+    return "".join(out) + line[pos:]
+
+
+def _fence_open(line: str) -> str:
+    """Return the fence a line opens, or "" (CommonMark rules)."""
+    opened = _FENCE_OPEN_RE.match(line)
+    if not opened:
+        return ""
+    fence, info = opened.groups()
+    # A backtick fence's info string can't contain backticks (```npm i``` is code).
+    return "" if fence[0] == "`" and "`" in info else fence
 
 
 def _split_markdown(
     text: str,
 ) -> tuple[str | None, str, list[tuple[tuple[int, str], str]], bool]:
-    """Split Markdown into (title, intro, sections, ends_inside_fence).
+    """Split Markdown into (title, intro, sections, unsafe_to_merge).
 
     ``title`` is a leading H1 (nothing but blank lines before it). Sections
     are cut at the shallowest heading level left, so each one carries its
     subsections; the key is (level, heading text in NFC, casefolded).
     Headings inside code fences don't count (CommonMark closing rules).
+    ``unsafe_to_merge`` is true when the text ends inside a fence or has a
+    comment or ``<details>`` outside code, which could swallow what follows.
     """
     lines = text.replace("\r\n", "\n").split("\n")
     heads: list[tuple[int, int, str]] = []
     fence = ""
+    opaque = False
     for i, line in enumerate(lines):
         if fence:
             if re.match(rf"^ {{0,3}}{fence[0]}{{{len(fence)},}}[ \t]*$", line):
                 fence = ""
-        elif opened := _FENCE_OPEN_RE.match(line):
-            fence = opened.group(1) or opened.group(2)
+            continue
+        prose = _strip_inline_code(line)
+        opaque = opaque or any(m in prose for m in _OPAQUE_MARKERS)
+        if opened := _fence_open(line):
+            fence = opened
         elif heading := _HEADING_RE.match(line):
             words = heading.group(2)
             closing = words.rstrip("#")  # `## X ##`; rstrip, a regex is quadratic
@@ -277,8 +327,9 @@ def _split_markdown(
     if heads and heads[0][1] == 1 and not "".join(lines[: heads[0][0]]).strip():
         title, start = lines[heads[0][0]].strip(), heads[0][0] + 1
         heads = heads[1:]
+    unsafe = bool(fence) or opaque
     if not heads:
-        return title, "\n".join(lines[start:]), [], bool(fence)
+        return title, "\n".join(lines[start:]), [], unsafe
     top = min(level for _, level, _ in heads)
     cuts = [(i, words) for i, level, words in heads if level == top]
     sections = [
@@ -288,7 +339,23 @@ def _split_markdown(
         )
         for n, (i, words) in enumerate(cuts)
     ]
-    return title, "\n".join(lines[start : cuts[0][0]]), sections, bool(fence)
+    return title, "\n".join(lines[start : cuts[0][0]]), sections, unsafe
+
+
+def _shift_headings(block: str, delta: int) -> str:
+    """Move every heading of ``block`` (outside code fences) by ``delta`` levels."""
+    out, fence = [], ""
+    for line in block.split("\n"):
+        if fence:
+            if re.match(rf"^ {{0,3}}{fence[0]}{{{len(fence)},}}[ \t]*$", line):
+                fence = ""
+        elif opened := _fence_open(line):
+            fence = opened
+        elif heading := _HEADING_RE.match(line):
+            level = min(6, max(1, len(heading.group(1)) + delta))
+            line = "#" * level + line[heading.end(1) :]
+        out.append(line)
+    return "\n".join(out)
 
 
 def _place_content(template_body: str, content: str) -> str:
@@ -297,26 +364,33 @@ def _place_content(template_body: str, content: str) -> str:
     Nothing of the template is dropped except what the content replaces: a
     leading H1 in the content replaces the template's; a content section
     (with its subsections) replaces, in place, the template section with the
-    same heading; a new section goes right after the matched section that
-    precedes it in the content, or under the title and the template's intro.
+    same heading, even if the content wrote it one level off (it takes the
+    template's level); a new section goes right after the matched section
+    that precedes it in the content, or under the title and the template's
+    intro.
     """
     if not content.strip():
         return template_body
-    c_title, c_intro, c_sections, open_fence = _split_markdown(content)
-    if open_fence or any(m in content for m in ("<!--", "%%", "<details")):
+    c_title, c_intro, c_sections, unsafe = _split_markdown(content)
+    if unsafe:
         # ponytail: a comment or an unclosed fence could swallow the template
         # sections placed after it; such content is appended as is instead.
         blocks = [template_body, content]
     else:
         t_title, t_intro, t_sections, _ = _split_markdown(template_body)
-        template_keys = {key for key, _ in t_sections}
+        # Match by heading text; a content section at another level is
+        # re-levelled to the template's ("### Notas" fills "## Notas").
+        template_levels = {words: level for (level, words), _ in t_sections}
         replacements: dict[tuple[int, str], list[str]] = {}
         # New sections follow the last matched section before them in the
         # content (None: none yet, so they go under the intro).
         after: dict[tuple[int, str] | None, list[str]] = {}
         anchor: tuple[int, str] | None = None
-        for key, text in c_sections:
-            if key in template_keys:
+        for (level, words), text in c_sections:
+            if words in template_levels:
+                key = (template_levels[words], words)
+                if key[0] != level:
+                    text = _shift_headings(text, key[0] - level)
                 replacements.setdefault(key, []).append(text)
                 anchor = key
             else:
@@ -326,6 +400,83 @@ def _place_content(template_body: str, content: str) -> str:
             blocks.extend(replacements.pop(key, [text]))
             blocks.extend(after.pop(key, []))
     return "\n\n".join(b.strip("\n") for b in blocks if b.strip()) + "\n"
+
+
+_INDEX_NAMES = ("índice.md", "indice.md", "index.md")
+_INDEX_SECTION = "Por clasificar"
+
+
+def _is_index_note(path: Path) -> bool:
+    """An index is `Índice.md`/`index.md` or a note whose name ends in "MOC"."""
+    name = nfc(path.name).casefold()
+    return name in _INDEX_NAMES or name.removesuffix(".md").endswith("moc")
+
+
+def link_from_index(note_path: Path, vault_path: Path, description: str = "") -> str:  # pylint: disable=too-many-locals
+    """Link a new note from the index of its folder; return the index's path.
+
+    The index is the nearest one going up from the note's folder (never the
+    vault root). The link goes to a "## Por clasificar" section, created
+    right before the index's first H2 so it stays above any footer. Returns
+    "" when there is no index, the note is an index itself, the index is
+    protected or already links the note.
+    """
+    vault_root = vault_path.resolve()
+    if _is_index_note(note_path):
+        return ""
+    folder, index = note_path.parent, None
+    while folder != vault_root and vault_root in folder.parents:
+        index = next(
+            (p for p in sorted(folder.glob("*.md")) if _is_index_note(p)), None
+        )
+        if index:
+            break
+        folder = folder.parent
+    if index is None or not check_path_access(index, vault_path, "modificar")[0]:
+        return ""
+    text = index.read_text(encoding="utf-8")  # rewritten as is, not normalised
+    stem = nfc(note_path.stem)
+    if re.search(
+        rf"\[\[(?:[^\]|#\n]*/)?{re.escape(stem)}(?:\.md)?[|#\]]",
+        nfc(text),
+        re.IGNORECASE,
+    ):
+        return ""
+    entry = f"- [[{stem}]]" + (
+        f": {' '.join(description.split())}" if description else ""
+    )
+    lines = text.split("\n")
+    frontmatter = _FRONTMATTER_BLOCK_RE.match(text)
+    first = frontmatter.group(0).count("\n") if frontmatter else 0
+    heads, fence = [], ""
+    for i in range(first, len(lines)):
+        if fence:
+            if re.match(rf"^ {{0,3}}{fence[0]}{{{len(fence)},}}[ \t]*$", lines[i]):
+                fence = ""
+        elif opened := _fence_open(lines[i]):
+            fence = opened
+        elif heading := _HEADING_RE.match(lines[i]):
+            heads.append((i, len(heading.group(1)), heading.group(2).strip()))
+    section = next(
+        (h for h in heads if nfc(h[2]).casefold() == _INDEX_SECTION.casefold()), None
+    )
+    if section:
+        end = next(
+            (i for i, lvl, _ in heads if i > section[0] and lvl <= section[1]),
+            len(lines),
+        )
+        while end > section[0] + 1 and not lines[end - 1].strip():
+            end -= 1
+        lines[end:end] = [entry]
+    else:
+        h2 = next((i for i, lvl, _ in heads if lvl == 2), None)
+        block = [f"## {_INDEX_SECTION}", "", entry, ""]
+        if h2 is None:
+            lines += ["", *block] if lines[-1:] != [""] else block
+        else:
+            lines[h2:h2] = ["", *block] if h2 and lines[h2 - 1].strip() else block
+    atomic_write_text(index, _update_frontmatter_date("\n".join(lines)))
+    return index.relative_to(vault_root).as_posix()
 
 
 # Canonical `agente_creador` per known client, keyed by the name lowercased
@@ -358,6 +509,8 @@ def normalize_agent_name(name: str) -> str:
         c for c in " ".join(name.split()) if c.isprintable() or c == "\u200d"
     )
     name = nfc(name)[:64].rstrip()
+    if not name.replace("‍", "").strip():
+        return ""  # only joiners: an invisible signature is no signature
     key = " ".join(re.sub(r"[-_]", " ", name).casefold().split())
     return _AGENT_ALIASES.get(key, name)
 
@@ -961,6 +1114,7 @@ def create_note_with_content(
     descripcion: str = "",
     tipo: str = "",
     agente_por_defecto: str = "",
+    enlazar_indice: bool = False,
 ) -> tuple[Result[str], str | None]:
     # pylint: disable=too-many-branches,too-many-statements,too-many-locals,too-many-positional-arguments,too-many-arguments
     """Create a new note in the vault and return the text written to disk.
@@ -977,6 +1131,8 @@ def create_note_with_content(
             ``agente_creador`` nor the template or content set one.
         tipo: Note type. Picks the default template and folder from
             ``taxonomy.templates`` in vault.yaml and sets ``type``.
+        enlazar_indice: Link the new note from the index of its folder
+            (see ``link_from_index``).
 
     Returns:
         (Result with success message or error, final note text or None on
@@ -1173,6 +1329,14 @@ def create_note_with_content(
         resultado += f"📝 Plantilla usada: {plantilla}\n"
     if agente_creador:
         resultado += f"🤖 Agente: {agente_creador}\n"
+    if enlazar_indice:
+        try:
+            indice = link_from_index(nota_path, vault_path, descripcion)
+        except (OSError, UnicodeDecodeError) as e:  # the note is already written
+            resultado += f"⚠️ No se pudo enlazar desde el índice: {e}\n"
+        else:
+            if indice:
+                resultado += f"🔗 Enlazada desde: {indice}\n"
 
     return Result.ok(resultado), contenido_final
 

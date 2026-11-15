@@ -8,6 +8,7 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 ## [Unreleased]
 
 ### Added
+- **`notes.create` enlaza la nota desde su índice**: busca el índice más cercano subiendo desde la carpeta (`Índice.md`, `index.md` o una nota `... MOC`) y añade `- [[Nota]]: descripción` en `## Por clasificar`, que crea encima del primer H2 para no quedar bajo el pie. No enlaza si la nota ya está enlazada, si es un índice o si el índice es privado. `link_from_index=False` lo desactiva.
 - **Kit de arranque para vaults nuevos**: `vault.init_kit(confirm)` (pack `agents_admin`) copia al vault las reglas, un `AGENTS.md` con huecos para completar y 10 plantillas base que viajan con el servidor (`obsidian_mcp/kit/`). Nunca sobrescribe. El prompt `bootstrap_vault_config` lo usa como primer paso y luego mapea las plantillas en `taxonomy.templates`.
 - **`agente_creador` normalizado**: `notes.create` toma por defecto el nombre que el cliente MCP envía en el handshake y normaliza los conocidos (`claude-code` → `Claude Code`, `Hermes Agent`/`hermes-agent` → `Hermes`, `codex-mcp-client` → `Codex`). Un `creator` explícito sigue mandando y también se normaliza.
 - **Reglas del vault — `skip_when_present`**: una validación de `REGLAS_GLOBALES.md` puede listar campos de frontmatter que la desactivan si la nota los tiene (por ejemplo `skip_when_present: [tipo]` para que `required_fields` no exija `type`/`status` a las fichas de media, que usan `tipo`/`estado`).
@@ -34,6 +35,10 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 - **Indexación Semántica de Imágenes**: El sistema ahora extrae descripciones de imágenes (`![[img|desc]]` o `![desc](img)`) y las inyecta como contexto semántico, haciendo buscable el contenido visual.
 
 ### Fixed
+- **Fusión de plantillas**: una sección del content con otro nivel de cabecera (`### Notas` frente a `## Notas`) rellena la de la plantilla y toma su nivel, en vez de duplicarse. `%%`, `<!--` y `<details` dentro de código (bloques o en línea) ya no desactivan la fusión. La detección de vallas y de código en línea es lineal (antes, cuadrática con rachas largas de comillas invertidas).
+- **`agente_creador`** formado solo por ZWJ o espacios invisibles se descarta en vez de dejar una firma invisible.
+- **Rutas privadas con `[`** en el nombre (`Notas [2024]/*`) quedan protegidas: el corchete se prueba también como carácter literal.
+- **`vault.init_kit`**: si otro proceso crea una carpeta a la vez, el rollback ya no la borra.
 - **Legacy-encoded note resilience**: Vault statistics, tag analysis, backlinks, local graphs, and orphan detection now skip non-UTF-8 notes instead of failing the entire scan.
 - **Vault exclusion hygiene**: `.trash`, `.git`, and `.obsidian` are now part of the shared packaged boundary, diagnostics use that boundary, and unused `.mcpignore` and YouTube verification scripts were removed so the documented security model has one source of truth.
 - **Lint and skill-sync partial writes**: Vault lint now skips and reports unreadable notes instead of aborting after partial fixes, and skill synchronization preserves both generated guidance blocks while reporting unreadable or unwritable skills.
