@@ -10,7 +10,7 @@ This is agent-agnostic: any MCP client receives the same enforcement.
 
 import re
 import unicodedata
-from fnmatch import fnmatchcase
+from pathlib import Path
 from typing import Any
 
 import yaml
@@ -173,7 +173,13 @@ def iter_violations(
             continue
         if not _rule_applies_to_path(rule, path):
             continue
-        warning = _check_rule(rule, title, content, frontmatter or {})
+        try:
+            warning = _check_rule(rule, title, content, frontmatter or {})
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            # A malformed rule (missing warning, wrong types) must not take
+            # down every write in the vault: skip it and say so in the log.
+            logger.warning("Regla %r mal formada, se ignora: %s", rule.get("id"), e)
+            continue
         if warning:
             pairs.append((rule, warning))
     return pairs
@@ -185,9 +191,16 @@ def _nfc(text: str) -> str:
 
 
 def _matches_any(path: str, patterns: Any) -> bool:
+    """Glob match with the private_paths rules: NFC, case-insensitive (APFS),
+    `**` for zero or more folders and `[` also as a literal character."""
+    if isinstance(patterns, str):
+        patterns = [patterns]
     if not isinstance(patterns, list):
         return False
-    return any(fnmatchcase(path, _nfc(str(p))) for p in patterns)
+    # pylint: disable-next=import-outside-toplevel
+    from .utils.security import _matching_forbidden_pattern
+
+    return bool(_matching_forbidden_pattern(Path(path), [str(p) for p in patterns]))
 
 
 def _rule_applies_to_path(rule: dict[str, Any], path: str) -> bool:
@@ -212,15 +225,14 @@ def blocking_violations(
     """
     return [
         warning
-        for rule, warning in iter_violations(
-            rules,
+        for _, warning in iter_violations(
+            [rule for rule in rules if rule.get("block") is True],
             "create",
             title=title,
             content=content,
             frontmatter=frontmatter,
             path=path,
         )
-        if rule.get("block") is True
     ]
 
 

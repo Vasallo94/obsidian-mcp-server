@@ -281,3 +281,75 @@ def test_lint_vault_flags_media_notes(vault):
 
 def _rules():
     return load_vault_rules(force_reload=True)
+
+
+# --- Hallazgos de la auditoría del PR #142 ---
+
+
+def _set_vault_yaml(vault, text):
+    (vault / ".agents" / "vault.yaml").write_text(text, encoding="utf-8")
+    invalidate_vault_config_cache()
+
+
+def test_note_type_does_not_add_generic_type_to_media(vault):
+    _set_vault_yaml(
+        vault,
+        'templates_folder: "ZZ_Plantillas"\ntaxonomy:\n  types: [pelicula]\n'
+        "  templates:\n    pelicula: {template: Media - Película.md, "
+        'folder: "05_Media/Películas"}\n',
+    )
+    result = _create(title="Pillion", content=FULL_METADATA, note_type="pelicula")
+
+    assert "NO creada" not in result, result
+    text = (vault / "05_Media" / "Películas" / "Pillion.md").read_text(encoding="utf-8")
+    assert "\ntype:" not in text and "tipo: pelicula" in text
+
+
+def test_blocked_note_leaves_the_index_untouched(vault):
+    folder = vault / "05_Media" / "Películas"
+    folder.mkdir(parents=True)
+    (folder / "Índice.md").write_text("# Películas\n", encoding="utf-8")
+    result = _create(title="Mala", content="x", folder="05_Media/Películas")
+
+    assert "NO creada" in result
+    assert (folder / "Índice.md").read_text(encoding="utf-8") == "# Películas\n"
+    assert not (folder / "Mala.md").exists()
+
+
+def test_malformed_rule_does_not_break_creation(vault):
+    rules = vault / ".agents" / "REGLAS_GLOBALES.md"
+    rules.write_text(
+        RULES.replace(
+            "validations:\n",
+            "validations:\n  - id: rota\n    applies_to: [create]\n"
+            "    block: true\n    scope: frontmatter\n    forbidden_fields: 5\n",
+        ),
+        encoding="utf-8",
+    )
+    invalidate_rules_cache()
+
+    result = _create(title="Libre", content="x", folder="Notas", tags="a")
+    assert (vault / "Notas" / "Libre.md").exists(), result
+
+
+@pytest.mark.parametrize("folder", ["05_media/películas", "05_MEDIA/Películas"])
+def test_path_rules_ignore_case(vault, folder):
+    (vault / "05_Media" / "Películas").mkdir(parents=True)
+    result = _create(title="Mala", content="x", folder=folder)
+
+    assert "NO creada" in result
+
+
+@pytest.mark.parametrize(
+    "patterns,path,expected",
+    [
+        ("05_Media/*", "05_Media/x.md", True),  # a string is one pattern
+        (["05_Media/**/*.md"], "05_Media/x.md", True),  # ** = zero folders too
+        (["Notas [2024]/*"], "Notas [2024]/x.md", True),  # literal bracket
+        (["05_Media/*"], "Otra/x.md", False),
+    ],
+)
+def test_path_glob_semantics(patterns, path, expected):
+    from obsidian_mcp.middleware import _matches_any
+
+    assert _matches_any(path, patterns) is expected

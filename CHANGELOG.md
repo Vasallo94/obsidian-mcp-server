@@ -52,6 +52,7 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 - Eliminados planes internos de desarrollo y scripts personales/backup que contenían rutas locales antes de publicar el repositorio.
 
 ### Fixed
+- Reglas `validations:` más robustas: una regla mal formada se ignora con aviso en el log en vez de impedir crear notas; `paths`/`exclude_paths` no distinguen mayúsculas, aceptan un string, `**` para cero o más carpetas y `[` literal (mismo matcher que `private_paths`); `note_type` no añade `type` a notas con esquema propio (`tipo`).
 - `notes.create` ya no añade `title`/`created` a notas que usan el esquema de media (`titulo`/`fecha_creacion`), y valida el frontmatter final escrito (plantilla incluida) en vez de solo el argumento `content`. `notes.replace` valida también las reglas de frontmatter.
 - **Fusión de plantillas**: una sección del content con otro nivel de cabecera (`### Notas` frente a `## Notas`) rellena la de la plantilla y toma su nivel, en vez de duplicarse. `%%`, `<!--` y `<details` dentro de código (bloques o en línea) ya no desactivan la fusión. La detección de vallas y de código en línea es lineal (antes, cuadrática con rachas largas de comillas invertidas).
 - **`agente_creador`** formado solo por ZWJ o espacios invisibles se descarta en vez de dejar una firma invisible.
