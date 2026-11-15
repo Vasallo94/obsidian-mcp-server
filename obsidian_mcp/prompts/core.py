@@ -133,14 +133,23 @@ def register_core_prompts(mcp: FastMCP) -> None:
         layout — derive it from what exists.
 
         Steps:
+        0. Starter kit, only for a new vault (no `.agents/REGLAS_GLOBALES.md`
+           and no templates yet): call `vault.init_kit()` (pack
+           `agents_admin`; if it is not enabled, ask the user to add it to
+           OBSIDIAN_MCP_TOOL_SETS for this session). It adds Spanish writing
+           rules and required frontmatter (type, status, tags), so show the
+           user what it would create and run `vault.init_kit(confirm=True)`
+           only after they agree. It never overwrites existing files. Skip
+           this step for a vault that already has its own rules.
         1. List the top-level folders and read the vault stats
            (`vault.stats` / `vault.context`).
         2. Sample frontmatter across folders: which `type:` values appear,
            and in which folders do they concentrate. Read a handful of notes
            per top-level folder with `notes.read()`.
-        3. Read `.agents/REGLAS_GLOBALES.md` if it exists — its allowed `type`
-           values and location table are the source of truth; prefer them
-           over inference when they disagree.
+        3. Read `.agents/REGLAS_GLOBALES.md` if it exists — if it lists
+           allowed `type` values or a location table, they are the source of
+           truth; prefer them over inference when they disagree. (The kit's
+           rules list neither: they defer to `vault.yaml`.)
         4. Map each semantic role below to the real folder that plays it. Omit
            a role if the vault has no such folder. Roles are a stable
            vocabulary skills rely on; folders are vault-specific:
@@ -150,9 +159,18 @@ def register_core_prompts(mcp: FastMCP) -> None:
            (a note titled like "Registro de Tags del Vault"), and record its
            real path under `profile.local_docs.tag_registry`.
 
+        6. If the kit added templates: set `templates_folder` to the folder
+           it reported; add each template's `type` to `taxonomy.types` (inbox,
+           apunte, concepto, resumen, guía, runbook, recurso, proyecto,
+           doc-proyecto, adr) even if no note uses it yet; map each one to its
+           folder under `taxonomy.templates` (`choose_subfolder: true` when
+           the folder is organised by topic or project); and fill the
+           placeholders of `AGENTS.md` (vault purpose, where things go).
+
         Write this shape (all keys optional; keep any existing keys intact):
 
         ```yaml
+        templates_folder: "<folder with the templates>"   # top-level key
         taxonomy:
           roles:
             inbox: "<folder>"
@@ -160,15 +178,20 @@ def register_core_prompts(mcp: FastMCP) -> None:
             creations: "<folder>"
             projects: "<folder>"
             # ...only roles that exist
-          types: [<the type values this vault actually uses>]
+          types: [<types the vault uses, plus those of its templates>]
+          templates:
+            runbook: {{template: "Runbook.md", folder: "<folder>"}}
+            apunte: {{template: "Apunte.md", folder: "<folder>", choose_subfolder: true}}
         profile:
           local_docs:
             tag_registry: "<path to the tag registry note>"
         ```
 
         Validation before you finish:
-        - Every folder you reference must exist (check each path).
-        - `types` must match REGLAS_GLOBALES if that file defines them.
+        - Every role folder must exist (check each path). Folders under
+          `taxonomy.templates` may be new: `notes.create` creates them.
+        - `types` must match REGLAS_GLOBALES if that file defines them, and
+          include the types of every template in `taxonomy.templates`.
         - After writing, call `vault.health` and confirm it passes.
 
         Deliverable: write the file, then produce a short markdown report of

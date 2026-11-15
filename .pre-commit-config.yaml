@@ -62,6 +62,8 @@ repos:
     hooks:
       - id: pip-audit
         name: pip-audit
-        entry: uv run pip-audit
+        # chromadb 0.6 (RAG legacy) no tiene versión con parche; quitar los
+        # --ignore-vuln al eliminar ese stack.
+        entry: uv run pip-audit --ignore-vuln PYSEC-2026-3813 --ignore-vuln PYSEC-2026-3814 --ignore-vuln PYSEC-2026-3815
         language: system
         pass_filenames: false

@@ -59,6 +59,7 @@ TOOL_SPECS: dict[str, ToolSpec] = {
     "rules.add": ToolSpec(
         "Add Global Rule", "agents_admin", read_only=False, idempotent=False
     ),
+    "vault.init_kit": ToolSpec("Init Vault Kit", "agents_admin", read_only=False),
     "notes.validate": ToolSpec("Validate Note"),
     # Notes write pack
     "notes.suggest_location": ToolSpec(

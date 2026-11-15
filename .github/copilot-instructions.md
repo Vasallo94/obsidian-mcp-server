@@ -118,6 +118,7 @@ Each tool module follows this pattern:
 from fastmcp import FastMCP
 from ..config import get_vault_path
 
+
 def register_xxx_tools(mcp: FastMCP) -> None:
     @mcp.tool()
     def my_tool(param: str) -> str:

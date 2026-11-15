@@ -4,26 +4,27 @@ import json
 from time import perf_counter
 
 from fastmcp import FastMCP
+from fastmcp.server.dependencies import get_context
 
 from ..messages import ERRORS
 from ..middleware import enrich_response, invalidate_rules_cache
 from ..models.tool_inputs import EditOperation
 from .creation_logic import (
-    append_to_note as append_to_note_logic,
-)
-from .creation_logic import (
+    _extract_frontmatter_from_content,
     append_to_section,
+    create_note_with_content,
     edit_note,
     get_frontmatter_logic,
     inbox_capture_frontmatter,
     manage_tags_logic,
+    normalize_agent_name,
     normalize_edit_operations,
     search_and_replace_global,
     suggest_folder_location,
     update_frontmatter_logic,
 )
 from .creation_logic import (
-    create_note as create_note_logic,
+    append_to_note as append_to_note_logic,
 )
 from .creation_logic import (
     delete_note as delete_note_logic,
@@ -37,17 +38,20 @@ from .creation_logic import (
 from .registry import register_tool
 
 
+def _client_name() -> str:
+    """Name the connected MCP client gives in its handshake, or ""."""
+    try:
+        params = get_context().session.client_params
+        name = (params.clientInfo.name or "") if params else ""
+    except Exception:  # pylint: disable=broad-exception-caught
+        return ""  # outside a request (tests, scripts) or no clientInfo
+    # "mcp" is the Python SDK's default when a client doesn't name itself.
+    return "" if name == "mcp" else name
+
+
 def _with_duration(result: str, started_at: float) -> str:
     """Append elapsed time context for synchronous write operations."""
     return f"{result}\n- Duración: {perf_counter() - started_at:.2f}s"
-
-
-def _extract_fm(content: str) -> dict:
-    """Extract frontmatter dict from content for middleware validation."""
-    from .creation_logic import _extract_frontmatter_from_content
-
-    frontmatter, _ = _extract_frontmatter_from_content(content)
-    return frontmatter
 
 
 def _parse_tags(tags: str) -> list[str]:
@@ -74,7 +78,7 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
             return f"Error suggesting note location: {e}"
 
     @register_tool(mcp, "notes.create")
-    def create_note(
+    def create_note(  # pylint: disable=too-many-arguments
         title: str,
         content: str,
         *,
@@ -83,8 +87,30 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
         template: str = "",
         creator: str = "",
         description: str = "",
+        note_type: str = "",
+        link_from_index: bool = True,
     ) -> str:
         """Create a new Markdown note in the vault.
+
+        Prefer `note_type` (e.g. "runbook", "apunte"): it applies the vault's
+        template for that type and its default folder (see templates.list) and
+        sets `type` in the frontmatter. If the type is filed by topic or
+        project, pass `folder` with a subfolder of the type's base folder;
+        without it the call fails and lists the options. `note_type` wins over
+        the `type` of the template and of the frontmatter in `content`.
+
+        With a template, `content` is merged into it, never appended: a
+        `## Heading` in `content` fills the template section with that same
+        heading, in place; its `# Title`, if any, replaces the template's;
+        plain text goes under the title; a new section goes after the matched
+        section written before it. Template sections you don't write stay as
+        they are. Use the template's exact headings to fill them; content
+        with `<!--`, `%%` or `<details` outside code is appended unmerged.
+
+        The new note is linked from the nearest index going up from its
+        folder (`Índice.md`, `index.md` or a note named "... MOC"), under a
+        "## Por clasificar" section; the result says which index. Pass
+        `link_from_index=False` to skip it.
 
         Paths are vault-relative. `folder` is a path relative to the vault root
         (e.g. "Projects/AFP"); missing parent folders are created automatically.
@@ -100,25 +126,40 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
             folder: Vault-relative target folder; parents auto-created.
             tags: Comma-separated tags.
             template: Template file name to apply.
-            creator: Name of the creating agent.
+            creator: Name of the creating agent. Defaults to the connected
+                client's name; known names are normalised (claude-code ->
+                "Claude Code", hermes-agent -> "Hermes").
             description: Short description for template placeholders.
+            note_type: Note type from vault.yaml; picks template and folder.
+            link_from_index: Link the note from its folder's index.
         """
         try:
-            result = create_note_logic(
+            outcome, written = create_note_with_content(
                 title,
                 content,
                 folder,
                 tags,
                 template,
-                creator,
+                normalize_agent_name(creator),
                 description,
-            ).to_display(success_prefix="OK")
+                tipo=note_type,
+                # Only a default: a signature in the template or content wins.
+                agente_por_defecto=normalize_agent_name(_client_name()),
+                enlazar_indice=link_from_index,
+            )
+            result = outcome.to_display(success_prefix="OK")
+            if written is None:
+                return result  # nothing was written: nothing to validate
+            # Validate the note as written (template fields and the auto-added
+            # "# title" heading included), not the caller's input. Body and
+            # heading rules see the body only, not the frontmatter.
+            frontmatter, body = _extract_frontmatter_from_content(written)
             return enrich_response(
                 tool_name="notes.create",
                 result=result,
                 title=title,
-                content=content,
-                frontmatter=_extract_fm(content),
+                content=body,
+                frontmatter=frontmatter,
             )
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error creating note: {e}"

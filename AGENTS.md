@@ -98,6 +98,7 @@ obsidian_mcp/
 from fastmcp import FastMCP
 from ..config import get_vault_path
 
+
 def register_xxx_tools(mcp: FastMCP) -> None:
     @mcp.tool()
     def my_tool(param: str) -> str:
@@ -114,10 +115,12 @@ All `*_logic.py` functions return `Result[T]` (from `result.py`):
 ```python
 from obsidian_mcp.result import Result
 
+
 def my_logic(param: str) -> Result[str]:
     if error_condition:
         return Result.fail("Error description")
     return Result.ok("Success data")
+
 
 # In tool: result.to_display() for MCP output
 # In tests: result.success, result.data, result.error
