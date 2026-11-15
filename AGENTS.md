@@ -199,6 +199,7 @@ Detailed documentation in `docs/`:
 ## Git Workflow
 
 - Local implementation and tests stay within the requested scope. Ask separately before commits, pushes, tags/releases, deployments, global configuration changes, or operations on a live vault/service or real data. Test vault operations only on isolated synthetic fixtures by default.
+- Not gated: `make install`/`uv sync` and `make hooks` inside this repo, and creating a local branch or worktree. Gated: adding dependencies (`uv add`), installing anything outside the repo, and running the server (`make dev`) or any tool against the user's real vault, even read-only — use a synthetic vault for that.
 - Inspect status/diffs first; preserve unrelated staged, unstaged, and untracked work and the current branch/worktree. Stage explicit task-owned paths, never the whole worktree by default. A request to commit does not authorize push or release.
 - Use focused checks for small changes and plans plus fresh independent review for complex, security-sensitive, or cross-cutting work. Keep path-validation, protocol, and privacy regression tests; report checks actually run and pre-existing failures.
 - Conventional commits: `type(scope): description`
