@@ -323,7 +323,7 @@ Durante el refactoring:
 
 - [ ] Un cambio pequeño a la vez
 - [ ] Tests después de cada cambio
-- [ ] Commits frecuentes
+- [ ] Commits pequeños (cuando el usuario los pida)
 
 Después del refactoring:
 

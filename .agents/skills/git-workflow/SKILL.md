@@ -81,7 +81,7 @@ git log --oneline -10
 - Corrección del bug en W.
 ```
 
-**Secciones válidas**: Added, Changed, Deprecated, Removed, Fixed, Security
+**Secciones válidas**: Added, Changed, Deprecated, Removed, Fixed, Security y Docs
 
 ### 3. Realizar commit
 
@@ -138,8 +138,16 @@ Una release necesita permiso explícito propio, aparte del commit:
 ```bash
 git add -- CHANGELOG.md pyproject.toml uv.lock
 git commit -m "chore(release): bump to v1.2.0"
+git push -u origin <rama>
+```
+
+El tag va sobre el commit ya fusionado en `main` (con squash, el de la rama
+desaparece), y también con permiso explícito:
+
+```bash
+git switch main && git pull --ff-only
 git tag v1.2.0
-git push origin <rama> v1.2.0
+git push origin v1.2.0
 ```
 
 ## Checklist Pre-Push
