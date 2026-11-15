@@ -111,7 +111,9 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
         sets `type` in the frontmatter. If the type is filed by topic or
         project, pass `folder` with a subfolder of the type's base folder;
         without it the call fails and lists the options. `note_type` wins over
-        the `type` of the template and of the frontmatter in `content`.
+        the `type` of the template and of the frontmatter in `content`, except
+        on notes with their own schema: a non-empty `tipo` (media cards) keeps
+        the note without a generic `type`.
 
         With a template, `content` is merged into it, never appended: a
         `## Heading` in `content` fills the template section with that same

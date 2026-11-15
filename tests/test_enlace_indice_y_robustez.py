@@ -404,3 +404,56 @@ def test_link_from_index_outside_vault_returns_empty(tmp_path):
 
     (tmp_path / "v").mkdir()
     assert link_from_index(tmp_path / "otro" / "n.md", tmp_path / "v") == ""
+
+
+# --- Deuda baja ---
+
+
+def test_empty_frontmatter_before_a_rule_keeps_the_body_date(vault):
+    index = vault / "Conocimiento" / "Física" / "Índice.md"
+    body = "# F\n\nupdated: 2020-01-01\n\n---\n\nB\n"
+    index.write_text("---\n---\n" + body, encoding="utf-8")
+    _tool("notes.create")("Caos", "x", folder="Conocimiento/Física")
+
+    assert index.read_text(encoding="utf-8").startswith("---\n---\n" + body)
+
+
+def test_folder_containing_template_as_a_substring_is_linked(vault):
+    folder = vault / "Conocimiento" / "Contemplates"
+    folder.mkdir()
+    (folder / "Índice.md").write_text("# C\n", encoding="utf-8")
+    result = _tool("notes.create")("Zen", "x", folder="Conocimiento/Contemplates")
+
+    assert "Enlazada desde" in result
+
+
+@pytest.mark.parametrize("folder", [".", "../fuera"])
+def test_templates_folder_not_inside_the_vault_disables_linking(vault, folder):
+    (vault / ".agents").mkdir()
+    (vault / ".agents" / "vault.yaml").write_text(
+        f'templates_folder: "{folder}"\n', encoding="utf-8"
+    )
+    from obsidian_mcp.vault_config import invalidate_vault_config_cache
+
+    invalidate_vault_config_cache()
+    result = _tool("notes.create")("Backup", "x", folder="Conocimiento/Sistemas")
+    invalidate_vault_config_cache()
+
+    assert "Enlazada desde" not in result and "[[Backup]]" not in _moc(vault)
+
+
+def test_templates_folder_symlinked_outside_still_allows_linking(vault, tmp_path):
+    shared = tmp_path / "plantillas_compartidas"
+    shared.mkdir()
+    (vault / "ZZ").symlink_to(shared, target_is_directory=True)
+    (vault / ".agents").mkdir()
+    (vault / ".agents" / "vault.yaml").write_text(
+        'templates_folder: "ZZ"\n', encoding="utf-8"
+    )
+    from obsidian_mcp.vault_config import invalidate_vault_config_cache
+
+    invalidate_vault_config_cache()
+    result = _tool("notes.create")("Backup", "x", folder="Conocimiento/Sistemas")
+    invalidate_vault_config_cache()
+
+    assert "Enlazada desde" in result

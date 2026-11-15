@@ -503,8 +503,8 @@ def analyze_links() -> Result[str]:
 
 def _broken_rules_note(ids: set[str]) -> str:
     return (
-        "Advertencia: reglas mal formadas en REGLAS_GLOBALES.md, ignoradas: "
-        + ", ".join(sorted(ids))
+        "Advertencia: reglas mal formadas en REGLAS_GLOBALES.md (revisa su "
+        "sintaxis; pueden no aplicarse): " + ", ".join(sorted(ids))
     )
 
 
@@ -539,6 +539,7 @@ def lint_vault(  # pylint: disable=too-many-locals,too-many-branches,too-many-st
         is_rule_autofixable,
         iter_violations,
         load_vault_rules,
+        rule_label,
     )
     from ..utils import is_path_forbidden
     from .creation_logic import _extract_frontmatter_from_content
@@ -609,7 +610,7 @@ def lint_vault(  # pylint: disable=too-many-locals,too-many-branches,too-many-st
         can_auto_fix = True
         for rule, warning in violations:
             total_violations += 1
-            label = f"[{rule.get('id', '?')}] {warning}"
+            label = f"[{rule_label(rule)}] {warning}"
             violations_by_file.setdefault(rel, []).append(label)
 
             if auto_fix and can_auto_fix and is_rule_autofixable(rule):
