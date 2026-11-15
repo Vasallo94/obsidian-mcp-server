@@ -55,7 +55,6 @@ The server always exposes the `core` tool set. Everything else is opt-in.
 | `canvas` | Obsidian Canvas CRUD and graph editing |
 | `kanvas` | Canvas-based task/workflow boards |
 | `youtube` | YouTube transcript extraction |
-| `legacy_semantic` | Deprecated in-process semantic search |
 | Profile-specific packs | Local workflows enabled only by a profile |
 
 ## Public beta notes

@@ -25,7 +25,7 @@ from pydantic import BaseModel, Field, ValidationError, field_validator
 
 logger = logging.getLogger(__name__)
 
-# Default excluded folders for semantic search
+# Default excluded folders for vault scans
 DEFAULT_EXCLUDED_FOLDERS: tuple[str, ...] = (
     "00_Sistema",
     "ZZ_Plantillas",

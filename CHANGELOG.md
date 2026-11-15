@@ -34,6 +34,22 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 - Herramienta `leer_contexto_vault` mejorada con resumen de estructura y etiquetas.
 - **Indexación Semántica de Imágenes**: El sistema ahora extrae descripciones de imágenes (`![[img|desc]]` o `![desc](img)`) y las inyecta como contexto semántico, haciendo buscable el contenido visual.
 
+### Changed
+- **`notes.suggest_location` es ahora solo heurístico (BREAKING para instalaciones con el extra `[rag]`)**: consultaba primero el índice semántico local y caía a la heurística de palabras clave cuando faltaban las dependencias opcionales. Al desaparecer el índice, la heurística es el único camino.
+- **Exclusiones de herramientas retiradas**: Pyright ya no excluye `obsidian_mcp/semantic`, Pylint ya no ignora `semantic`, `.vscode/settings.json` deja de excluirlo en Pylance y los overrides de mypy para `chromadb`/`langchain*` desaparecen, porque el módulo que los motivaba no existe. Pyright pasa a **0 errores y 0 warnings** (antes 2 warnings por dependencias RAG opcionales).
+- **Guía para agentes actualizada**: `.github/copilot-instructions.md`, `.agents/skills/mcp-developer/SKILL.md` y `.agents/workflows/new-tool.md` describían el árbol de módulos con `semantic/` y proponían importar `SemanticDefaults`, un import que ahora falla.
+- Preparada la metadata pública del paquete y limpiado el sdist para excluir planes internos, scripts personales y configuración de agentes local.
+- Refactorizado `vault_config.py` para un enfoque minimalista y no prescriptivo.
+- Herramientas de navegación, creación y seguridad migradas para usar la nueva arquitectura dinámica e inputs validados.
+- Prompt del asistente actualizado para priorizar el chequeo de `skills` disponibles.
+
+### Removed
+- **Stack RAG legacy in-process (BREAKING)**: eliminado el tool set `legacy_semantic` con sus tres herramientas — `semantic.search`, `semantic.index` y `semantic.suggest_connections` — junto al paquete `obsidian_mcp/semantic/` (ChromaDB + LangChain + embeddings Ollama), `tools/semantic_logic.py` y el extra opcional `[rag]` de `pyproject.toml`. La búsqueda semántica pasa a servirse únicamente por el tool set `obsidianrag`, que delega en el servicio externo ObsidianRAG. Un perfil que siga listando `legacy_semantic` en `tool_sets` no falla: la entrada se ignora.
+- **`utils/timeout.py`**: existía solo para `semantic/service.py`; sin él quedaba muerto.
+- **Modelos `SemanticSearchResult` y `ConnectionSuggestion`** (y sus esquemas de entrada `SemanticSearchInput`, `IndexVaultSemanticInput`, `SuggestSemanticConnectionsInput`): sin ningún uso tras la eliminación.
+- **Ajuste `OBSIDIAN_SEARCH_TIMEOUT_SECONDS`**: definía el timeout de la búsqueda semántica y ya no lo leía nadie. `Settings` usa `extra="ignore"`, así que un `.env` que aún lo declare sigue funcionando.
+- Eliminados planes internos de desarrollo y scripts personales/backup que contenían rutas locales antes de publicar el repositorio.
+
 ### Fixed
 - **Fusión de plantillas**: una sección del content con otro nivel de cabecera (`### Notas` frente a `## Notas`) rellena la de la plantilla y toma su nivel, en vez de duplicarse. `%%`, `<!--` y `<details` dentro de código (bloques o en línea) ya no desactivan la fusión. La detección de vallas y de código en línea es lineal (antes, cuadrática con rachas largas de comillas invertidas).
 - **`agente_creador`** formado solo por ZWJ o espacios invisibles se descarta en vez de dejar una firma invisible.
@@ -66,15 +82,6 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 - **Tag Extraction**: Filtro de códigos de color hexadecimales (`#fff`, etc.) en `extract_tags_from_content` para evitar falsos positivos.
 - **Tag Sync**: Búsqueda flexible (regex) del encabezado de estadísticas en el Registro de Tags y fallback de creación iterativo si no existe en `tags.sync_registry`.
 - **Import circular** en `security.py` que impedía el arranque del servidor MCP. El import de `vault_config` se movió a nivel de función para romper el ciclo de dependencias.
-
-### Changed
-- Preparada la metadata pública del paquete y limpiado el sdist para excluir planes internos, scripts personales y configuración de agentes local.
-- Refactorizado `vault_config.py` para un enfoque minimalista y no prescriptivo.
-- Herramientas de navegación, creación y seguridad migradas para usar la nueva arquitectura dinámica e inputs validados.
-- Prompt del asistente actualizado para priorizar el chequeo de `skills` disponibles.
-
-### Removed
-- Eliminados planes internos de desarrollo y scripts personales/backup que contenían rutas locales antes de publicar el repositorio.
 
 ### Docs
 - Reorganizada la documentación como wiki pública con `docs/index.md`, arquitectura actualizada, guía `.agents` vigente, página de semantic search con ObsidianRAG y contratos contra links rotos/nombres antiguos de tools.

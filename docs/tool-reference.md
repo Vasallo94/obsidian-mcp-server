@@ -118,9 +118,6 @@ project instead of embedding a second RAG stack inside this MCP server.
   (`.agents/REGLAS_GLOBALES.md`, `AGENTS.md` and base templates) into a new
   vault, only where files are missing; without `confirm=True` it previews.
 - `youtube`: `youtube.transcript`.
-- `legacy_semantic`: deprecated in-process semantic tools, disabled by default:
-  `semantic.index`, `semantic.search`, and `semantic.suggest_connections`.
-  Prefer `obsidianrag` for all new semantic-search deployments.
 - `canvas`: Obsidian Canvas read/write tools — `canvas.read` (surfaces the
   standard color legend and any board "Legend"/"Leyenda" card), `canvas.list`,
   `canvas.add_card`, `canvas.add_group`, `canvas.add_edge`, `canvas.update_card`,
