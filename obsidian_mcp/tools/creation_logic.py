@@ -1177,7 +1177,7 @@ def create_note_with_content(
     tipo: str = "",
     agente_por_defecto: str = "",
     enlazar_indice: bool = False,
-) -> tuple[Result[str], tuple[str, str] | None]:
+) -> tuple[Result[str], tuple[str, str, str] | None]:
     # pylint: disable=too-many-branches,too-many-statements,too-many-locals,too-many-positional-arguments,too-many-arguments,too-many-return-statements
     """Create a new note in the vault and return the text written to disk.
 
@@ -1198,7 +1198,7 @@ def create_note_with_content(
 
     Returns:
         (Result with success message or error, (final note text, vault-relative
-        path) or None on
+        path, path as requested before resolving symlinks) or None on
         failure). The text lets callers validate the note as written without
         re-reading the file or parsing paths out of the display message.
     """
@@ -1428,7 +1428,11 @@ def create_note_with_content(
             if indice:
                 resultado += f"🔗 Enlazada desde: {indice}\n"
 
-    return Result.ok(resultado), (contenido_final, ruta_relativa.as_posix())
+    return Result.ok(resultado), (
+        contenido_final,
+        ruta_relativa.as_posix(),
+        ruta_pedida,
+    )
 
 
 def list_templates() -> Result[str]:

@@ -2,6 +2,8 @@ import asyncio
 import json
 from pathlib import Path
 
+import pytest
+
 from obsidian_mcp.config import reset_settings
 from obsidian_mcp.server import create_server
 from obsidian_mcp.tools.agents_logic import invalidate_skills_cache
@@ -123,3 +125,16 @@ def test_afp_manifest_contract():
         "accepts_remote": True,
         "schema_extensions": [],
     }
+
+
+@pytest.mark.parametrize("transport", ["http", "sse"])
+def test_port_reaches_uvicorn_as_an_int(isolated_vault, monkeypatch, transport):
+    from fastmcp import FastMCP
+
+    from obsidian_mcp import server
+
+    seen = {}
+    monkeypatch.setattr(FastMCP, "run", lambda self, **kw: seen.update(kw))
+    server.run_server(transport, host="127.0.0.1", port=18746)
+
+    assert seen["port"] == 18746 and isinstance(seen["port"], int)

@@ -96,7 +96,7 @@ def run_server(
             if host:
                 kwargs["host"] = host
             if port:
-                kwargs["port"] = str(port)
+                kwargs["port"] = int(port)
             if path:
                 kwargs["path"] = path
             # FastMCP.run() transport param typing is incomplete
@@ -106,7 +106,7 @@ def run_server(
             if host:
                 kwargs_sse["host"] = host
             if port:
-                kwargs_sse["port"] = str(port)
+                kwargs_sse["port"] = int(port)
             # FastMCP.run() transport param typing is incomplete
             mcp.run(transport="sse", **kwargs_sse)
         else:
