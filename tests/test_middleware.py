@@ -290,7 +290,7 @@ class TestEnrichResponse:
             )
         assert "[WARNINGS:" not in result
         assert "[REGLAS ACTIVAS DEL VAULT]" not in result
-        assert "get_global_rules()" in result
+        assert "rules.get" in result
 
 
 class TestValidateNoteTool:
@@ -365,3 +365,114 @@ class TestValidateNoteTool:
         result = validate_note_logic(content="x", mode="totally_invalid")
         assert not result.success
         assert "mode" in result.error
+
+
+TYPE_RULES_FILE = """\
+---
+validations:
+  - id: valid_type
+    applies_to: [create]
+    scope: frontmatter
+    field: type
+{allowed}    warning: "Valor de 'type' invalido: '{{value}}'"
+---
+"""
+
+
+def _vault_with_type_rule(tmp_path, allowed_line, taxonomy_types):
+    agents_dir = tmp_path / ".agents"
+    agents_dir.mkdir()
+    (agents_dir / "REGLAS_GLOBALES.md").write_text(
+        TYPE_RULES_FILE.format(allowed=allowed_line), encoding="utf-8"
+    )
+    if taxonomy_types is not None:
+        (agents_dir / "vault.yaml").write_text(
+            f"taxonomy:\n  types: {taxonomy_types}\n", encoding="utf-8"
+        )
+    return tmp_path
+
+
+class TestTypeVocabularyFromVaultYaml:
+    """El vocabulario de ``type`` vive en vault.yaml; REGLAS no debe duplicarlo."""
+
+    def _rules(self, vault):
+        from obsidian_mcp.vault_config import invalidate_vault_config_cache
+
+        invalidate_rules_cache()
+        invalidate_vault_config_cache()
+        with patch("obsidian_mcp.middleware.get_vault_path", return_value=vault):
+            return load_vault_rules()
+
+    def test_taxonomy_types_override_rules_list(self, tmp_path):
+        vault = _vault_with_type_rule(
+            tmp_path, "    allowed_values: [viejo]\n", "[runbook, apunte]"
+        )
+        rules = self._rules(vault)
+        assert run_validations(rules, "create", frontmatter={"type": "runbook"}) == []
+        assert run_validations(rules, "create", frontmatter={"type": "viejo"})
+
+    def test_rule_without_list_uses_taxonomy(self, tmp_path):
+        vault = _vault_with_type_rule(tmp_path, "", "[runbook]")
+        rules = self._rules(vault)
+        assert run_validations(rules, "create", frontmatter={"type": "runbook"}) == []
+        assert run_validations(rules, "create", frontmatter={"type": "otro"})
+
+    def test_without_taxonomy_keeps_rules_list(self, tmp_path):
+        vault = _vault_with_type_rule(tmp_path, "    allowed_values: [apunte]\n", None)
+        rules = self._rules(vault)
+        assert run_validations(rules, "create", frontmatter={"type": "apunte"}) == []
+        assert run_validations(rules, "create", frontmatter={"type": "runbook"})
+
+
+def test_invalidate_rules_cache_reloads_taxonomy_types(tmp_path):
+    """Auditoría #130 (M1): invalidar las reglas debe recargar también vault.yaml."""
+    from obsidian_mcp.vault_config import invalidate_vault_config_cache
+
+    vault = _vault_with_type_rule(tmp_path, "", "[a]")
+    invalidate_rules_cache()
+    invalidate_vault_config_cache()
+    with patch("obsidian_mcp.middleware.get_vault_path", return_value=vault):
+        assert load_vault_rules()[0]["allowed_values"] == ["a"]
+        (vault / ".agents" / "vault.yaml").write_text(
+            "taxonomy:\n  types: [b]\n", encoding="utf-8"
+        )
+        invalidate_rules_cache()
+        assert load_vault_rules()[0]["allowed_values"] == ["b"]
+
+
+def test_allowed_values_with_non_hashable_values_warns_instead_of_crashing():
+    """Auditoría #131 r3: 'type: [a, b]' mal escrito no debe tumbar la validación."""
+    from obsidian_mcp.middleware import _check_allowed_values
+
+    rule = {
+        "field": "status",
+        "allowed_values": ["a", ["b"]],
+        "warning": "malo: {value}",
+    }
+    assert _check_allowed_values(rule, {"status": ["x", "y"]}) == "malo: ['x', 'y']"
+    assert _check_allowed_values(rule, {"status": {"k": 1}})
+    assert _check_allowed_values(rule, {"status": ["b"]}) is None
+    assert _check_allowed_values(rule, {"status": "a"}) is None
+
+
+def test_skip_when_present_switches_rule_off_for_own_schema():
+    rule = {**REQUIRED_FM_RULE, "skip_when_present": ["tipo"]}
+
+    assert run_validations([rule], "create", frontmatter={"tipo": "libro"}) == []
+    assert run_validations([rule], "create", frontmatter={"tags": ["x"]})
+    assert run_validations([rule], "create", frontmatter={"tipo": ""})
+
+
+@pytest.mark.parametrize("skip", ["tipo", ["tipo"]])
+def test_skip_when_present_accepts_string_or_list(skip):
+    rule = {**REQUIRED_FM_RULE, "skip_when_present": skip}
+
+    assert run_validations([rule], "create", frontmatter={"tipo": "libro"}) == []
+    assert run_validations([rule], "create", frontmatter={"t": "x"})
+
+
+@pytest.mark.parametrize("skip", [None, 5, {"tipo": 1}, [["tipo"]], [{"a": 1}]])
+def test_malformed_skip_when_present_is_ignored_not_raised(skip):
+    rule = {**REQUIRED_FM_RULE, "skip_when_present": skip}
+
+    assert run_validations([rule], "create", frontmatter={"tipo": "libro"})

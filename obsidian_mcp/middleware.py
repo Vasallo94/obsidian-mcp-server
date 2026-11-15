@@ -17,6 +17,7 @@ import yaml
 
 from .config import get_vault_path
 from .utils import get_logger
+from .vault_config import get_vault_config, invalidate_vault_config_cache, nfc
 
 logger = get_logger(__name__)
 
@@ -66,8 +67,33 @@ def load_vault_rules(force_reload: bool = False) -> list[dict[str, Any]]:
 
     frontmatter, _ = _read_rules_file()
     validations = frontmatter.get("validations", [])
-    _rules_cache = validations if isinstance(validations, list) else []
+    validations = validations if isinstance(validations, list) else []
+    _rules_cache = _apply_taxonomy_types(validations)
     return _rules_cache
+
+
+def _apply_taxonomy_types(validations: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Make the ``type`` rule validate against ``taxonomy.types`` from vault.yaml.
+
+    vault.yaml is the single source of truth for the type vocabulary; a list
+    in REGLAS_GLOBALES.md is only a fallback for vaults without taxonomy.
+    """
+    vault_path = get_vault_path()
+    if vault_path is None:
+        return validations
+    try:
+        config = get_vault_config(vault_path)
+    except Exception:  # pylint: disable=broad-exception-caught
+        return validations
+    types = config.taxonomy.types if config else []
+    if not types:
+        return validations
+    return [
+        {**rule, "allowed_values": list(types)}
+        if rule.get("scope") == "frontmatter" and rule.get("field") == "type"
+        else rule
+        for rule in validations
+    ]
 
 
 def load_vault_rules_prose(force_reload: bool = False) -> str:
@@ -82,10 +108,15 @@ def load_vault_rules_prose(force_reload: bool = False) -> str:
 
 
 def invalidate_rules_cache() -> None:
-    """Invalidate both caches. Called when REGLAS_GLOBALES.md is edited."""
+    """Invalidate the rules caches and the vault config they depend on.
+
+    The type rule is built from vault.yaml, so both must be dropped together
+    or the rules keep a stale type list.
+    """
     global _rules_cache, _prose_cache  # pylint: disable=global-statement
     _rules_cache = None
     _prose_cache = None
+    invalidate_vault_config_cache()
 
 
 # --- Validation Engine ---
@@ -196,7 +227,19 @@ def blocking_violations(
 def _check_rule(
     rule: dict[str, Any], title: str, content: str, fm: dict[str, Any]
 ) -> str | None:
-    """Execute a single rule. Returns warning string or None."""
+    """Execute a single rule. Returns warning string or None.
+
+    ``skip_when_present`` lists frontmatter fields that switch the rule off
+    when any of them has a truthy value (case-sensitive), for notes with their own schema (media cards
+    use ``tipo``/``estado`` instead of ``type``/``status``).
+    """
+    skip = rule.get("skip_when_present") or []
+    if isinstance(skip, str):  # `skip_when_present: tipo` written without a list
+        skip = [skip]
+    if isinstance(skip, list) and any(
+        isinstance(field, str) and fm.get(field) for field in skip
+    ):
+        return None
     scope = rule.get("scope", "")
 
     if scope in ("headings", "title", "body") and "pattern" in rule:
@@ -249,11 +292,18 @@ def _check_required_fields(rule: dict[str, Any], fm: dict[str, Any]) -> str | No
     return None
 
 
+def _nfc_if_str(value: Any) -> Any:
+    return nfc(value) if isinstance(value, str) else value
+
+
 def _check_allowed_values(rule: dict[str, Any], fm: dict[str, Any]) -> str | None:
     """Check that a frontmatter field value is in the allowed list."""
     field = rule["field"]
     value = fm.get(field, "")
-    if value and value not in rule["allowed_values"]:
+    # A list, not a set: frontmatter values may be unhashable (`type: [a, b]`)
+    # and must produce a warning, not a TypeError.
+    allowed = [_nfc_if_str(v) for v in rule["allowed_values"]]
+    if value and _nfc_if_str(value) not in allowed:
         return rule["warning"].format(value=value)
     return None
 
@@ -414,7 +464,7 @@ def enrich_response(
     elif tool_name in CONTENT_CREATION_TOOLS:
         parts.append("---")
         parts.append(
-            "[Reglas del vault activas. Llama a get_global_rules() si necesitas el texto completo.]"
+            "[Reglas del vault activas. Llama a rules.get si necesitas el texto completo.]"
         )
 
     return "\n".join(parts)

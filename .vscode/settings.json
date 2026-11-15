@@ -35,7 +35,7 @@
     "python.analysis.autoImportCompletions": true,
     "python.analysis.diagnosticMode": "openFilesOnly",
     "python.analysis.stubPath": "./typings",
-    "python.analysis.exclude": [".venv", "tests", "scripts", "obsidian_mcp/semantic"],
+    "python.analysis.exclude": [".venv", "tests", "scripts"],
 
     // Disable other Python formatters and linters
     "python.linting.enabled": false,

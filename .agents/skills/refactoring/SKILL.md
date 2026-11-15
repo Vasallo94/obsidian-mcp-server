@@ -47,10 +47,10 @@ uv run pytest tests/ -v
 uv run ruff check . && uv run pyright
 ```
 
-### 4. Commit si pasa
+### 4. Commit si pasa y el usuario lo ha pedido
 
 ```bash
-git add . && git commit -m "refactor(module): descripción breve"
+git add -- <rutas-refactorizadas> && git commit -m "refactor(module): descripción breve"
 ```
 
 ## Code Smells Comunes
@@ -67,6 +67,7 @@ def process_vault(path: Path) -> str:
     # 100 líneas de código...
     pass
 
+
 # ✅ DESPUÉS: Funciones pequeñas
 def process_vault(path: Path) -> str:
     """Procesa el vault completo."""
@@ -75,13 +76,16 @@ def process_vault(path: Path) -> str:
     formatted = _format_results(filtered)
     return formatted
 
+
 def _find_notes(path: Path) -> List[Path]:
     """Busca notas en el vault."""
     return list(path.rglob("*.md"))
 
+
 def _filter_forbidden(notes: List[Path]) -> List[Path]:
     """Filtra notas prohibidas."""
     return [n for n in notes if not is_forbidden(n)]
+
 
 def _format_results(notes: List[Path]) -> str:
     """Formatea lista de notas."""
@@ -102,11 +106,13 @@ def tool1():
         return "❌ Error: La ruta del vault no está configurada."
     # lógica...
 
+
 def tool2():
     vault_path = get_vault_path()
     if not vault_path:
         return "❌ Error: La ruta del vault no está configurada."
     # lógica...
+
 
 # ✅ DESPUÉS: Helper reutilizable
 def _get_vault_or_error() -> Tuple[Optional[Path], Optional[str]]:
@@ -115,6 +121,7 @@ def _get_vault_or_error() -> Tuple[Optional[Path], Optional[str]]:
     if not vault_path:
         return None, "❌ Error: La ruta del vault no está configurada."
     return vault_path, None
+
 
 def tool1():
     vault_path, error = _get_vault_or_error()
@@ -139,11 +146,12 @@ def create_note(
     template: str,
     description: str,
     author: str,
-) -> str:
-    ...
+) -> str: ...
+
 
 # ✅ DESPUÉS: Objeto de configuración
 from dataclasses import dataclass
+
 
 @dataclass
 class NoteConfig:
@@ -155,8 +163,8 @@ class NoteConfig:
     description: str = ""
     author: str = ""
 
-def create_note(config: NoteConfig) -> str:
-    ...
+
+def create_note(config: NoteConfig) -> str: ...
 ```
 
 ### 4. Condicionales Anidados
@@ -178,6 +186,7 @@ def process(data):
             return "Datos inválidos"
     else:
         return "Sin datos"
+
 
 # ✅ DESPUÉS: Guard clauses
 def process(data):
@@ -218,12 +227,11 @@ Cambiar nombre para mejorar claridad.
 
 ```python
 # ❌ Nombre vago
-def proc(d):
-    ...
+def proc(d): ...
+
 
 # ✅ Nombre descriptivo
-def process_markdown_content(content: str) -> str:
-    ...
+def process_markdown_content(content: str) -> str: ...
 ```
 
 ### Extract Variable
@@ -253,9 +261,11 @@ Método en vez de variable temporal.
 base_price = quantity * item_price
 discount = base_price * 0.1
 
+
 # ✅ DESPUÉS
 def calculate_base_price() -> float:
     return quantity * item_price
+
 
 def calculate_discount() -> float:
     return calculate_base_price() * 0.1
@@ -268,13 +278,12 @@ Mover función al módulo donde pertenece.
 ```python
 # ❌ Función de seguridad en navigation.py
 # obsidian_mcp/tools/navigation.py
-def is_path_safe(path: Path) -> bool:
-    ...
+def is_path_safe(path: Path) -> bool: ...
+
 
 # ✅ Mover a security.py
 # obsidian_mcp/utils/security.py
-def is_path_safe(path: Path) -> bool:
-    ...
+def is_path_safe(path: Path) -> bool: ...
 ```
 
 ## Refactoring en Este Proyecto
@@ -314,7 +323,7 @@ Durante el refactoring:
 
 - [ ] Un cambio pequeño a la vez
 - [ ] Tests después de cada cambio
-- [ ] Commits frecuentes
+- [ ] Commits pequeños (cuando el usuario los pida)
 
 Después del refactoring:
 

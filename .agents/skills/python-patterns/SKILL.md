@@ -73,12 +73,11 @@ def public_function(param: str) -> str:
 def process_note(
     path: Path,
     options: Optional[Dict[str, Any]] = None,
-) -> Tuple[bool, str]:
-    ...
+) -> Tuple[bool, str]: ...
+
 
 # ❌ INCORRECTO: Sin tipos
-def process_note(path, options=None):
-    ...
+def process_note(path, options=None): ...
 ```
 
 **Tipos comunes en el proyecto**:
@@ -87,12 +86,14 @@ def process_note(path, options=None):
 from pathlib import Path
 from typing import Optional, Tuple, Dict, List, Any, Literal
 
+
 # Para retornos con error
 def operation() -> Tuple[bool, str]:
     """Retorna (success, message)."""
     if error:
         return False, "Error message"
     return True, "Success"
+
 
 # Para configuración opcional
 TransportType = Literal["stdio", "http", "sse"]
@@ -169,15 +170,10 @@ class MySettings(BaseSettings):
         extra="ignore",
     )
 
-    required_field: str = Field(
-        description="Campo requerido"
-    )
+    required_field: str = Field(description="Campo requerido")
 
     optional_field: int = Field(
-        default=10,
-        ge=1,
-        le=100,
-        description="Campo opcional con límites"
+        default=10, ge=1, le=100, description="Campo opcional con límites"
     )
 
     @field_validator("required_field", mode="before")
@@ -272,10 +268,10 @@ from ..utils import get_logger
 logger = get_logger(__name__)
 
 # Niveles apropiados
-logger.debug("Detalles de debugging")      # Solo en dev
-logger.info("Operación completada")         # Flujo normal
-logger.warning("Situación anómala")         # Problema no fatal
-logger.error("Error en operación")          # Error que afecta función
+logger.debug("Detalles de debugging")  # Solo en dev
+logger.info("Operación completada")  # Flujo normal
+logger.warning("Situación anómala")  # Problema no fatal
+logger.error("Error en operación")  # Error que afecta función
 logger.exception("Con traceback completo")  # En bloques except
 ```
 
@@ -285,16 +281,20 @@ logger.exception("Con traceback completo")  # En bloques except
 # ❌ Imports dentro de funciones (excepto lazy imports justificados)
 def my_function():
     import os  # Moverlo arriba
+
     ...
+
 
 # ❌ Mutable default arguments
 def bad(items: List = []):  # ¡Peligro!
     items.append(1)
 
+
 # ✅ Correcto
 def good(items: Optional[List] = None):
     if items is None:
         items = []
+
 
 # ❌ Bare except
 try:

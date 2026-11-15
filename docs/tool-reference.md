@@ -52,7 +52,7 @@ Optional tools are enabled from `.agents/vault.yaml` with
 ### `notes_write`
 
 - `notes.suggest_location(title, content, tags)`: Suggest a vault folder.
-- `notes.create(title, content, folder, tags, template, creator, description)`: Create a note.
+- `notes.create(title, content, folder, tags, template, creator, description, note_type, link_from_index=True)`: Create a note and link it from the nearest index going up from its folder (`Índice.md`, `index.md` or `... MOC.md`), under `## Por clasificar`.
   `tags` is a comma-separated string (e.g. `"astro, equipo"`); it is normalized
   to a YAML list in the saved frontmatter. If `content` already starts with a
   `---...---` frontmatter block, embedded fields (`type`, `status`, custom keys)
@@ -116,10 +116,10 @@ project instead of embedding a second RAG stack inside this MCP server.
   `skills.sync`, `rules.add`. `rules.add(rule_text)` registers a new global
   rule in `.agents/REGLAS_GLOBALES.md` after interactive confirmation, so the
   agent never edits that file directly.
+  `vault.init_kit(confirm)` copies the starter kit shipped with the server
+  (`.agents/REGLAS_GLOBALES.md`, `AGENTS.md` and base templates) into a new
+  vault, only where files are missing; without `confirm=True` it previews.
 - `youtube`: `youtube.transcript`.
-- `legacy_semantic`: deprecated in-process semantic tools, disabled by default:
-  `semantic.index`, `semantic.search`, and `semantic.suggest_connections`.
-  Prefer `obsidianrag` for all new semantic-search deployments.
 - `canvas`: Obsidian Canvas read/write tools — `canvas.read` (surfaces the
   standard color legend and any board "Legend"/"Leyenda" card), `canvas.list`,
   `canvas.add_card`, `canvas.add_group`, `canvas.add_edge`, `canvas.update_card`,

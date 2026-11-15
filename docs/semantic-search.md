@@ -64,18 +64,20 @@ This separation also makes the failure modes cleaner:
 - Indexing/model problems stay in ObsidianRAG.
 - Agents can diagnose the boundary with `rag.setup_status()` and `rag.health()`.
 
-## Legacy semantic tools
+## Removed: the legacy in-process tools
 
-The `legacy_semantic` tool set still exists for backward compatibility:
+The `legacy_semantic` tool set — `semantic.index`, `semantic.search` and
+`semantic.suggest_connections` — has been removed, along with the optional
+`[rag]` dependency extra that powered it.
 
-- `semantic.index`
-- `semantic.search`
-- `semantic.suggest_connections`
+If a profile still lists `legacy_semantic` in `tool_sets`, nothing breaks: no
+tool set by that name exists any more, so the entry registers nothing. As with
+any unrecognised name, it does still appear under `tool_sets.enabled` in the
+`obsidian://profile` resource while being absent from the available sets, so
+removing it from the profile is worth doing for tidiness. To keep semantic
+search, enable `obsidianrag` and point it at an ObsidianRAG instance as
+described above.
 
-It is disabled by default and deprecated for new deployments. It requires the
-optional `[rag]` dependency extra and keeps a minimal local stack around
-ChromaDB, LangChain, and Ollama embeddings. The older HuggingFace/PyTorch
-fallback is no longer bundled; use `obsidianrag` for a maintained semantic
-backend.
-
-Prefer `obsidianrag` unless you are maintaining an older local setup.
+One behaviour changed outside the tool set: `notes.suggest_location` used to
+consult the local index first and fall back to a keyword heuristic when the
+optional extra was absent. It now always uses the heuristic.

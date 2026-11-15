@@ -23,7 +23,6 @@ from ..utils import (
     get_logger,
     get_note_metadata,
     is_path_forbidden,
-    is_path_in_restricted_folder,
     iter_safe_vault_files,
     resolve_vault_path,
     validate_path_within_vault,
@@ -308,15 +307,19 @@ def _validate_move_paths(
         if not is_valid:
             return False, f"Security error ({label}): {error}"
 
-    config = get_vault_config(vault_path)
-    private_folders = ["**/Private/", "**/Privado/*"]
-    if config and config.private_paths:
-        private_folders = config.private_paths
-
-    if is_path_in_restricted_folder(origen, private_folders, vault_path):
-        return False, ("Access denied: cannot move files from restricted folders")
-    if is_path_in_restricted_folder(destino, private_folders, vault_path):
-        return False, ("Access denied: cannot move files into restricted folders")
+    # Same policy as every other tool: .forbidden_paths plus private_paths,
+    # glob-aware and case-insensitive. The old literal-folder check never
+    # matched patterns like "**/Privado/*", so notes could be moved out.
+    for label, path_str, direction in [
+        ("source", origen, "from"),
+        ("destination", destino, "into"),
+    ]:
+        is_allowed, _ = check_path_access(path_str, vault_path, f"move {label}")
+        if not is_allowed:
+            return (
+                False,
+                f"Access denied: cannot move files {direction} protected paths",
+            )
 
     return True, ""
 
@@ -356,10 +359,12 @@ def move_note(  # pylint: disable=too-many-locals,too-many-return-statements
     path_destino = vault_path / destino
 
     if not path_origen.exists():
-        return Result.fail(f"Source file does not exist: {origen}")
+        return Result.fail(f"Source is not an existing file: {origen}")
 
     if not path_origen.is_file():
-        return Result.fail(f"Source is not a file: {origen}")
+        # Same message as a missing source: it must not reveal that a
+        # (possibly private) folder exists.
+        return Result.fail(f"Source is not an existing file: {origen}")
 
     if path_destino.exists():
         return Result.fail(f"Destination file already exists: {destino}")

@@ -165,18 +165,17 @@ uv run pytest tests/ --tb=long
 ```python
 # Saltar test
 @pytest.mark.skip(reason="Not implemented yet")
-def test_future_feature():
-    ...
+def test_future_feature(): ...
+
 
 # Saltar condicionalmente
 @pytest.mark.skipif(condition, reason="...")
-def test_conditional():
-    ...
+def test_conditional(): ...
+
 
 # Esperar fallo
 @pytest.mark.xfail(reason="Known bug")
-def test_known_issue():
-    ...
+def test_known_issue(): ...
 ```
 
 ## Variables de Entorno para Tests

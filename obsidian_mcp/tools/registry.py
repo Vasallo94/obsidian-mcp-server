@@ -59,6 +59,7 @@ TOOL_SPECS: dict[str, ToolSpec] = {
     "rules.add": ToolSpec(
         "Add Global Rule", "agents_admin", read_only=False, idempotent=False
     ),
+    "vault.init_kit": ToolSpec("Init Vault Kit", "agents_admin", read_only=False),
     "notes.validate": ToolSpec("Validate Note"),
     # Notes write pack
     "notes.suggest_location": ToolSpec(
@@ -154,19 +155,6 @@ TOOL_SPECS: dict[str, ToolSpec] = {
     "rag.ask": ToolSpec("Ask Vault", "obsidianrag", open_world=True),
     "rag.rebuild_index": ToolSpec(
         "Rebuild RAG Index", "obsidianrag", read_only=False, idempotent=False
-    ),
-    # Legacy semantic pack
-    "semantic.search": ToolSpec(
-        "Legacy Semantic Search (Deprecated)", "legacy_semantic"
-    ),
-    "semantic.index": ToolSpec(
-        "Legacy Semantic Index (Deprecated)",
-        "legacy_semantic",
-        read_only=False,
-        idempotent=False,
-    ),
-    "semantic.suggest_connections": ToolSpec(
-        "Legacy Semantic Connections (Deprecated)", "legacy_semantic"
     ),
     # Canvas pack
     "canvas.read": ToolSpec("Read Canvas", "canvas"),

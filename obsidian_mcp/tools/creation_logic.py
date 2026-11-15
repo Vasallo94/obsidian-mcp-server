@@ -13,8 +13,9 @@ All functions return Result[str] for consistent error handling.
 import difflib
 import json
 import re
+import unicodedata
 from datetime import date, datetime
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 import yaml
@@ -31,7 +32,7 @@ from ..utils import (
     resolve_vault_path,
     sanitize_filename,
 )
-from ..vault_config import get_vault_config, resolve_role
+from ..vault_config import get_vault_config, nfc, resolve_role
 
 
 def _json_serial(obj: Any) -> str:
@@ -226,7 +227,13 @@ def _suggest_close_matches(
 
 
 def _extract_frontmatter_from_content(contenido: str) -> tuple[dict[str, Any], str]:
-    """Extract YAML frontmatter from content if it exists."""
+    """Extract YAML frontmatter from content if it exists.
+
+    A leading ``---`` block that parses as a mapping is frontmatter, even
+    with blank lines inside: the Kanban and Excalidraw plugins write
+    ``---``, a blank line, then the keys. A horizontal rule that happens to
+    wrap ``key: value`` text is indistinguishable and is read the same way.
+    """
     frontmatter_pattern = re.compile(r"^---\s*\n(.*?)\n---\s*\n?", re.DOTALL)
     match = frontmatter_pattern.match(contenido)
     if not match:
@@ -243,12 +250,374 @@ def _extract_frontmatter_from_content(contenido: str) -> tuple[dict[str, Any], s
         return {}, contenido
 
 
+_HEADING_RE = re.compile(r"^ {0,3}(#{1,6})[ \t]+(\S(?:.*\S)?)[ \t]*$")
+# Fence run plus the rest of the line; `.*` always matches, so no backtracking.
+_FENCE_OPEN_RE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)")
+# Markers that can hide what follows them (Obsidian comments, HTML).
+_OPAQUE_MARKERS = ("<!--", "%%", "<details")
+
+
+def _strip_inline_code(line: str) -> str:
+    """Drop `code spans` from one line (a run closes at the next run of equal length).
+
+    Linear: a regex with a backreference backtracks quadratically on long
+    backtick runs. A span crossing lines is left as prose, the safe side.
+    """
+    if "`" not in line or "\\`" in line:
+        return line  # an escaped backtick: keep it all as prose, the safe side
+    runs = list(re.finditer(r"`+", line))
+    closer: dict[int, int] = {}  # run index -> next run index of equal length
+    last: dict[int, int] = {}
+    for k in range(len(runs) - 1, -1, -1):
+        size = len(runs[k].group())
+        if size in last:
+            closer[k] = last[size]
+        last[size] = k
+    out, pos, k = [], 0, 0
+    while k < len(runs):
+        if k in closer:
+            out.append(line[pos : runs[k].start()])
+            pos, k = runs[closer[k]].end(), closer[k] + 1
+        else:
+            k += 1
+    return "".join(out) + line[pos:]
+
+
+def _fence_open(line: str) -> str:
+    """Return the fence a line opens, or "" (CommonMark rules)."""
+    opened = _FENCE_OPEN_RE.match(line)
+    if not opened:
+        return ""
+    fence, info = opened.groups()
+    # A backtick fence's info string can't contain backticks (```npm i``` is code).
+    return "" if fence[0] == "`" and "`" in info else fence
+
+
+def _split_markdown(
+    text: str,
+) -> tuple[str | None, str, list[tuple[tuple[int, str], str]], bool]:
+    """Split Markdown into (title, intro, sections, unsafe_to_merge).
+
+    ``title`` is a leading H1 (nothing but blank lines before it). Sections
+    are cut at the shallowest heading level left, so each one carries its
+    subsections; the key is (level, heading text in NFC, casefolded).
+    Headings inside code fences don't count (CommonMark closing rules).
+    ``unsafe_to_merge`` is true when the text ends inside a fence or has a
+    comment or ``<details>`` outside code, which could swallow what follows.
+    """
+    lines = text.replace("\r\n", "\n").split("\n")
+    heads: list[tuple[int, int, str]] = []
+    fence = ""
+    opaque = False
+    for i, line in enumerate(lines):
+        if fence:
+            if re.match(rf"^ {{0,3}}{fence[0]}{{{len(fence)},}}[ \t]*$", line):
+                fence = ""
+            continue
+        prose = _strip_inline_code(line)
+        opaque = opaque or any(m in prose for m in _OPAQUE_MARKERS)
+        if opened := _fence_open(line):
+            fence = opened
+        elif heading := _HEADING_RE.match(line):
+            words = heading.group(2)
+            closing = words.rstrip("#")  # `## X ##`; rstrip, a regex is quadratic
+            if closing != words and closing[-1:] in (" ", "\t"):
+                words = closing.rstrip(" \t")
+            words = words.strip("*_ ").rstrip(":").strip("*_ ")
+            heads.append((i, len(heading.group(1)), words))
+    title, start = None, 0
+    if heads and heads[0][1] == 1 and not "".join(lines[: heads[0][0]]).strip():
+        title, start = lines[heads[0][0]].strip(), heads[0][0] + 1
+        heads = heads[1:]
+    unsafe = bool(fence) or opaque
+    if not heads:
+        return title, "\n".join(lines[start:]), [], unsafe
+    top = min(level for _, level, _ in heads)
+    cuts = [(i, words) for i, level, words in heads if level == top]
+    sections = [
+        (
+            (top, nfc(words).casefold()),
+            "\n".join(lines[i : cuts[n + 1][0] if n + 1 < len(cuts) else None]),
+        )
+        for n, (i, words) in enumerate(cuts)
+    ]
+    return title, "\n".join(lines[start : cuts[0][0]]), sections, unsafe
+
+
+def _shift_headings(block: str, delta: int) -> str:
+    """Move every heading of ``block`` (outside code fences) by ``delta`` levels."""
+    out, fence = [], ""
+    for line in block.split("\n"):
+        if fence:
+            if re.match(rf"^ {{0,3}}{fence[0]}{{{len(fence)},}}[ \t]*$", line):
+                fence = ""
+        elif opened := _fence_open(line):
+            fence = opened
+        elif heading := _HEADING_RE.match(line):
+            level = min(6, max(1, len(heading.group(1)) + delta))
+            line = "#" * level + line[heading.end(1) :]
+        out.append(line)
+    return "\n".join(out)
+
+
+def _place_content(template_body: str, content: str) -> str:
+    """Return the note body merging the caller's content into the template.
+
+    Nothing of the template is dropped except what the content replaces: a
+    leading H1 in the content replaces the template's; a content section
+    (with its subsections) replaces, in place, the template section with the
+    same heading, even if the content wrote it one level off (it takes the
+    template's level); a new section goes right after the matched section
+    that precedes it in the content, or under the title and the template's
+    intro.
+    """
+    if not content.strip():
+        return template_body
+    c_title, c_intro, c_sections, unsafe = _split_markdown(content)
+    if unsafe:
+        # ponytail: a comment or an unclosed fence could swallow the template
+        # sections placed after it; such content is appended as is instead.
+        blocks = [template_body, content]
+    else:
+        t_title, t_intro, t_sections, _ = _split_markdown(template_body)
+        # Match by heading text; a content section at another level is
+        # re-levelled to the template's ("### Notas" fills "## Notas").
+        template_levels = {words: level for (level, words), _ in t_sections}
+        replacements: dict[tuple[int, str], list[str]] = {}
+        # New sections follow the last matched section before them in the
+        # content (None: none yet, so they go under the intro).
+        after: dict[tuple[int, str] | None, list[str]] = {}
+        anchor: tuple[int, str] | None = None
+        for (level, words), text in c_sections:
+            if words in template_levels:
+                key = (template_levels[words], words)
+                if key[0] != level:
+                    text = _shift_headings(text, key[0] - level)
+                replacements.setdefault(key, []).append(text)
+                anchor = key
+            else:
+                after.setdefault(anchor, []).append(text)
+        blocks = [c_title or t_title or "", t_intro, c_intro, *after.pop(None, [])]
+        for key, text in t_sections:
+            blocks.extend(replacements.pop(key, [text]))
+            blocks.extend(after.pop(key, []))
+    return "\n\n".join(b.strip("\n") for b in blocks if b.strip()) + "\n"
+
+
+_INDEX_NAMES = ("índice.md", "indice.md", "index.md")
+_INDEX_SECTION = "Por clasificar"
+
+
+def _is_index_note(path: Path) -> bool:
+    """An index is `Índice.md`/`index.md` or a note whose name ends in "MOC"."""
+    name = nfc(path.name).casefold()
+    return name in _INDEX_NAMES or name.removesuffix(".md").endswith("moc")
+
+
+def link_from_index(  # pylint: disable=too-many-locals,too-many-branches,too-many-return-statements
+    note_path: Path, vault_path: Path, description: str = ""
+) -> str:
+    """Link a new note from the index of its folder; return the index's path.
+
+    The index is the nearest one going up from the note's folder (never the
+    vault root). The link goes to a "## Por clasificar" section, created
+    right before the index's first H2 so it stays above any footer. Returns
+    "" when there is no index, the note is an index itself, the index is
+    protected or already links the note, the note's name can't be a wikilink
+    target, or either lives in the templates folder or a hidden one (a
+    template "MOC.md" is not an index: linking would bake the link into
+    every note made from it).
+    """
+    vault_root = vault_path.resolve()
+    stem = nfc(note_path.stem)
+    if _is_index_note(note_path) or any(c in stem for c in "#|[]^"):
+        return ""
+    templates = find_templates_folder(vault_path, get_vault_config(vault_path))
+    templates_root = (vault_root / templates).resolve() if templates else None
+    # Compared as NFC casefolded parts: APFS ignores case, resolve() keeps it.
+    templates_parts = (
+        [nfc(part).casefold() for part in templates_root.relative_to(vault_root).parts]
+        if templates_root and vault_root in templates_root.parents
+        else []
+    )
+
+    def excluded(path: Path) -> bool:
+        path = path.resolve()  # an index may be a symlink into the templates
+        if vault_root not in path.parents:
+            return True
+        folders = [
+            nfc(part).casefold() for part in path.relative_to(vault_root).parts[:-1]
+        ]
+        # Hidden folders, the configured templates folder and any folder named
+        # like one (a nested "Sistema/Plantillas" isn't auto-detected).
+        return any(
+            f.startswith(".") or "plantilla" in f or "template" in f for f in folders
+        ) or bool(
+            templates_parts and folders[: len(templates_parts)] == templates_parts
+        )
+
+    if excluded(note_path):
+        return ""
+    folder, index = note_path.parent, None
+    while folder != vault_root and vault_root in folder.parents:
+        index = next(
+            (
+                p
+                for p in sorted(folder.glob("*.md"))
+                if p.is_file() and _is_index_note(p)
+            ),
+            None,
+        )
+        if index:
+            break
+        folder = folder.parent
+    if (
+        index is None
+        or excluded(index)
+        or not check_path_access(index, vault_path, "modificar")[0]
+    ):
+        return ""
+    with open(index, encoding="utf-8", newline="") as handle:
+        raw = handle.read()
+    newline = "\r\n" if "\r\n" in raw else "\n"
+    text = raw.replace("\r\n", "\n")  # written back with its own line endings
+    # "[" in the class keeps the search linear on many unclosed "[[".
+    if re.search(
+        rf"\[\[(?:[^\]\[|#\n]*/)?{re.escape(stem)}(?:\.md)?[|#\]]",
+        nfc(text),
+        re.IGNORECASE,
+    ):
+        return ""
+    entry = f"- [[{stem}]]" + (
+        f": {' '.join(description.split())}" if description else ""
+    )
+    frontmatter = _FRONTMATTER_BLOCK_RE.match(text)
+    head = frontmatter.group(0) if frontmatter else ""
+    lines = text[len(head) :].split("\n")
+    heads, fence, comment = [], "", False
+    for i, line in enumerate(lines):
+        if fence:
+            if re.match(rf"^ {{0,3}}{fence[0]}{{{len(fence)},}}[ \t]*$", line):
+                fence = ""
+            continue
+        prose = _strip_inline_code(line)  # `%%` in code is not a comment
+        if not comment and (opened := _fence_open(line)):
+            fence = opened
+        elif comment or "%%" in prose:  # headings inside %% comments are hidden
+            if prose.count("%%") % 2:
+                comment = not comment
+        elif heading := _HEADING_RE.match(line):
+            heads.append((i, len(heading.group(1)), heading.group(2).strip()))
+    section = next(
+        (h for h in heads if nfc(h[2]).casefold() == _INDEX_SECTION.casefold()), None
+    )
+    if section:
+        end = next(
+            (i for i, lvl, _ in heads if i > section[0] and lvl <= section[1]),
+            len(lines),
+        )
+        while end > section[0] + 1 and not lines[end - 1].strip():
+            end -= 1
+        lines[end:end] = [entry]
+    else:
+        h2 = next((i for i, lvl, _ in heads if lvl == 2), None)
+        block = [f"## {_INDEX_SECTION}", "", entry, ""]
+        if h2 is not None:
+            lines[h2:h2] = ["", *block] if h2 and lines[h2 - 1].strip() else block
+        elif not "".join(lines).strip():
+            lines = block
+        else:
+            lines += block if lines[-1] == "" else ["", *block]
+    # The date only inside the frontmatter: the body may hold an inline
+    # `updated::` field or a ```yaml block that must stay as written.
+    # A "---" block that isn't a YAML mapping is a rule around prose: no date.
+    if head and _extract_frontmatter_from_content(head)[0]:
+        head = _update_frontmatter_date(head)
+    new_text = head + "\n".join(lines)
+    atomic_write_text(index, new_text.replace("\n", newline))
+    return index.relative_to(vault_root).as_posix()
+
+
+# Canonical `agente_creador` per known client, keyed by the name lowercased
+# with "-"/"_" as spaces. Covers MCP clientInfo names (claude-code, claude-ai,
+# codex-mcp-client) and the spellings found in the vault. Unknown names are
+# kept as given, trimmed.
+_AGENT_ALIASES = {
+    "claude code": "Claude Code",
+    "claude ai": "Claude",
+    "claude": "Claude",
+    "codex": "Codex",
+    "codex mcp client": "Codex",
+    "codex cli": "Codex",
+    "hermes": "Hermes",
+    "hermes agent": "Hermes",
+    "pi": "Pi",
+    "pi agent": "Pi",
+    "antigravity": "Antigravity",
+}
+
+
+# Printable but blank: joiner, Hangul fillers, Braille blank.
+_INVISIBLE = dict.fromkeys(map(ord, "\u200d\u115f\u1160\u3164\uffa0\u2800"))
+
+
+def normalize_agent_name(name: str) -> str:
+    """Return the canonical agent name for ``agente_creador``.
+
+    Non-printable characters are dropped and the result is capped at 64
+    characters: the client's name reaches the note without the agent typing it.
+    """
+    # Split first so tabs and Unicode spaces become spaces; keep ZWJ emoji.
+    name = "".join(
+        c for c in " ".join(name.split()) if c.isprintable() or c == "\u200d"
+    )
+    name = nfc(name)[:64].rstrip()
+    if all(
+        c.isspace() or unicodedata.category(c) in ("Mn", "Me")
+        for c in name.translate(_INVISIBLE)
+    ):
+        return ""  # only invisible characters: no signature at all
+    key = " ".join(re.sub(r"[-_]", " ", name).casefold().split())
+    return _AGENT_ALIASES.get(key, name)
+
+
+def find_templates_folder(vault_path: Path, config: Any) -> str | None:
+    """Return the vault's templates folder: configured, else auto-detected.
+
+    Auto-detection looks at visible top-level folders: an exact "Templates"
+    or "Plantillas" wins; otherwise the first (sorted, so the choice is
+    stable) whose name contains "plantilla" or "template", preferring any
+    other folder to the Templater plugin's one.
+    """
+    if config and config.templates_folder:
+        return config.templates_folder
+    folders = [
+        item.name
+        for item in sorted(vault_path.iterdir())
+        if item.is_dir() and not item.name.startswith(".")
+    ]
+    for name in folders:
+        if name.casefold() in ("templates", "plantillas", "_templates"):
+            return name
+    for name in folders:
+        lowered = name.casefold()
+        if "templater" not in lowered and (
+            "plantilla" in lowered or "template" in lowered
+        ):
+            return name
+    for name in folders:  # a Templater folder only when it is the only one
+        if "template" in name.casefold():
+            return name
+    return None
+
+
 def _build_frontmatter(
     titulo: str,
     ahora: str,
     tags_list: list[str],
     agente_creador: str = "",
     extra_metadata: dict[str, Any] | None = None,
+    agente_por_defecto: str = "",
 ) -> str:
     """Build YAML frontmatter block combining metadata.
 
@@ -287,6 +656,9 @@ def _build_frontmatter(
 
     if agente_creador:
         metadata["agente_creador"] = agente_creador
+    elif agente_por_defecto and not metadata.get("agente_creador"):
+        # Default only: a signature from the template or content is kept.
+        metadata["agente_creador"] = agente_por_defecto
 
     yaml_content = yaml.dump(
         metadata,
@@ -582,65 +954,12 @@ def edit_note(  # pylint: disable=too-many-locals,too-many-return-statements,too
 
 def suggest_folder_location(titulo: str, contenido: str, etiquetas: str = "") -> str:
     # pylint: disable=too-many-return-statements,too-many-branches,too-many-locals
-    """Helper to suggest location based on semantics and keywords."""
+    """Helper to suggest location from keywords and the vault's declared taxonomy.
 
-    # 1. Try Semantic Suggestion (multi-candidate)
-    # Import inside try to gracefully degrade when RAG optional deps are missing.
-    try:
-        # pylint: disable-next=import-outside-toplevel
-        from ..semantic.service import SemanticService
-
-        vault_path = get_vault_path()
-        if vault_path:
-            service = SemanticService(str(vault_path))
-
-            # Combine distinct terms for better retrieval
-            # Limit content to first 1000 chars to avoid huge queries
-            query = f"{titulo} {etiquetas} {contenido[:1000]}"
-            suggestions = service.suggest_folder(query, limit=5, top_k=3)
-
-            if suggestions:
-                # Format multi-candidate response
-                lines = [
-                    "📂 **Sugerencias basadas en contenido similar:**\n",
-                    "(Evalúa estas opciones y propón la mejor al usuario)\n",
-                ]
-                for i, s in enumerate(suggestions, 1):
-                    conf_pct = int(s["confidence"] * 100)
-                    conf_bar = "█" * (conf_pct // 10) + "░" * (10 - conf_pct // 10)
-                    notes_str = (
-                        ", ".join(s["similar_notes"]) if s["similar_notes"] else "—"
-                    )
-                    lines.append(
-                        f"{i}. `{s['folder']}`\n"
-                        f"   Confianza: {conf_bar} {conf_pct}% "
-                        f"({s['votes']} votos)\n"
-                        f"   Notas similares: {notes_str}"
-                    )
-
-                # Add guidance for the LLM
-                top_conf = suggestions[0]["confidence"]
-                if top_conf >= 0.6:
-                    pct = int(top_conf * 100)
-                    lines.append(
-                        f"\n💡 La opción 1 tiene alta confianza ({pct}%). "
-                        "Puedes sugerirla al usuario."
-                    )
-                elif top_conf >= 0.4:
-                    lines.append(
-                        "\n⚠️ Confianza moderada. Muestra las opciones al "
-                        "usuario para que decida."
-                    )
-                else:
-                    lines.append(
-                        "\n⚠️ Baja confianza. Pregunta al usuario dónde "
-                        "prefiere ubicar la nota."
-                    )
-
-                return "\n".join(lines)
-
-    except (ImportError, OSError) as e:
-        logger.debug("Semantic suggestion unavailable, using heuristic: %s", e)
+    This used to try the in-process semantic index first and fall back here when
+    the optional RAG extra was missing. That stack is gone, so the keyword
+    heuristic is now the only path.
+    """
 
     texto = (titulo + " " + contenido + " " + etiquetas).lower()
 
@@ -744,6 +1063,69 @@ def note_relative_path(carpeta: str, titulo: str) -> Path:
     return nota_path
 
 
+def _resolve_type_defaults(
+    vault_path: Path, config: Any, tipo: str, plantilla: str, carpeta: str
+) -> tuple[str, str, str | None]:
+    """Fill template and folder for ``tipo`` from taxonomy.templates.
+
+    ``taxonomy.types`` is the vocabulary (as in the middleware type rule).
+    Explicit ``plantilla`` wins; an explicit ``carpeta`` must sit inside the
+    type's base folder when the type is filed by topic (choose_subfolder).
+    Returns (plantilla, carpeta, error message or None).
+    """
+    tipo = nfc(tipo)
+    taxonomy = config.taxonomy if config else None
+    types = taxonomy.types if taxonomy else []
+    if types and tipo not in types:
+        return (
+            plantilla,
+            carpeta,
+            f"El tipo '{tipo}' no existe en taxonomy.types de .agents/vault.yaml. "
+            f"Tipos válidos: {', '.join(sorted(types))}",
+        )
+    spec = taxonomy.templates.get(tipo) if taxonomy else None
+    if spec is None:
+        return plantilla, carpeta, None
+
+    plantilla = plantilla or spec.template
+    if not spec.choose_subfolder:
+        return plantilla, carpeta or spec.folder, None
+
+    base = PurePosixPath(spec.folder)
+    if carpeta:
+        target = PurePosixPath(carpeta.strip("/"))
+        # PurePosixPath does not resolve "..": reject it instead of letting
+        # "Base/../Otra" pass the containment check.
+        if ".." not in target.parts and target != base and base in target.parents:
+            return plantilla, carpeta, None
+    return (
+        plantilla,
+        carpeta,
+        f"Las notas de tipo '{tipo}' van en una subcarpeta de {spec.folder}. "
+        f"Pasa folder con una de estas o una nueva dentro de {spec.folder}: "
+        f"{_list_subfolders(vault_path, spec.folder)}",
+    )
+
+
+def _list_subfolders(vault_path: Path, folder: str) -> str:
+    """Comma-separated visible subfolders of ``folder``, hiding private ones."""
+    base, _ = resolve_vault_path(folder, vault_path, "list folders in")
+    if base is None or not base.is_dir():
+        return "(ninguna)"
+    names = sorted(
+        p.name
+        for p in base.iterdir()
+        if p.is_dir()
+        and not p.is_symlink()
+        and not p.name.startswith(".")
+        and check_path_access(p, vault_path, "list")[0]
+        # private_paths patterns such as "**/Privado/*" match the contents,
+        # not the folder itself: probe a child path as well.
+        and check_path_access(p / "_.md", vault_path, "list")[0]
+    )
+    return ", ".join(f"{folder}/{n}" for n in names) or "(ninguna)"
+
+
 def create_note(
     titulo: str,
     contenido: str,
@@ -753,8 +1135,27 @@ def create_note(
     agente_creador: str = "",
     descripcion: str = "",
 ) -> Result[str]:
-    # pylint: disable=too-many-branches,too-many-statements,too-many-locals,too-many-positional-arguments
-    """Create a new note in the vault.
+    # pylint: disable=too-many-positional-arguments
+    """Create a new note in the vault. See ``create_note_with_content``."""
+    return create_note_with_content(
+        titulo, contenido, carpeta, etiquetas, plantilla, agente_creador, descripcion
+    )[0]
+
+
+def create_note_with_content(
+    titulo: str,
+    contenido: str,
+    carpeta: str = "",
+    etiquetas: str = "",
+    plantilla: str = "",
+    agente_creador: str = "",
+    descripcion: str = "",
+    tipo: str = "",
+    agente_por_defecto: str = "",
+    enlazar_indice: bool = False,
+) -> tuple[Result[str], tuple[str, str] | None]:
+    # pylint: disable=too-many-branches,too-many-statements,too-many-locals,too-many-positional-arguments,too-many-arguments,too-many-return-statements
+    """Create a new note in the vault and return the text written to disk.
 
     Args:
         titulo: Title of the note.
@@ -764,15 +1165,33 @@ def create_note(
         plantilla: Name of the template file to use.
         agente_creador: Name of the creating agent.
         descripcion: Brief description for placeholders.
+        agente_por_defecto: ``agente_creador`` used only when neither
+            ``agente_creador`` nor the template or content set one.
+        tipo: Note type. Picks the default template and folder from
+            ``taxonomy.templates`` in vault.yaml and sets ``type``.
+        enlazar_indice: Link the new note from the index of its folder
+            (see ``link_from_index``).
 
     Returns:
-        Result with success message or error.
+        (Result with success message or error, (final note text, vault-relative
+        path) or None on
+        failure). The text lets callers validate the note as written without
+        re-reading the file or parsing paths out of the display message.
     """
     vault_path = get_vault_path()
     if not vault_path:
-        return Result.fail("La ruta del vault no está configurada.")
+        return Result.fail("La ruta del vault no está configurada."), None
 
     config = get_vault_config(vault_path)
+
+    if tipo:
+        tipo = nfc(tipo)  # canonical form, also for the frontmatter written below
+        plantilla, carpeta, error = _resolve_type_defaults(
+            vault_path, config, tipo, plantilla, carpeta
+        )
+        if error:
+            return Result.fail(error), None
+
     carpeta = resolve_create_folder(titulo, contenido, etiquetas, carpeta)
     nombre_archivo = sanitize_filename(titulo)
     nota_path = vault_path / note_relative_path(carpeta, titulo)
@@ -780,12 +1199,12 @@ def create_note(
     # Validate before mkdir so rejected paths cannot mutate the filesystem.
     resolved_note, error = resolve_vault_path(nota_path, vault_path, "crear nota en")
     if resolved_note is None:
-        return Result.fail(error)
+        return Result.fail(error), None
     nota_path = resolved_note
 
     # Verificar si ya existe
     if nota_path.exists():
-        return Result.fail(f"Ya existe una nota con el nombre '{nombre_archivo}'")
+        return Result.fail(f"Ya existe una nota con el nombre '{nombre_archivo}'"), None
 
     # Preparar contenido final
     contenido_final = ""
@@ -794,17 +1213,7 @@ def create_note(
 
     # Si se usa plantilla
     if plantilla:
-        # Get templates folder
-        templates_folder = None
-        if config and config.templates_folder:
-            templates_folder = config.templates_folder
-        else:
-            for item in vault_path.iterdir():
-                if item.is_dir() and any(
-                    t in item.name.lower() for t in ["plantilla", "template"]
-                ):
-                    templates_folder = item.name
-                    break
+        templates_folder = find_templates_folder(vault_path, config)
 
         if not templates_folder:
             return Result.fail(
@@ -813,7 +1222,7 @@ def create_note(
                 "```yaml\n"
                 'templates_folder: "TuCarpetaDePlantillas"\n'
                 "```"
-            )
+            ), None
 
         plantilla_path = vault_path / templates_folder / plantilla
         if not plantilla.endswith(".md"):
@@ -822,12 +1231,13 @@ def create_note(
             plantilla_path, vault_path, "read template from"
         )
         if resolved_template is None:
-            return Result.fail(error)
+            return Result.fail(error), None
         plantilla_path = resolved_template
 
         if plantilla_path.exists():
             with open(plantilla_path, "r", encoding="utf-8") as f:
                 plantilla_content = f.read()
+            plantilla_raw = plantilla_content
 
             # Reemplazos de título
             plantilla_content = plantilla_content.replace("{{title}}", titulo)
@@ -865,7 +1275,31 @@ def create_note(
                 contenido
             )
             combined_metadata = dict(template_metadata)
+            # La plantilla aporta estructura, no identidad: un título o una
+            # fecha escritos a fuego en la plantilla se sustituyen por los
+            # reales. Si el campo venía de un marcador ({{title}} MOC,
+            # {{date:...}}) se respeta lo que produjo. Si la plantilla no trae
+            # `updated`, no se añade; `title` y `created` los rellena siempre
+            # _build_frontmatter. El frontmatter del contenido sigue mandando.
+            # Los marcadores se buscan solo en el frontmatter de la plantilla.
+            # ponytail: solo reconoce `clave: valor` en una línea; una clave
+            # entre comillas o un valor plegado (`title: >-`) cuenta como fijo.
+            raw_fm = _FRONTMATTER_BLOCK_RE.match(
+                plantilla_raw + "\n"
+            )  # plantilla sin salto final
+            raw_fm_text = raw_fm.group(2) if raw_fm else ""
+            for key, real in (
+                ("title", titulo),
+                ("created", ahora),
+                ("updated", ahora),
+            ):
+                if key in template_metadata and not re.search(
+                    rf"^{key}:.*\{{\{{", raw_fm_text, re.MULTILINE
+                ):
+                    combined_metadata[key] = real
             combined_metadata.update(extra_metadata)
+            if tipo:
+                combined_metadata["type"] = tipo
 
             contenido_final = _build_frontmatter(
                 titulo=titulo,
@@ -873,21 +1307,17 @@ def create_note(
                 tags_list=tags_list,
                 agente_creador=agente_creador,
                 extra_metadata=combined_metadata if combined_metadata else None,
+                agente_por_defecto=agente_por_defecto,
             )
-            contenido_final += template_body
-
-            # Si hay contenido adicional, añadirlo al final
-            if contenido:
-                if contenido_final.endswith("\n\n"):
-                    contenido_final += contenido_limpio
-                else:
-                    contenido_final += f"\n\n{contenido_limpio}"
+            contenido_final += _place_content(template_body, contenido_limpio)
         else:
-            return Result.fail(f"No se encontró la plantilla '{plantilla}'")
+            return Result.fail(f"No se encontró la plantilla '{plantilla}'"), None
     else:
         # Sin plantilla: detectar si el contenido ya tiene frontmatter
         # Extraer frontmatter del contenido si existe
         extra_metadata, contenido_limpio = _extract_frontmatter_from_content(contenido)
+        if tipo:
+            extra_metadata["type"] = tipo
 
         # Construir frontmatter unificado
         frontmatter = _build_frontmatter(
@@ -896,6 +1326,7 @@ def create_note(
             tags_list=tags_list,
             agente_creador=agente_creador,
             extra_metadata=extra_metadata if extra_metadata else None,
+            agente_por_defecto=agente_por_defecto,
         )
 
         contenido_final = frontmatter
@@ -929,8 +1360,10 @@ def create_note(
             + "\n".join(f"- {b}" for b in bloqueos)
             + "\nCorrige el frontmatter (usa la plantilla del tipo con "
             "`template` y rellena los campos en `content`) y vuelve a intentarlo."
-        )
+        ), None
 
+    # The folder is created only once the template and content are ready, so a
+    # failed creation (missing template, rejected path) leaves no empty folders.
     nota_path.parent.mkdir(parents=True, exist_ok=True)
     atomic_write_text(nota_path, contenido_final)
 
@@ -940,8 +1373,18 @@ def create_note(
         resultado += f"📝 Plantilla usada: {plantilla}\n"
     if agente_creador:
         resultado += f"🤖 Agente: {agente_creador}\n"
+    if enlazar_indice:
+        try:
+            indice = link_from_index(nota_path, vault_path, descripcion)
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            # The note is already written: report, never fail the creation.
+            logger.exception("No se pudo enlazar %s desde su índice", nota_path)
+            resultado += f"⚠️ No se pudo enlazar desde el índice: {e}\n"
+        else:
+            if indice:
+                resultado += f"🔗 Enlazada desde: {indice}\n"
 
-    return Result.ok(resultado)
+    return Result.ok(resultado), (contenido_final, ruta_relativa.as_posix())
 
 
 def list_templates() -> Result[str]:
@@ -956,18 +1399,7 @@ def list_templates() -> Result[str]:
 
     config = get_vault_config(vault_path)
 
-    # Determine templates folder from config or auto-detect
-    templates_folder = None
-    if config and config.templates_folder:
-        templates_folder = config.templates_folder
-    else:
-        # Auto-detect: look for folders with "plantilla" or "template"
-        for item in vault_path.iterdir():
-            if item.is_dir() and any(
-                t in item.name.lower() for t in ["plantilla", "template"]
-            ):
-                templates_folder = item.name
-                break
+    templates_folder = find_templates_folder(vault_path, config)
 
     if not templates_folder:
         return Result.fail(
@@ -993,8 +1425,17 @@ def list_templates() -> Result[str]:
     if not plantillas:
         return Result.ok(f"ℹ️ No hay plantillas disponibles en {templates_folder}")
 
+    mapping = ""
+    if config and config.taxonomy.templates:
+        mapping = "\n\n**Por tipo** (usa `notes.create(note_type=...)`):\n" + "\n".join(
+            f"- `{t}`: {spec.template} → {spec.folder}"
+            + ("/<subcarpeta>" if spec.choose_subfolder else "")
+            for t, spec in config.taxonomy.templates.items()
+        )
     return Result.ok(
-        "📝 **Plantillas disponibles:**\n" + "\n".join([f"- {p}" for p in plantillas])
+        "📝 **Plantillas disponibles:**\n"
+        + "\n".join([f"- {p}" for p in plantillas])
+        + mapping
     )
 
 

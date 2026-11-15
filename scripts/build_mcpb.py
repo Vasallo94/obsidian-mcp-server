@@ -52,6 +52,9 @@ def _build_binary() -> Path:
             "pyinstaller",
             "--clean",
             "--onefile",
+            # Non-Python package files (the starter kit in obsidian_mcp/kit).
+            "--collect-data",
+            "obsidian_mcp",
             "--specpath",
             str(spec_path.relative_to(PROJECT_ROOT)),
             "--name",

@@ -32,13 +32,9 @@ obsidian-mcp-server/
 │   │   ├── analysis.py    # Estadísticas, gestión de tags
 │   │   ├── graph.py       # Backlinks, notas huérfanas
 │   │   ├── agents.py      # Cargador de skills (del vault del usuario)
-│   │   ├── semantic.py    # Integración RAG/búsqueda vectorial
+│   │   ├── obsidianrag.py # Delegación al ObsidianRAG externo (tools rag.*)
 │   │   ├── context.py     # Contexto y estructura del vault
 │   │   └── youtube.py     # Extracción de transcripciones
-│   ├── semantic/          # Módulo RAG opcional (ChromaDB)
-│   │   ├── indexer.py     # Generación de embeddings
-│   │   ├── retriever.py   # Búsqueda por similitud
-│   │   └── service.py     # API de alto nivel RAG
 │   ├── resources/         # Recursos MCP (endpoints de solo lectura)
 │   ├── prompts/           # Prompts MCP (system prompts para IA)
 │   └── utils/             # Utilidades compartidas
@@ -178,9 +174,8 @@ Todas las constantes numéricas deben estar centralizadas:
 
 ```python
 from obsidian_mcp.constants import (
-    SemanticDefaults,   # CHUNK_SIZE, VECTOR_K, DEFAULT_THRESHOLD...
-    SearchLimits,       # MAX_SEARCH_RESULTS, MAX_DISPLAY_FILES...
-    FolderSuggestion,   # SIMILAR_NOTES_LIMIT, HIGH_CONFIDENCE_THRESHOLD...
+    SearchLimits,  # MAX_SEARCH_RESULTS, MAX_DISPLAY_FILES...
+    FolderSuggestion,  # SIMILAR_NOTES_LIMIT, HIGH_CONFIDENCE_THRESHOLD...
 )
 ```
 
@@ -197,7 +192,7 @@ if len(results) > 100:
 from ..constants import SearchLimits
 
 if len(results) > SearchLimits.MAX_SEARCH_RESULTS:
-    results = results[:SearchLimits.MAX_SEARCH_RESULTS]
+    results = results[: SearchLimits.MAX_SEARCH_RESULTS]
 ```
 
 ### Mensajes (`messages.py`)
@@ -219,7 +214,7 @@ Carpetas y patrones excluidos:
 ```python
 from obsidian_mcp.vault_config import (
     DEFAULT_EXCLUDED_FOLDERS,  # [".git", ".obsidian", ...]
-    DEFAULT_EXCLUDED_PATTERNS, # ["*.tmp", "*.bak", ...]
+    DEFAULT_EXCLUDED_PATTERNS,  # ["*.tmp", "*.bak", ...]
 )
 ```
 
@@ -317,6 +312,7 @@ def register_xxx_tools(mcp):  # 500+ líneas
     def tool1(): ...  # 80 líneas
     @mcp.tool()
     def tool2(): ...  # 100 líneas
+
     # ... más funciones anidadas
 ```
 

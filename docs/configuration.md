@@ -15,7 +15,6 @@ Installed MCP clients usually set the same values in their MCP configuration.
 | `OBSIDIAN_VAULT_PATH` | Yes | **Absolute** path to the root folder of your Obsidian vault. |
 | `OBSIDIAN_MCP_TOOL_SETS` | No | Comma-separated optional tool sets, for example `notes_write,vault_analysis`. |
 | `OBSIDIAN_MCP_PROFILE_NAME` | No | Optional active profile name exposed to prompts/resources. |
-| `OBSIDIAN_SEARCH_TIMEOUT_SECONDS` | No | Search timeout override. |
 | `OBSIDIAN_MAX_SEARCH_RESULTS` | No | Maximum default search result count. |
 | `OBSIDIAN_CACHE_TTL_SECONDS` | No | Cache TTL for vault-derived context. |
 | `LOG_LEVEL` | No | Log detail level (`DEBUG`, `INFO`, `WARNING`, `ERROR`). Defaults to `INFO`. |
@@ -108,8 +107,6 @@ explicit opt-ins:
 - `youtube`: transcript import.
 - `obsidianrag`: semantic search through the external ObsidianRAG backend.
 - `canvas` and `kanvas`: visual canvas and workflow helpers.
-- `legacy_semantic`: deprecated in-process semantic search. Prefer
-  `obsidianrag`; this pack is kept only for backward compatibility.
 
 Use `client.roots()` to inspect roots advertised by clients that support
 the MCP `roots/list` capability. This is useful during setup because an agent
@@ -121,9 +118,8 @@ This project does not embed a second advanced RAG implementation by default.
 When semantic search is needed, enable the `obsidianrag` tool set and declare
 the local ObsidianRAG integration in `.agents/vault.yaml`.
 
-The older `legacy_semantic` tool set is deprecated because it embeds ChromaDB
-and LangChain retrievers directly in the MCP server. It now keeps only the
-minimal Ollama embedding path; new deployments should use ObsidianRAG instead.
+The in-process `legacy_semantic` tool set that used to live alongside it was
+removed; `obsidianrag` is now the only semantic-search path.
 
 The server then exposes:
 
