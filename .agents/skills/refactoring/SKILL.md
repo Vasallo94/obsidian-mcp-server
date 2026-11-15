@@ -47,10 +47,10 @@ uv run pytest tests/ -v
 uv run ruff check . && uv run pyright
 ```
 
-### 4. Commit si pasa
+### 4. Commit si pasa y el usuario lo ha pedido
 
 ```bash
-git add . && git commit -m "refactor(module): descripción breve"
+git add -- <rutas-refactorizadas> && git commit -m "refactor(module): descripción breve"
 ```
 
 ## Code Smells Comunes
