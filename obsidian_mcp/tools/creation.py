@@ -44,11 +44,12 @@ def _client_name() -> str:
     """Name the connected MCP client gives in its handshake, or ""."""
     try:
         params = get_context().session.client_params
-        name = (params.clientInfo.name or "") if params else ""
+        name = (params.client_info.name or "") if params else ""
     except Exception:  # pylint: disable=broad-exception-caught
-        return ""  # outside a request (tests, scripts) or no clientInfo
-    # "mcp" is the Python SDK's default when a client doesn't name itself.
-    return "" if name == "mcp" else name
+        return ""  # outside a request (tests, scripts) or no client_info
+    # Defaults when a client doesn't name itself: "mcp" (Python SDK) and
+    # "fastmcp" (fastmcp's Client).
+    return "" if name in ("mcp", "fastmcp") else name
 
 
 def _with_duration(result: str, started_at: float) -> str:

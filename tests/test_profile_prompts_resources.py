@@ -140,7 +140,7 @@ def test_diagnostic_tools_are_registered_and_report_profile(tmp_path, monkeypatc
     assert "vault.health" in tool_names
     assert "vault.diagnose" in tool_names
     assert "client.roots" in tool_names
-    assert roots_tool.annotations.readOnlyHint is True
+    assert roots_tool.annotations.read_only_hint is True
     assert "route.task" in tool_names
     assert "profile_configured" in str(health)
     assert "integration:obsidianrag:path" in str(health)
@@ -357,3 +357,25 @@ Use this skill for tests.
 """.strip(),
         encoding="utf-8",
     )
+
+
+def test_client_roots_reaches_the_client_or_explains_why_not(isolated_vault):
+    """fastmcp 4 has no Context.list_roots: the call goes to the session.
+
+    In memory the client speaks protocol 2026-07-28, which has no
+    server-to-client requests, so the tool must say so instead of failing.
+    """
+    import json
+
+    from fastmcp import Client
+
+    async def run():
+        async with Client(create_server(), roots=["file:///tmp/r"]) as client:
+            result = await client.call_tool("client.roots", {})
+            return json.loads(result.content[0].text)
+
+    payload = asyncio.run(run())
+
+    assert payload["supported"] is False
+    assert "roots/list" in payload["error"]  # not an AttributeError
+    assert "2026-07-28" in payload["hint"]
