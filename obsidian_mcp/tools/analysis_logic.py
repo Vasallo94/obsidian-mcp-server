@@ -561,7 +561,7 @@ def lint_vault(  # pylint: disable=too-many-locals,too-many-branches,too-many-st
     rules = load_vault_rules()
     if rule_ids:
         wanted = set(rule_ids)
-        rules = [r for r in rules if r.get("id") in wanted]
+        rules = [r for r in rules if isinstance(r.get("id"), str) and r["id"] in wanted]
         if not rules:
             return Result.fail(
                 f"Ningun rule_id de {sorted(wanted)} esta definido en REGLAS_GLOBALES.md."

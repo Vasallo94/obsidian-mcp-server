@@ -183,7 +183,13 @@ def iter_violations(
     for rule in rules:
         applies = rule.get("applies_to") or []
         applies = [applies] if isinstance(applies, str) else applies
-        if mode is not None and (not isinstance(applies, list) or mode not in applies):
+        rule_id = " ".join(str(rule.get("id", "?")).split())  # one line in reports
+        if not isinstance(applies, list):
+            if broken is not None:
+                broken.add(rule_id)  # a dict or a number is a typo: say so
+            if mode is not None:
+                continue
+        elif mode is not None and mode not in applies:
             continue
         try:
             if not _rule_applies_to_path(rule, path):
@@ -192,7 +198,7 @@ def iter_violations(
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.warning("Regla %r mal formada, se ignora: %s", rule.get("id"), e)
             if broken is not None:
-                broken.add(str(rule.get("id", "?")))
+                broken.add(rule_id)
             continue
         if warning:
             pairs.append((rule, warning))

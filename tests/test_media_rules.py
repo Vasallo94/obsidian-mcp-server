@@ -413,3 +413,17 @@ def test_broken_rules_are_reported_by_validate_and_lint(vault):
 
     assert payload["ignored_rules"] == ["rota"]
     assert "ignoradas: rota" in lint_vault().data
+
+
+def test_invalid_applies_to_and_odd_ids_are_reported(vault):
+    _write_rules(
+        vault,
+        "  - id: [lista]\n    applies_to: [edit]\n    scope: frontmatter\n"
+        "    required_fields: [zzz]\n    warning: w\n"
+        '  - id: "dos\\nlineas"\n    applies_to: {create: true}\n    scope: frontmatter\n'
+        "    required_fields: [zzz]\n    warning: w\n",
+    )
+    payload = json.loads(validate_note_logic(content="x", mode="create").data)
+
+    assert payload["ignored_rules"] == ["dos lineas"]
+    assert lint_vault(rule_ids=["required_frontmatter"]).success
