@@ -17,6 +17,13 @@ from .context_logic import (
 )
 from .registry import register_tool
 
+# roots is deprecated from protocol 2026-07-28 (SEP-2577), whose servers can't
+# call the client; older clients still answer. Filtered once, not around the
+# await (catch_warnings is process-wide state shared by concurrent calls).
+warnings.filterwarnings(
+    "ignore", message="The roots capability", category=MCPDeprecationWarning
+)
+
 
 def register_context_tools(mcp: FastMCP) -> None:
     """Register vault context tools."""
@@ -49,11 +56,7 @@ def register_context_tools(mcp: FastMCP) -> None:
     async def list_client_roots(ctx: Context) -> str:
         """List filesystem roots advertised by the connected MCP client."""
         try:
-            # roots is deprecated from protocol 2026-07-28 (SEP-2577), whose
-            # servers can't call the client: older clients still answer.
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", MCPDeprecationWarning)
-                roots = (await ctx.session.list_roots()).roots
+            roots = (await ctx.session.list_roots()).roots
             payload: dict[str, Any] = {
                 "supported": True,
                 "roots": [

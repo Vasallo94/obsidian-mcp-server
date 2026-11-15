@@ -30,7 +30,7 @@ local checkout.
 
 **Symptoms**: The server takes several seconds to start, or hangs briefly at startup.
 
-**Cause**: FastMCP 3.x calls `check_for_newer_version()` at startup, which makes an HTTP request to PyPI. In corporate networks with proxy restrictions, this request may hang until its 2-second timeout.
+**Cause**: FastMCP (3.x and 4.x) calls `check_for_newer_version()` at startup, which makes an HTTP request to PyPI. In corporate networks with proxy restrictions, this request may hang until its 2-second timeout.
 
 **Fix**: Set the environment variable to disable the version check:
 

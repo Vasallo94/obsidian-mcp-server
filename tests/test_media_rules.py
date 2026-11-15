@@ -515,7 +515,7 @@ def test_field_pattern_sees_the_whole_string():
     assert _check_field_pattern(link, {"director": "[[Coen, Joel]]"}) is None
 
 
-@pytest.mark.parametrize("paths", ["", "[]"])
+@pytest.mark.parametrize("paths", ["", "[]", '""', '[""]'])
 def test_empty_paths_mark_the_rule_broken(vault, paths):
     _write_rules(
         vault,
@@ -536,3 +536,20 @@ def test_dotdot_in_folder_does_not_trigger_rules_of_the_folder_it_leaves(vault):
     )
 
     assert "Nota creada" in result and "Película incompleta" not in result
+
+
+def test_warning_rules_also_see_the_requested_path_through_a_symlink(vault, tmp_path):
+    _write_rules(
+        vault,
+        "  - id: aviso_media\n    applies_to: [create]\n    scope: frontmatter\n"
+        '    paths: ["05_Media/**"]\n    required_fields: [zzz]\n'
+        "    warning: Falta zzz en media\n",
+    )
+    real = tmp_path / "otra"  # inside the vault (isolated_vault is tmp_path)
+    (real / "Notas").mkdir(parents=True)
+    (vault / "05_Media").symlink_to(real, target_is_directory=True)
+    result = _create(
+        title="X", content="---\ntipo: nota\n---\nx", folder="05_Media/Notas"
+    )
+
+    assert "Nota creada" in result and "Falta zzz en media" in result

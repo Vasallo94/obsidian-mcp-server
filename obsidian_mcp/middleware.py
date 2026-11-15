@@ -239,7 +239,7 @@ def _matches_any(path: str, patterns: Any) -> bool:
 def _rule_applies_to_path(rule: dict[str, Any], path: str) -> bool:
     """Apply the optional ``paths``/``exclude_paths`` glob filters."""
     path = _nfc(path.replace("\\", "/").lstrip("/"))
-    if "paths" in rule and rule["paths"] in (None, []):
+    if "paths" in rule and rule["paths"] in (None, [], "", [""]):
         raise ValueError("paths vacío: la regla no se aplicaría nunca")
     # Match even without a path, so a malformed glob list is always reported.
     included = "paths" not in rule or _matches_any(path, rule["paths"])
@@ -489,10 +489,13 @@ def enrich_response(
     content: str = "",
     frontmatter: dict[str, Any] | None = None,
     path: str = "",
+    alias_path: str = "",
 ) -> str:
     """Main entry point. Run validations and inject rules prose into tool response.
 
     ``path`` (vault-relative) enables rules filtered by ``paths``/``exclude_paths``.
+    ``alias_path`` is another name of the same note (the requested path when a
+    folder is a symlink): rules matching either one apply.
     """
     mode = TOOL_MODE_MAP.get(tool_name)
     if not mode:
@@ -500,6 +503,14 @@ def enrich_response(
 
     rules = load_vault_rules()
     warnings = run_validations(rules, mode, title, content, frontmatter, path)
+    if alias_path and alias_path != path:
+        warnings += [
+            w
+            for w in run_validations(
+                rules, mode, title, content, frontmatter, alias_path
+            )
+            if w not in warnings
+        ]
 
     parts = [result]
 

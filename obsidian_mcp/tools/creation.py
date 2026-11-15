@@ -167,7 +167,7 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
             result = outcome.to_display(success_prefix="OK")
             if written is None:
                 return result  # nothing was written: nothing to validate
-            written, note_path = written
+            written, note_path, requested_path = written
             # Validate the note as written (template fields and the auto-added
             # "# title" heading included), not the caller's input. Body and
             # heading rules see the body only, not the frontmatter.
@@ -179,6 +179,7 @@ def register_creation_tools(mcp: FastMCP) -> None:  # pylint: disable=too-many-s
                 content=body,
                 frontmatter=frontmatter,
                 path=note_path,
+                alias_path=requested_path,
             )
         except Exception as e:  # pylint: disable=broad-exception-caught
             return f"Error creating note: {e}"
