@@ -157,3 +157,48 @@ def test_kit_has_no_personal_leftovers():
         "05_Media",
     ):
         assert leftover not in rules
+
+
+def test_write_failure_rolls_back_and_leaves_nothing(vault):
+    (vault / "Plantillas").mkdir()
+    (vault / "Plantillas").chmod(0o500)
+    try:
+        result = _tool("vault.init_kit")(confirm=True)
+    finally:
+        (vault / "Plantillas").chmod(0o700)
+
+    assert "No se ha dejado nada" in result
+    assert not (vault / "AGENTS.md").exists()
+    assert not (vault / ".agents" / "REGLAS_GLOBALES.md").exists()
+
+
+def test_dotdot_back_to_root_is_refused(vault):
+    _vault_yaml(vault, 'templates_folder: "Plantillas/.."\n')
+
+    result = _tool("vault.init_kit")(confirm=True)
+
+    assert "raíz del vault" in result and not (vault / "Idea.md").exists()
+
+
+def test_templater_scripts_folder_is_not_picked(vault):
+    for name in ("Templater", "Templates", ".templates"):
+        (vault / name).mkdir()
+
+    _tool("vault.init_kit")(confirm=True)
+
+    assert (vault / "Templates" / "Idea.md").exists()
+    assert not any(list((vault / n).iterdir()) for n in ("Templater", ".templates"))
+
+
+def test_no_personal_leftovers_in_any_kit_file():
+    for path in KIT_DIR.rglob("*.md"):
+        text = path.read_text(encoding="utf-8")
+        for leftover in (
+            "Briñol",
+            "tálamo",
+            "Secundo",
+            "Synology",
+            "Llavero",
+            "05_Media",
+        ):
+            assert leftover not in text, (path.name, leftover)

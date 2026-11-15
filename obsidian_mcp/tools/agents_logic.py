@@ -349,7 +349,7 @@ def validate_note_logic(
 KIT_DIR = Path(__file__).resolve().parent.parent / "kit"
 
 
-def init_vault_kit(write: bool) -> Result[str]:
+def init_vault_kit(write: bool) -> Result[str]:  # pylint: disable=too-many-locals,too-many-branches,too-many-return-statements
     """Copy the starter kit into the vault, only where files are missing.
 
     The kit (rules, AGENTS.md and base templates) ships with the MCP so every
@@ -370,10 +370,6 @@ def init_vault_kit(write: bool) -> Result[str]:
     templates_folder = (
         find_templates_folder(vault_path, get_vault_config(vault_path)) or "Plantillas"
     )
-    if Path(templates_folder) == Path("."):
-        return Result.fail(
-            "templates_folder apunta a la raíz del vault; usa una carpeta."
-        )
     plan = [
         (KIT_DIR / "REGLAS_GLOBALES.md", Path(".agents") / "REGLAS_GLOBALES.md"),
         (KIT_DIR / "AGENTS.template.md", Path("AGENTS.md")),
@@ -392,6 +388,14 @@ def init_vault_kit(write: bool) -> Result[str]:
         resolved, error = resolve_vault_path(target, vault_path, "write")
         if resolved is None:
             return Result.fail(f"{rel.as_posix()}: {error}. No se ha escrito nada.")
+        if (
+            rel.parent == Path(templates_folder)
+            and resolved.parent == vault_path.resolve()
+        ):
+            return Result.fail(
+                "templates_folder apunta a la raíz del vault; usa una carpeta. "
+                "No se ha escrito nada."
+            )
         if resolved.parent.exists() and not resolved.parent.is_dir():
             return Result.fail(
                 f"{rel.parent.as_posix()} no es una carpeta. No se ha escrito nada."
@@ -400,16 +404,29 @@ def init_vault_kit(write: bool) -> Result[str]:
 
     created: list[str] = []
     if write:
-        for src, target, rel_text in to_create:
-            target.parent.mkdir(parents=True, exist_ok=True)
-            try:
-                # "x": fails if the file appeared since the check above.
-                with open(target, "x", encoding="utf-8") as handle:
-                    handle.write(src.read_text(encoding="utf-8"))
-            except FileExistsError:
-                kept.append(rel_text)
-                continue
-            created.append(rel_text)
+        written: list[Path] = []
+        try:
+            for src, target, rel_text in to_create:
+                content = src.read_text(encoding="utf-8")
+                target.parent.mkdir(parents=True, exist_ok=True)
+                try:
+                    # "x": fails if the file appeared since the check above.
+                    handle = open(target, "x", encoding="utf-8")  # pylint: disable=consider-using-with
+                except FileExistsError:
+                    kept.append(rel_text)
+                    continue
+                written.append(target)
+                with handle:
+                    handle.write(content)
+                created.append(rel_text)
+        except OSError as e:
+            # All or nothing: drop the files this call created (a partial one
+            # included), so a retry starts clean instead of keeping a stub.
+            for path in written:
+                path.unlink(missing_ok=True)
+            return Result.fail(
+                f"No se pudo escribir el kit ({e}). No se ha dejado nada."
+            )
         if created:
             from ..middleware import invalidate_rules_cache
 

@@ -365,16 +365,27 @@ def normalize_agent_name(name: str) -> str:
 def find_templates_folder(vault_path: Path, config: Any) -> str | None:
     """Return the vault's templates folder: configured, else auto-detected.
 
-    Auto-detection picks the first top-level folder (sorted, so the choice
-    is stable) whose name contains "plantilla" or "template".
+    Auto-detection looks at visible top-level folders: an exact "Templates"
+    or "Plantillas" wins; otherwise the first (sorted, so the choice is
+    stable) whose name contains "plantilla" or "template", skipping the
+    Templater plugin's script folder.
     """
     if config and config.templates_folder:
         return config.templates_folder
-    for item in sorted(vault_path.iterdir()):
-        if item.is_dir() and any(
-            t in item.name.lower() for t in ("plantilla", "template")
+    folders = [
+        item.name
+        for item in sorted(vault_path.iterdir())
+        if item.is_dir() and not item.name.startswith(".")
+    ]
+    for name in folders:
+        if name.casefold() in ("templates", "plantillas", "_templates"):
+            return name
+    for name in folders:
+        lowered = name.casefold()
+        if "templater" not in lowered and (
+            "plantilla" in lowered or "template" in lowered
         ):
-            return item.name
+            return name
     return None
 
 

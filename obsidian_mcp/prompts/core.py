@@ -170,6 +170,7 @@ def register_core_prompts(mcp: FastMCP) -> None:
         Write this shape (all keys optional; keep any existing keys intact):
 
         ```yaml
+        templates_folder: "<folder with the templates>"   # top-level key
         taxonomy:
           roles:
             inbox: "<folder>"
@@ -177,7 +178,7 @@ def register_core_prompts(mcp: FastMCP) -> None:
             creations: "<folder>"
             projects: "<folder>"
             # ...only roles that exist
-          types: [<the type values this vault actually uses>]
+          types: [<types the vault uses, plus those of its templates>]
           templates:
             runbook: {{template: "Runbook.md", folder: "<folder>"}}
             apunte: {{template: "Apunte.md", folder: "<folder>", choose_subfolder: true}}
@@ -187,7 +188,8 @@ def register_core_prompts(mcp: FastMCP) -> None:
         ```
 
         Validation before you finish:
-        - Every folder you reference must exist (check each path).
+        - Every role folder must exist (check each path). Folders under
+          `taxonomy.templates` may be new: `notes.create` creates them.
         - `types` must match REGLAS_GLOBALES if that file defines them, and
           include the types of every template in `taxonomy.templates`.
         - After writing, call `vault.health` and confirm it passes.
