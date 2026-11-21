@@ -48,7 +48,7 @@ Issues = "https://github.com/Vasallo94/obsidian-mcp-server/issues"
 
 [dependency-groups]
 dev = [
-    "pytest>=8.4.1",
+    "pytest>=9.2.0",
     "pytest-cov>=6.0.0",
     "anyio>=4.4.0",
     "ruff>=0.15.20",
